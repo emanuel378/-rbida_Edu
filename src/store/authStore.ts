@@ -1,0 +1,51 @@
+import { create } from 'zustand'
+import { mockUsers } from '../data/mock'
+import type { User } from '../data/mock'
+
+const initUsers = () => {
+  const saved = localStorage.getItem('users')
+  if (!saved) {
+    localStorage.setItem('users', JSON.stringify(mockUsers))
+    return mockUsers
+  }
+  return JSON.parse(saved)
+}
+
+interface AuthState {
+  user: User | null
+  users: User[]
+  login: (user: User) => void
+  logout: () => void
+  approveTeacher: (userId: string) => void
+  loadUsers: () => void
+}
+
+export const useAuthStore = create<AuthState>((set) => ({
+  user: (() => {
+    const saved = localStorage.getItem('user')
+    return saved ? JSON.parse(saved) : null
+  })(),
+  users: initUsers(),
+
+  login: (user) => {
+    localStorage.setItem('user', JSON.stringify(user))
+    set({ user })
+  },
+
+  logout: () => {
+    localStorage.removeItem('user')
+    set({ user: null })
+  },
+
+  approveTeacher: (userId) => {
+    const users = JSON.parse(localStorage.getItem('users') || '[]')
+    const updated = users.map((u: User) => u.id === userId ? { ...u, approved: true } : u)
+    localStorage.setItem('users', JSON.stringify(updated))
+    set({ users: updated })
+  },
+
+  loadUsers: () => {
+    const users = JSON.parse(localStorage.getItem('users') || '[]')
+    set({ users })
+  },
+}))
