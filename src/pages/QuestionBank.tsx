@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useCourseStore } from '../store/courseStore'
 import { useQuestionStore } from '../store/questionStore'
 import { BookOpen, Filter, HelpCircle, CheckCircle, XCircle, Plus, Trash2 } from 'lucide-react'
+import Breadcrumb from '../components/Breadcrumb'
 
 export default function QuestionBank() {
   const { disciplines } = useCourseStore()
@@ -47,7 +48,8 @@ export default function QuestionBank() {
   }
 
   return (
-    <div>
+    <div className="p-6 lg:p-8 max-w-7xl">
+      <Breadcrumb items={[{ label: 'Questões' }]} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Banco de Questões</h1>

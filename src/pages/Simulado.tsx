@@ -55,7 +55,8 @@ export default function Simulado() {
 
   if (!started) {
     return (
-      <div className="max-w-2xl mx-auto">
+      <div className="p-6 lg:p-8">
+        <div className="max-w-2xl mx-auto">
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Trophy className="w-10 h-10 text-blue-600" />
@@ -148,6 +149,7 @@ export default function Simulado() {
           </div>
         )}
       </div>
+      </div>
     )
   }
 
@@ -155,7 +157,8 @@ export default function Simulado() {
     const correct = filtered.filter(q => answers[q.id] === q.correctAnswer).length
     const percentage = filtered.length > 0 ? Math.round((correct / filtered.length) * 100) : 0
     return (
-      <div className="max-w-2xl mx-auto text-center">
+      <div className="p-6 lg:p-8">
+        <div className="max-w-2xl mx-auto text-center">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
           <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 ${
             percentage >= 70 ? 'bg-green-100' : percentage >= 50 ? 'bg-yellow-100' : 'bg-red-100'
@@ -205,13 +208,14 @@ export default function Simulado() {
           </div>
         </div>
       </div>
+      </div>
     )
   }
 
   const currentQ = filtered[currentIndex]
 
   return (
-    <div>
+    <div className="p-6 lg:p-8">
       <div className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 mb-6">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">

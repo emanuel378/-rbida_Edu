@@ -4,11 +4,12 @@ import { useAuthStore } from '../store/authStore'
 import { useCourseStore } from '../store/courseStore'
 import { useQuestionStore } from '../store/questionStore'
 import { ArrowLeft, FileDown, CheckCircle, Send, MessageCircle, Play, Menu, X } from 'lucide-react'
+import Breadcrumb from '../components/Breadcrumb'
 
 export default function Lesson() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { lessons, completeLesson, disciplines } = useCourseStore()
+  const { lessons, completeLesson, disciplines, courses } = useCourseStore()
   const { comments, addComment, getComments } = useQuestionStore()
   const user = useAuthStore(s => s.user)
 
@@ -18,16 +19,13 @@ export default function Lesson() {
   const lessonComments = getComments(id || '')
 
   const discipline = disciplines.find(d => d.id === lesson?.disciplineId)
-  const courseId = discipline ? useCourseStore.getState().courses.find(c => c.id === discipline.courseId)?.id : null
+  const course = discipline ? courses.find(c => c.id === discipline.courseId) : null
   const courseLessons = lessons.filter(l => l.disciplineId === lesson?.disciplineId)
 
   useEffect(() => {
-    if (lesson && discipline && courseId) {
-      const course = useCourseStore.getState().courses.find(c => c.id === discipline.courseId)
-      if (course) {
-      }
+    if (lesson && discipline && course) {
     }
-  }, [lesson, discipline, courseId])
+  }, [lesson, discipline, course])
 
   const handleComplete = () => {
     if (user && lesson && discipline) {
@@ -77,14 +75,14 @@ export default function Lesson() {
       <aside className={`
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0 transition-transform duration-300
-        fixed lg:relative top-0 left-0 z-30
+        fixed lg:relative top-16 left-0 z-30
         w-72 h-[calc(100vh-4rem)] lg:h-auto
         bg-white border-r border-gray-100 shadow-sm lg:shadow-none
         overflow-y-auto flex-shrink-0
       `}>
         <div className="p-4 border-b border-gray-100">
           <Link
-            to={`/course/${courseId}`}
+            to={`/dashboard/course/${course?.id}`}
             className="flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
             onClick={() => setSidebarOpen(false)}
           >
@@ -99,7 +97,7 @@ export default function Lesson() {
           {courseLessons.map((l, index) => (
             <Link
               key={l.id}
-              to={`/lesson/${l.id}`}
+              to={`/dashboard/lesson/${l.id}`}
               onClick={() => setSidebarOpen(false)}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${
                 l.id === lesson.id
@@ -131,7 +129,14 @@ export default function Lesson() {
         />
       )}
 
-      <main className="flex-1 max-w-4xl">
+      <main className="flex-1 max-w-4xl w-full p-4 sm:p-6 mx-auto">
+        {course && discipline && (
+          <Breadcrumb items={[
+            { label: 'Meus Cursos', to: '/dashboard/cursos' },
+            { label: course.title, to: `/dashboard/course/${course.id}` },
+            { label: discipline.title },
+          ]} />
+        )}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">{lesson.title}</h1>
         </div>
@@ -147,39 +152,39 @@ export default function Lesson() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-3 mb-8">
+        <div className="flex flex-col sm:flex-row gap-3 mb-8">
           <a
             href={lesson.pdfUrl}
             download
-            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all shadow-sm hover:shadow-md"
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all shadow-sm hover:shadow-md text-sm font-medium"
           >
-            <FileDown className="w-5 h-5" />
+            <FileDown className="w-4 h-4" />
             Material em PDF
           </a>
 
           <button
             onClick={handleComplete}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-blue-600 text-blue-600 rounded-xl hover:bg-blue-50 transition-all"
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-white border-2 border-blue-600 text-blue-600 rounded-xl hover:bg-blue-50 transition-all text-sm font-medium"
           >
-            <CheckCircle className="w-5 h-5" />
+            <CheckCircle className="w-4 h-4" />
             Marcar como Concluída
           </button>
         </div>
 
         {prevLesson || nextLesson ? (
-          <div className="flex justify-between mb-8">
+          <div className="flex flex-col sm:flex-row justify-between gap-3 mb-8">
             {prevLesson ? (
               <Link
-                to={`/lesson/${prevLesson.id}`}
-                className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                to={`/dashboard/lesson/${prevLesson.id}`}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors text-sm font-medium"
               >
                 ← {prevLesson.title}
               </Link>
             ) : <div />}
             {nextLesson ? (
               <Link
-                to={`/lesson/${nextLesson.id}`}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                to={`/dashboard/lesson/${nextLesson.id}`}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-sm font-medium"
               >
                 Próxima: {nextLesson.title} →
               </Link>
@@ -188,14 +193,14 @@ export default function Lesson() {
         ) : null}
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-100">
+          <div className="p-4 sm:p-6 border-b border-gray-100">
             <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
               <MessageCircle className="w-5 h-5 text-blue-600" />
               Dúvidas e Comentários
             </h2>
           </div>
 
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             <div className="mb-6 max-h-60 overflow-y-auto space-y-4">
               {lessonComments.length === 0 ? (
                 <p className="text-gray-500 text-sm text-center py-4">Nenhum comentário ainda. Seja o primeiro!</p>

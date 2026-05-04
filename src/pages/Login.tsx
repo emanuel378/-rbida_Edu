@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { mockUsers } from '../data/mock'
-import { GraduationCap, LogIn, User, ShieldCheck, BookOpen } from 'lucide-react'
+import { LogIn, User, ShieldCheck, BookOpen } from 'lucide-react'
 
 export default function Login() {
   const [selectedUserId, setSelectedUserId] = useState('')
@@ -41,11 +41,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-200">
-            <GraduationCap className="w-10 h-10 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">IF Preparatório</h1>
-          <p className="text-gray-600">Sua plataforma de estudos para o IF</p>
+          <img src="/logo-full.jpeg" alt="ÓrbitaEdu" className="w-40 mx-auto mb-6 rounded-2xl shadow-lg shadow-blue-200" />
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">

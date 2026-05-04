@@ -3,6 +3,7 @@
 @layer base {
   body {
     @apply antialiased;
+    font-family: 'Poppins', system-ui, -apple-system, sans-serif;
   }
 }
 
