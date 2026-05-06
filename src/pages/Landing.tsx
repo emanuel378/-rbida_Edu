@@ -21,12 +21,12 @@ import {
 } from 'lucide-react'
 
 const teachers = [
-  { name: 'Carlos Silva', specialty: 'Matemática', experience: '12 anos', avatar: 'CS' },
-  { name: 'Maria Santos', specialty: 'Português', experience: '8 anos', avatar: 'MS' },
-  { name: 'João Oliveira', specialty: 'Física', experience: '10 anos', avatar: 'JO' },
-  { name: 'Ana Costa', specialty: 'Química', experience: '6 anos', avatar: 'AC' },
-  { name: 'Pedro Lima', specialty: 'Biologia', experience: '9 anos', avatar: 'PL' },
-  { name: 'Lucia Ferreira', specialty: 'História', experience: '15 anos', avatar: 'LF' },
+  { name: 'Carlos Silva', specialty: 'Matemática', experience: '12 anos', formation: 'Doutorando em Matemática - USP', avatar: 'CS' },
+  { name: 'Maria Santos', specialty: 'Português', experience: '8 anos', formation: 'Mestre em Letras - UNICAMP', avatar: 'MS' },
+  { name: 'João Oliveira', specialty: 'Física', experience: '10 anos', formation: 'Doutor em Física - UFRJ', avatar: 'JO' },
+  { name: 'Ana Costa', specialty: 'Química', experience: '6 anos', formation: 'Mestre em Química - UFMG', avatar: 'AC' },
+  { name: 'Pedro Lima', specialty: 'Biologia', experience: '9 anos', formation: 'Doutorando em Biologia - USP', avatar: 'PL' },
+  { name: 'Lucia Ferreira', specialty: 'História', experience: '15 anos', formation: 'Doutora em História - UNB', avatar: 'LF' },
 ]
 
 const plans = [
@@ -141,7 +141,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2">
-              <img src="/logo-full.jpeg" alt="ÓrbitaEdu" className="h-10 w-auto" />
+              <img src="/logo-full.png" alt="ÓrbitaEdu" className="h-20 w-auto" />
             </div>
             <div className="hidden md:flex items-center gap-8">
               <a href="#features" className="text-gray-600 hover:text-blue-600 transition-colors text-sm font-medium">Recursos</a>
@@ -431,13 +431,19 @@ export default function Landing() {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
             {teachers.map((teacher, index) => (
-              <div key={index} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 text-center hover:shadow-md transition-all group">
-                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold group-hover:scale-105 transition-transform">
-                  {teacher.avatar}
+              <div key={index} className="group relative overflow-hidden bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl transition-all duration-300 cursor-pointer">
+                <div className="aspect-square bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                  <span className="text-white text-4xl font-bold">{teacher.avatar}</span>
                 </div>
-                <h3 className="text-sm font-bold text-gray-900 mb-1">{teacher.name}</h3>
-                <p className="text-xs text-blue-600 font-medium mb-1">{teacher.specialty}</p>
-                <p className="text-xs text-gray-500">{teacher.experience}</p>
+                <div className="p-4 text-center">
+                  <h3 className="text-sm font-bold text-gray-900 mb-1">{teacher.name}</h3>
+                  <p className="text-xs text-blue-600 font-medium">{teacher.specialty}</p>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-blue-900 via-blue-800 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-4">
+                  <h3 className="text-white font-bold text-sm mb-1">{teacher.name}</h3>
+                  <p className="text-blue-200 text-xs mb-2">{teacher.specialty} • {teacher.experience}</p>
+                  <p className="text-blue-100 text-xs leading-relaxed">{teacher.formation}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -566,7 +572,7 @@ export default function Landing() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <img src="/logo-small.jpeg" alt="ÓrbitaEdu" className="h-12 w-12 rounded-xl object-cover" />
+                <img src="/logo-small.png" alt="ÓrbitaEdu" className="h-20 w-20 rounded-xl object-cover" />
                 <span className="text-lg font-bold text-white">ÓrbitaEdu</span>
               </div>
               <p className="text-sm leading-relaxed">

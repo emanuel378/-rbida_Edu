@@ -46,7 +46,7 @@ export default function Sidebar() {
         <div className={`flex items-center h-16 px-4 border-b border-gray-100 ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
           {!sidebarCollapsed && (
             <div className="flex items-center gap-2">
-              <img src="/logo-small.jpeg" alt="ÓrbitaEdu" className="w-10 h-10 rounded-lg object-cover" />
+              <img src="/logo-small.png" alt="ÓrbitaEdu" className="w-12 h-12 rounded-lg object-cover" />
               <span className="text-sm font-bold text-gray-900">ÓrbitaEdu</span>
             </div>
           )}

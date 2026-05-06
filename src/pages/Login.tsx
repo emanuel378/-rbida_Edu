@@ -41,7 +41,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <img src="/logo-full.jpeg" alt="ÓrbitaEdu" className="w-40 mx-auto mb-6 rounded-2xl shadow-lg shadow-blue-200" />
+          <img src="/logo-full.png" alt="ÓrbitaEdu" className="w-80 mx-auto mb-6 rounded-2xl shadow-lg shadow-blue-200" />
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
