@@ -1,0 +1,4 @@
+export { default as TeacherDashboard } from './pages/TeacherDashboard'
+export { default as TeacherCourses } from './pages/TeacherCourses'
+export { default as TeacherCourseDetail } from './pages/TeacherCourseDetail'
+export { default as TeacherSimulados } from './pages/TeacherSimulados'

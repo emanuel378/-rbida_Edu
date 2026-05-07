@@ -1,21 +1,12 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import ProtectedRoute from './components/ProtectedRoute'
-import AppLayout from './components/layout/AppLayout'
-import Landing from './pages/Landing'
-import Login from './pages/Login'
-import Pending from './pages/Pending'
-import DashboardHome from './pages/dashboard/DashboardHome'
-import MeusCursos from './pages/dashboard/MeusCursos'
-import Cronograma from './pages/dashboard/Cronograma'
-import Desempenho from './pages/dashboard/Desempenho'
-import Configuracoes from './pages/dashboard/Configuracoes'
-import Dashboard from './pages/Dashboard'
-import Course from './pages/Course'
-import Lesson from './pages/Lesson'
-import QuestionBank from './pages/QuestionBank'
-import Simulado from './pages/Simulado'
-import Teacher from './pages/Teacher'
-import Admin from './pages/Admin'
+import { ProtectedRoute, AppLayout } from './shared'
+import { Landing } from './features/landing'
+import { Login, Pending } from './features/auth'
+import { DashboardHome, MeusCursos, Cronograma, Desempenho, Configuracoes } from './features/student'
+import { Course, Lesson, QuestionBank } from './features/courses'
+import { Simulado } from './features/simulado'
+import { TeacherDashboard, TeacherCourses, TeacherCourseDetail, TeacherSimulados } from './features/teacher'
+import { Admin } from './features/admin'
 
 export default function App() {
   return (
@@ -24,6 +15,8 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/pending" element={<Pending />} />
+
+        {/* Rotas do Aluno */}
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <AppLayout />
@@ -38,17 +31,30 @@ export default function App() {
           <Route path="course/:id" element={<Course />} />
           <Route path="lesson/:id" element={<Lesson />} />
           <Route path="questions" element={<QuestionBank />} />
-          <Route path="teacher" element={
-            <ProtectedRoute roles={['professor']}>
-              <Teacher />
-            </ProtectedRoute>
-          } />
-          <Route path="admin" element={
-            <ProtectedRoute roles={['admin']}>
-              <Admin />
-            </ProtectedRoute>
-          } />
         </Route>
+
+        {/* Rotas do Professor */}
+        <Route path="/teacher" element={
+          <ProtectedRoute roles={['professor']}>
+            <AppLayout />
+          </ProtectedRoute>
+        }>
+          <Route index element={<TeacherDashboard />} />
+          <Route path="courses" element={<TeacherCourses />} />
+          <Route path="course/:id" element={<TeacherCourseDetail />} />
+          <Route path="simulados" element={<TeacherSimulados />} />
+          <Route path="configuracoes" element={<Configuracoes />} />
+        </Route>
+
+        {/* Rotas do Admin */}
+        <Route path="/admin" element={
+          <ProtectedRoute roles={['admin']}>
+            <AppLayout />
+          </ProtectedRoute>
+        }>
+          <Route index element={<Admin />} />
+        </Route>
+
         <Route path="*" element={<Landing />} />
       </Routes>
     </BrowserRouter>
