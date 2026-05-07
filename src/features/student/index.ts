@@ -1,0 +1,6 @@
+export { default as Dashboard } from './pages/Dashboard'
+export { default as DashboardHome } from './pages/DashboardHome'
+export { default as MeusCursos } from './pages/MeusCursos'
+export { default as Cronograma } from './pages/Cronograma'
+export { default as Desempenho } from './pages/Desempenho'
+export { default as Configuracoes } from './pages/Configuracoes'
