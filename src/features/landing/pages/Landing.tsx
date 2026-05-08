@@ -85,7 +85,7 @@ const plans = [
 const faqData = [
   {
     question: 'Como funciona o acesso às aulas?',
-    answer: 'Após a matrícula, você tem acesso imediato a todas as aulas gravadas da sua disciplina. As aulas ficam disponíveis 24h por dia, 7 dias por semana, e você pode assistir quantas vezes quiser.',
+     answer: 'Após a matrícula, você tem acesso imediato a todas as aulas gravadas do seu módulo. As aulas ficam disponíveis 24h por dia, 7 dias por semana, e você pode assistir quantas vezes quiser.',
   },
   {
     question: 'Posso cancelar minha assinatura a qualquer momento?',
@@ -188,9 +188,9 @@ export default function Landing() {
                 <span className="block text-blue-200">Instituto Federal</span>
                 <span className="block">começa aqui</span>
               </h1>
-              <p className="text-lg text-blue-100 mb-8 max-w-lg">
-                Aulas completas, banco de questões com milhares de exercícios, simulados cronometrados e acompanhamento de desempenho. Tudo em um só lugar.
-              </p>
+       <p className="text-lg text-blue-100 mb-8 max-w-lg">
+         Aulas completas, banco de questões com milhares de exercícios, simulados cronometrados e acompanhamento de desempenho. Tudo em um só lugar.
+       </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <button
                   onClick={() => navigate('/login')}
@@ -229,7 +229,7 @@ export default function Landing() {
                   <div className="w-full h-full flex flex-col items-center justify-center text-white p-8">
                     <MonitorPlay className="w-16 h-16 mb-4" />
                     <h3 className="text-2xl font-bold mb-2">+500 Aulas</h3>
-                    <p className="text-blue-100 text-center text-sm">Em todas as disciplinas para sua preparação</p>
+                    <p className="text-blue-100 text-center text-sm">Em todos os módulos para sua preparação</p>
                     <div className="grid grid-cols-2 gap-4 mt-6 w-full">
                       <div className="bg-white/15 rounded-xl p-3 text-center">
                         <FileText className="w-6 h-6 mx-auto mb-1" />
@@ -279,12 +279,12 @@ export default function Landing() {
                 description: 'Centenas de aulas gravadas em HD com professores especializados, disponíveis 24h.',
                 color: 'blue',
               },
-              {
-                icon: FileText,
-                title: 'Banco de Questões',
-                description: 'Milhares de questões organizadas por disciplina, dificuldade e instituição.',
-                color: 'green',
-              },
+               {
+                 icon: FileText,
+                 title: 'Banco de Questões',
+                 description: 'Milhares de questões organizadas por módulo, dificuldade e instituição.',
+                 color: 'green',
+               },
               {
                 icon: Trophy,
                 title: 'Simulados Cronometrados',
@@ -297,12 +297,12 @@ export default function Landing() {
                 description: 'Envie suas redações e receba correções detalhadas de professores especialistas.',
                 color: 'orange',
               },
-              {
-                icon: BarChart3,
-                title: 'Desempenho Detalhado',
-                description: 'Acompanhe seu progresso com gráficos e estatísticas por disciplina.',
-                color: 'pink',
-              },
+               {
+                 icon: BarChart3,
+                 title: 'Desempenho Detalhado',
+                 description: 'Acompanhe seu progresso com gráficos e estatísticas por módulo.',
+                 color: 'pink',
+               },
               {
                 icon: MessageSquare,
                 title: 'Fórum de Dúvidas',
@@ -417,17 +417,17 @@ export default function Landing() {
       {/* Teachers Section */}
       <section id="teachers" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <span className="inline-block bg-blue-50 text-blue-600 text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
-              Equipe
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Professores especializados
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Nossa equipe é formada por professores com anos de experiência em preparação para concursos de Institutos Federais.
-            </p>
-          </div>
+       <div className="text-center mb-16">
+         <span className="inline-block bg-blue-50 text-blue-600 text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
+           Equipe
+         </span>
+         <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+           Professores especializados
+         </h2>
+         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+           Nossa equipe é formada por professores com anos de experiência em preparação para concursos de Institutos Federais.
+         </p>
+       </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
             {teachers.map((teacher, index) => (

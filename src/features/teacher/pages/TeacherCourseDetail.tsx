@@ -2,34 +2,37 @@ import { useState } from 'react'
 import { useCourseStore } from '../../courses/data/courseStore'
 import { useQuestionStore } from '../../courses/data/questionStore'
 import { useAuthStore } from '../../auth/services/authStore'
-import { BookOpen, Plus, Video, HelpCircle, Trash2, ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react'
+import { BookOpen, Plus, Video, HelpCircle, Trash2, ArrowLeft, ChevronDown, ChevronRight, FileText } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 export default function TeacherCourseDetail() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuthStore()
-  const { courses, disciplines, lessons, addDiscipline, addLesson } = useCourseStore()
+  const { courses, modules, lessons, addModule, addLesson, deleteModule, deleteLesson, getTeacherName } = useCourseStore()
   const { questions, addQuestion } = useQuestionStore()
   const navigate = useNavigate()
 
   const course = courses.find(c => c.id === id)
-  const myDisciplines = disciplines.filter(d => d.courseId === id)
-  const [expandedDiscipline, setExpandedDiscipline] = useState<string | null>(null)
+  if (course && course.teacherId !== user?.id) {
+    return <p className="text-center py-8 text-red-500">Você não tem permissão para acessar este curso.</p>
+  }
+  const myModules = modules.filter(m => m.courseId === id)
+  const [expandedModule, setExpandedModule] = useState<string | null>(null)
 
-  const [newDiscipline, setNewDiscipline] = useState('')
-  const [showDisciplineForm, setShowDisciplineForm] = useState(false)
+  const [newModule, setNewModule] = useState('')
+  const [showModuleForm, setShowModuleForm] = useState(false)
 
-  const [newLesson, setNewLesson] = useState({ disciplineId: '', title: '', videoUrl: '', pdfUrl: '' })
+  const [newLesson, setNewLesson] = useState({ moduleId: '', title: '', videoUrl: '', pdfFile: null as File | null })
   const [showLessonForm, setShowLessonForm] = useState(false)
 
   const [newQuestion, setNewQuestion] = useState<{
-    disciplineId: string
+    moduleId: string
     question: string
     options: string[]
     correctAnswer: number
     difficulty: 'facil' | 'medio' | 'dificil'
   }>({
-    disciplineId: '',
+    moduleId: '',
     question: '',
     options: ['', '', '', ''],
     correctAnswer: 0,
@@ -39,43 +42,63 @@ export default function TeacherCourseDetail() {
 
   if (!course) return <p className="text-center py-8">Curso não encontrado</p>
 
-  const handleAddDiscipline = () => {
-    if (!newDiscipline) return
-    addDiscipline({
+  const handleAddModule = () => {
+    if (!newModule || !user) return
+    addModule({
       id: Date.now().toString(),
       courseId: course.id,
-      title: newDiscipline,
-      order: myDisciplines.length + 1,
+      title: newModule,
+      order: myModules.length + 1,
+      teacherId: user.id,
     })
-    setNewDiscipline('')
-    setShowDisciplineForm(false)
+    setNewModule('')
+    setShowModuleForm(false)
   }
 
   const handleAddLesson = () => {
-    if (!newLesson.disciplineId || !newLesson.title || !newLesson.videoUrl) return
+    if (!newLesson.moduleId || !newLesson.title || !newLesson.videoUrl) return
+    const pdfUrl = newLesson.pdfFile ? URL.createObjectURL(newLesson.pdfFile) : ''
     addLesson({
       id: Date.now().toString(),
-      disciplineId: newLesson.disciplineId,
+      moduleId: newLesson.moduleId,
       title: newLesson.title,
       videoUrl: newLesson.videoUrl,
-      pdfUrl: newLesson.pdfUrl || '#',
-      order: lessons.filter(l => l.disciplineId === newLesson.disciplineId).length + 1,
+      pdfUrl,
+      order: lessons.filter(l => l.moduleId === newLesson.moduleId).length + 1,
     })
-    setNewLesson({ disciplineId: '', title: '', videoUrl: '', pdfUrl: '' })
+    setNewLesson({ moduleId: '', title: '', videoUrl: '', pdfFile: null })
     setShowLessonForm(false)
   }
 
+  const handleDeleteModule = (moduleId: string) => {
+    if (confirm('Tem certeza que deseja excluir este módulo e todas as suas aulas?')) {
+      deleteModule(moduleId)
+    }
+  }
+
+  const handleDeleteLesson = (lessonId: string) => {
+    if (confirm('Tem certeza que deseja excluir esta aula?')) {
+      deleteLesson(lessonId)
+    }
+  }
+
+  const difficultyConfig = {
+    facil: { label: 'Fácil', color: 'bg-green-100 text-green-700', icon: '🟢' },
+    medio: { label: 'Médio', color: 'bg-yellow-100 text-yellow-700', icon: '🟡' },
+    dificil: { label: 'Difícil', color: 'bg-red-100 text-red-700', icon: '🔴' },
+  }
+
   const handleAddQuestion = () => {
-    if (!newQuestion.disciplineId || !newQuestion.question || newQuestion.options.some(o => !o)) return
+    if (!newQuestion.moduleId || !newQuestion.question || newQuestion.options.some(o => !o)) return
     addQuestion({
       id: Date.now().toString(),
-      disciplineId: newQuestion.disciplineId,
+      moduleId: newQuestion.moduleId,
       question: newQuestion.question,
       options: newQuestion.options,
       correctAnswer: newQuestion.correctAnswer,
       difficulty: newQuestion.difficulty,
     })
-    setNewQuestion({ disciplineId: '', question: '', options: ['', '', '', ''], correctAnswer: 0, difficulty: 'facil' })
+    setNewQuestion({ moduleId: '', question: '', options: ['', '', '', ''], correctAnswer: 0, difficulty: 'facil' })
     setShowQuestionForm(false)
   }
 
@@ -88,19 +111,20 @@ export default function TeacherCourseDetail() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">{course.title}</h1>
           <p className="text-gray-600">{course.description}</p>
+          <p className="text-sm text-blue-600 mt-1">Professor do curso: {getTeacherName(course.teacherId)}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <button onClick={() => setShowDisciplineForm(!showDisciplineForm)}
+        <button onClick={() => setShowModuleForm(!showModuleForm)}
           className="p-4 bg-white rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors text-left">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-green-100 text-green-600 rounded-xl flex items-center justify-center">
               <BookOpen className="w-5 h-5" />
             </div>
             <div>
-              <p className="font-bold text-gray-900">Disciplinas</p>
-              <p className="text-sm text-gray-500">{myDisciplines.length} criadas</p>
+              <p className="font-bold text-gray-900">Módulos</p>
+              <p className="text-sm text-gray-500">{myModules.length} criados</p>
             </div>
           </div>
         </button>
@@ -112,7 +136,7 @@ export default function TeacherCourseDetail() {
             </div>
             <div>
               <p className="font-bold text-gray-900">Aulas</p>
-              <p className="text-sm text-gray-500">{lessons.filter(l => myDisciplines.some(d => d.id === l.disciplineId)).length} criadas</p>
+              <p className="text-sm text-gray-500">{lessons.filter(l => myModules.some(m => m.id === l.moduleId)).length} criadas</p>
             </div>
           </div>
         </button>
@@ -124,24 +148,24 @@ export default function TeacherCourseDetail() {
             </div>
             <div>
               <p className="font-bold text-gray-900">Questões</p>
-              <p className="text-sm text-gray-500">{questions.filter(q => myDisciplines.some(d => d.id === q.disciplineId)).length} criadas</p>
+              <p className="text-sm text-gray-500">{questions.filter(q => myModules.some(m => m.id === q.moduleId)).length} criadas</p>
             </div>
           </div>
         </button>
       </div>
 
-      {showDisciplineForm && (
+      {showModuleForm && (
         <div className="mb-6 p-6 bg-white rounded-2xl shadow-sm border border-gray-100">
-          <h3 className="font-bold text-gray-900 mb-4">Nova Disciplina</h3>
+          <h3 className="font-bold text-gray-900 mb-4">Novo Módulo</h3>
           <input
-            value={newDiscipline}
-            onChange={e => setNewDiscipline(e.target.value)}
-            placeholder="Nome da disciplina"
+            value={newModule}
+            onChange={e => setNewModule(e.target.value)}
+            placeholder="Nome do módulo"
             className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
           />
-          <button onClick={handleAddDiscipline} disabled={!newDiscipline}
+          <button onClick={handleAddModule} disabled={!newModule}
             className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium">
-            Criar Disciplina
+            Criar Módulo
           </button>
         </div>
       )}
@@ -150,21 +174,23 @@ export default function TeacherCourseDetail() {
         <div className="mb-6 p-6 bg-white rounded-2xl shadow-sm border border-gray-100 space-y-3">
           <h3 className="font-bold text-gray-900 mb-2">Nova Aula</h3>
           <select
-            value={newLesson.disciplineId}
-            onChange={e => setNewLesson({ ...newLesson, disciplineId: e.target.value })}
+            value={newLesson.moduleId}
+            onChange={e => setNewLesson({ ...newLesson, moduleId: e.target.value })}
             className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-            <option value="">Selecione a disciplina</option>
-            {myDisciplines.map(d => (
-              <option key={d.id} value={d.id}>{d.title}</option>
+            <option value="">Selecione o módulo</option>
+            {myModules.map(m => (
+              <option key={m.id} value={m.id}>{m.title}</option>
             ))}
           </select>
           <input value={newLesson.title} onChange={e => setNewLesson({ ...newLesson, title: e.target.value })}
             placeholder="Título da aula" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
           <input value={newLesson.videoUrl} onChange={e => setNewLesson({ ...newLesson, videoUrl: e.target.value })}
             placeholder="URL do vídeo" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <input value={newLesson.pdfUrl} onChange={e => setNewLesson({ ...newLesson, pdfUrl: e.target.value })}
-            placeholder="URL do PDF (opcional)" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <button onClick={handleAddLesson} disabled={!newLesson.disciplineId || !newLesson.title || !newLesson.videoUrl}
+          <div className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus-within:ring-2 focus-within:ring-blue-500 bg-white">
+            <input type="file" accept=".pdf" onChange={e => setNewLesson({ ...newLesson, pdfFile: e.target.files?.[0] || null })}
+              className="w-full text-sm text-gray-600 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+          </div>
+          <button onClick={handleAddLesson} disabled={!newLesson.moduleId || !newLesson.title || !newLesson.videoUrl}
             className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium">
             Criar Aula
           </button>
@@ -175,12 +201,12 @@ export default function TeacherCourseDetail() {
         <div className="mb-6 p-6 bg-white rounded-2xl shadow-sm border border-gray-100 space-y-3">
           <h3 className="font-bold text-gray-900 mb-2">Nova Questão</h3>
           <select
-            value={newQuestion.disciplineId}
-            onChange={e => setNewQuestion({ ...newQuestion, disciplineId: e.target.value })}
+            value={newQuestion.moduleId}
+            onChange={e => setNewQuestion({ ...newQuestion, moduleId: e.target.value })}
             className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-            <option value="">Selecione a disciplina</option>
-            {myDisciplines.map(d => (
-              <option key={d.id} value={d.id}>{d.title}</option>
+            <option value="">Selecione o módulo</option>
+            {myModules.map(m => (
+              <option key={m.id} value={m.id}>{m.title}</option>
             ))}
           </select>
           <textarea value={newQuestion.question} onChange={e => setNewQuestion({ ...newQuestion, question: e.target.value })}
@@ -207,7 +233,7 @@ export default function TeacherCourseDetail() {
             <option value="medio">Médio</option>
             <option value="dificil">Difícil</option>
           </select>
-          <button onClick={handleAddQuestion} disabled={!newQuestion.disciplineId || !newQuestion.question || newQuestion.options.some(o => !o)}
+          <button onClick={handleAddQuestion} disabled={!newQuestion.moduleId || !newQuestion.question || newQuestion.options.some(o => !o)}
             className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium">
             Criar Questão
           </button>
@@ -215,48 +241,62 @@ export default function TeacherCourseDetail() {
       )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-lg font-bold text-gray-900 mb-4">Disciplinas e Conteúdos</h2>
-        {myDisciplines.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">Nenhuma disciplina criada ainda.</p>
+        <h2 className="text-lg font-bold text-gray-900 mb-4">Módulos e Conteúdos</h2>
+        {myModules.length === 0 ? (
+          <p className="text-gray-500 text-center py-8">Nenhum módulo criado ainda.</p>
         ) : (
           <div className="space-y-3">
-            {myDisciplines.map(disc => {
-              const discLessons = lessons.filter(l => l.disciplineId === disc.id)
-              const discQuestions = questions.filter(q => q.disciplineId === disc.id)
+            {myModules.map(mod => {
+              const modLessons = lessons.filter(l => l.moduleId === mod.id)
+              const modQuestions = questions.filter(q => q.moduleId === mod.id)
               return (
-                <div key={disc.id} className="border border-gray-100 rounded-xl overflow-hidden">
+                <div key={mod.id} className="border border-gray-100 rounded-xl overflow-hidden">
+                  <div className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
                   <button
-                    onClick={() => setExpandedDiscipline(expandedDiscipline === disc.id ? null : disc.id)}
-                    className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                    onClick={() => setExpandedModule(expandedModule === mod.id ? null : mod.id)}
+                    className="flex items-center gap-3 flex-1 text-left"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-green-100 text-green-600 rounded-xl flex items-center justify-center">
-                        <BookOpen className="w-5 h-5" />
-                      </div>
-                      <div className="text-left">
-                        <p className="font-medium text-gray-900">{disc.title}</p>
-                        <p className="text-sm text-gray-500">{discLessons.length} aulas • {discQuestions.length} questões</p>
-                      </div>
+                    <div className="w-10 h-10 bg-green-100 text-green-600 rounded-xl flex items-center justify-center">
+                      <BookOpen className="w-5 h-5" />
                     </div>
-                    {expandedDiscipline === disc.id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    <div>
+                      <p className="font-medium text-gray-900">{mod.title}</p>
+                      <p className="text-sm text-gray-500">{modLessons.length} aulas • {modQuestions.length} questões</p>
+                      <p className="text-xs text-blue-600">Professor: {getTeacherName(mod.teacherId)}</p>
+                    </div>
                   </button>
-                  {expandedDiscipline === disc.id && (
+                    <div className="flex items-center gap-2">
+                      {expandedModule === mod.id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                      <button onClick={() => handleDeleteModule(mod.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  {expandedModule === mod.id && (
                     <div className="border-t border-gray-100 p-4 bg-gray-50">
-                      {discLessons.length > 0 && (
+                      {modLessons.length > 0 && (
                         <div className="mb-3">
                           <p className="text-sm font-medium text-gray-700 mb-2">Aulas:</p>
-                          {discLessons.map(lesson => (
-                            <div key={lesson.id} className="flex items-center gap-2 text-sm text-gray-600 ml-4 mb-1">
+                          {modLessons.map(lesson => (
+                            <div key={lesson.id} className="flex items-center gap-2 text-sm text-gray-600 ml-4 mb-1 group">
                               <Video className="w-3 h-3" />
-                              <span>{lesson.title}</span>
+                              <span className="flex-1">{lesson.title}</span>
+                              {lesson.pdfUrl && (
+                                <a href={lesson.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700">
+                                  <FileText className="w-3 h-3" />
+                                </a>
+                              )}
+                              <button onClick={() => handleDeleteLesson(lesson.id)} className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:bg-red-50 rounded transition-opacity">
+                                <Trash2 className="w-3 h-3" />
+                              </button>
                             </div>
                           ))}
                         </div>
                       )}
-                      {discQuestions.length > 0 && (
+                      {modQuestions.length > 0 && (
                         <div>
                           <p className="text-sm font-medium text-gray-700 mb-2">Questões:</p>
-                          {discQuestions.map(q => (
+                          {modQuestions.map(q => (
                             <p key={q.id} className="text-sm text-gray-600 ml-4 mb-1">• {q.question}</p>
                           ))}
                         </div>

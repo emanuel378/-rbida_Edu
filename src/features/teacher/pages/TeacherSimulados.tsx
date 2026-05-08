@@ -5,29 +5,29 @@ import { useAuthStore } from '../../auth/services/authStore'
 import { useTeacherSimuladoStore } from '../data/teacherSimuladoStore'
 import { BookOpen, Plus, Clock, Save } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import type { Course, Discipline, Question } from '../../courses/data/mock'
+import type { Course, Module, Question } from '../../courses/data/mock'
 
 export default function TeacherSimulados() {
   const { user } = useAuthStore()
-  const { courses, disciplines } = useCourseStore()
+  const { courses, modules } = useCourseStore()
   const { questions } = useQuestionStore()
   const { addSimulado, simulados } = useTeacherSimuladoStore()
   const navigate = useNavigate()
 
   const myCourses: Course[] = courses.filter((c: Course) => c.teacherId === user?.id)
-  const myDisciplines: Discipline[] = disciplines.filter((d: Discipline) => myCourses.some((c: Course) => c.id === d.courseId))
-  const myQuestions: Question[] = questions.filter((q: Question) => myDisciplines.some((d: Discipline) => d.id === q.disciplineId))
+  const myModules: Module[] = modules.filter((m: Module) => myCourses.some((c: Course) => c.id === m.courseId))
+  const myQuestions: Question[] = questions.filter((q: Question) => myModules.some((m: Module) => m.id === q.moduleId))
 
   const mySimulados = simulados.filter(s => s.teacherId === user?.id)
 
   const [showCreate, setShowCreate] = useState(false)
   const [simuladoTitle, setSimuladoTitle] = useState('')
-  const [selectedDiscipline, setSelectedDiscipline] = useState('')
+  const [selectedModule, setSelectedModule] = useState('')
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([])
   const [timeLimit, setTimeLimit] = useState(30)
 
-  const availableQuestions = selectedDiscipline
-    ? questions.filter(q => q.disciplineId === selectedDiscipline && myDisciplines.some(d => d.id === q.disciplineId))
+  const availableQuestions = selectedModule
+    ? questions.filter(q => q.moduleId === selectedModule && myModules.some(m => m.id === q.moduleId))
     : myQuestions
 
   const toggleQuestion = (id: string) => {
@@ -43,13 +43,13 @@ export default function TeacherSimulados() {
     addSimulado({
       title: simuladoTitle,
       teacherId: user.id,
-      disciplineId: selectedDiscipline || undefined,
+      moduleId: selectedModule || undefined,
       questionIds: selectedQuestions,
       timeLimit,
     })
     setSimuladoTitle('')
     setSelectedQuestions([])
-    setSelectedDiscipline('')
+    setSelectedModule('')
     setShowCreate(false)
   }
 
@@ -83,18 +83,18 @@ export default function TeacherSimulados() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Disciplina</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Módulo</label>
                 <select
-                  value={selectedDiscipline}
+                  value={selectedModule}
                   onChange={e => {
-                    setSelectedDiscipline(e.target.value)
+                    setSelectedModule(e.target.value)
                     setSelectedQuestions([])
                   }}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 >
-                  <option value="">Todas as minhas disciplinas</option>
-                  {myDisciplines.map(d => (
-                    <option key={d.id} value={d.id}>{d.title}</option>
+                  <option value="">Todos os meus módulos</option>
+                  {myModules.map(m => (
+                    <option key={m.id} value={m.id}>{m.title}</option>
                   ))}
                 </select>
               </div>

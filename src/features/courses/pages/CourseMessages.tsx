@@ -1,0 +1,156 @@
+import { useState, useEffect } from 'react'
+import { useCourseStore } from '../data/courseStore'
+import { useAuthStore } from '../../auth/services/authStore'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Send, ArrowLeft, MessageCircle } from 'lucide-react'
+
+export default function CourseMessages() {
+  const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
+  const { user } = useAuthStore()
+  const { courses, modules, lessons, messages, addMessage } = useCourseStore()
+  const navigate = useNavigate()
+
+  const course = courses.find(c => c.id === id)
+  const courseModules = modules.filter(m => m.courseId === id)
+
+  const [text, setText] = useState('')
+  const [moduleId, setModuleId] = useState('')
+  const [lessonId, setLessonId] = useState('')
+  const [type, setType] = useState<'course' | 'module' | 'lesson'>('course')
+
+  useEffect(() => {
+    const lessonFromUrl = searchParams.get('lesson')
+    if (lessonFromUrl) {
+      const lesson = lessons.find(l => l.id === lessonFromUrl)
+      if (lesson) {
+        setLessonId(lesson.id)
+        setModuleId(lesson.moduleId)
+        setType('lesson')
+      }
+    }
+  }, [searchParams, lessons])
+
+  const selectedModuleLessons = lessons.filter(l => l.moduleId === moduleId)
+
+  const myMessages = messages.filter(m => m.fromUserId === user?.id && m.courseId === id)
+
+  const handleSend = () => {
+    if (!text || !user || !course) return
+    let toTeacherId = course.teacherId
+    if (type === 'module' && moduleId) {
+      const mod = courseModules.find(m => m.id === moduleId)
+      if (mod) toTeacherId = mod.teacherId
+    } else if (type === 'lesson' && lessonId) {
+      const lesson = lessons.find(l => l.id === lessonId)
+      const mod = courseModules.find(m => m.id === lesson?.moduleId)
+      if (mod) toTeacherId = mod.teacherId
+    }
+    addMessage({
+      id: Date.now().toString(),
+      courseId: course.id,
+      moduleId: type !== 'course' ? moduleId : undefined,
+      lessonId: type === 'lesson' ? lessonId : undefined,
+      fromUserId: user.id,
+      fromUserName: user.name,
+      toTeacherId,
+      text,
+      createdAt: new Date().toISOString(),
+    })
+    setText('')
+  }
+
+  if (!course) return <p className="text-center py-8">Curso não encontrado</p>
+
+  return (
+    <div>
+      <div className="flex items-center gap-4 mb-8">
+        <button onClick={() => navigate(`/course/${id}`)} className="p-2 hover:bg-gray-100 rounded-lg">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Dúvidas - {course.title}</h1>
+          <p className="text-gray-600">Envie suas dúvidas para os professores</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+        <h3 className="font-bold text-gray-900 mb-4">Nova Dúvida</h3>
+        <select
+          value={type}
+          onChange={e => { setType(e.target.value as 'course' | 'module' | 'lesson'); setModuleId(''); setLessonId('') }}
+          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl mb-3 bg-white"
+        >
+          <option value="course">Dúvida Geral do Curso</option>
+          <option value="module">Dúvida de um Módulo</option>
+          <option value="lesson">Dúvida de uma Aula</option>
+        </select>
+
+        {type !== 'course' && (
+          <select
+            value={moduleId}
+            onChange={e => { setModuleId(e.target.value); setLessonId('') }}
+            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl mb-3 bg-white"
+          >
+            <option value="">Selecione o módulo</option>
+            {courseModules.map(m => (
+              <option key={m.id} value={m.id}>{m.title}</option>
+            ))}
+          </select>
+        )}
+
+        {type === 'lesson' && moduleId && (
+          <select
+            value={lessonId}
+            onChange={e => setLessonId(e.target.value)}
+            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl mb-3 bg-white"
+          >
+            <option value="">Selecione a aula</option>
+            {selectedModuleLessons.map(l => (
+              <option key={l.id} value={l.id}>{l.title}</option>
+            ))}
+          </select>
+        )}
+
+        <textarea
+          value={text}
+          onChange={e => setText(e.target.value)}
+          placeholder="Digite sua dúvida..."
+          rows={4}
+          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none mb-3"
+        />
+        <button
+          onClick={handleSend}
+          disabled={!text}
+          className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium"
+        >
+          <Send className="w-4 h-4" />
+          Enviar Dúvida
+        </button>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h3 className="font-bold text-gray-900 mb-4">Minhas Dúvidas</h3>
+        {myMessages.length === 0 ? (
+          <p className="text-gray-500 text-center py-4">Nenhuma dúvida enviada ainda.</p>
+        ) : (
+          <div className="space-y-3">
+            {myMessages.map(msg => (
+              <div key={msg.id} className="p-4 bg-gray-50 rounded-xl">
+                <p className="text-sm text-gray-600 mb-2">{msg.text}</p>
+                {msg.reply ? (
+                  <div className="mt-2 p-3 bg-blue-50 rounded-lg">
+                    <p className="text-sm font-medium text-blue-900">Resposta do professor:</p>
+                    <p className="text-sm text-blue-800">{msg.reply}</p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-yellow-600">Aguardando resposta...</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

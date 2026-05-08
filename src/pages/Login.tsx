@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuthStore } from '../store/authStore'
-import { mockUsers } from '../data/mock'
+import { useAuthStore } from '../features/auth/services/authStore'
+import { mockUsers } from '../features/courses/data/mock'
 import { LogIn, User, ShieldCheck, BookOpen } from 'lucide-react'
 
 export default function Login() {

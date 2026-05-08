@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   GraduationCap,
+  MessageCircle,
 } from 'lucide-react'
 
 interface NavItem {
@@ -33,6 +34,7 @@ const teacherNavItems: NavItem[] = [
   { to: '/teacher', icon: GraduationCap, label: 'Painel', end: true },
   { to: '/teacher/courses', icon: BookOpen, label: 'Meus Cursos', end: false },
   { to: '/teacher/simulados', icon: ClipboardList, label: 'Simulados', end: false },
+  { to: '/teacher/messages', icon: MessageCircle, label: 'Mensagens', end: false },
 ]
 
 export default function Sidebar() {

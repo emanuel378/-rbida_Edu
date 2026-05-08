@@ -8,7 +8,7 @@ import type { Question } from '../../courses/data/mock'
 
 export default function Simulado() {
   const { user } = useAuthStore()
-  const { courses, disciplines } = useCourseStore()
+  const { courses, modules } = useCourseStore()
   const { questions, addResult } = useQuestionStore()
   const { simulados } = useTeacherSimuladoStore()
   const results = useQuestionStore(s => s.results)
@@ -257,11 +257,11 @@ export default function Simulado() {
             <div className="space-y-4">
               {simulados.map(sim => {
                 const simQuestions = questions.filter(q => sim.questionIds.includes(q.id))
-                const discipline = sim.disciplineId
-                  ? disciplines.find(d => d.id === sim.disciplineId)
+                const module = sim.moduleId
+                  ? modules.find(m => m.id === sim.moduleId)
                   : null
-                const course = discipline
-                  ? courses.find(c => c.id === discipline.courseId)
+                const course = module
+                  ? courses.find(c => c.id === module.courseId)
                   : null
                 return (
                   <div key={sim.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
@@ -270,7 +270,7 @@ export default function Simulado() {
                         <h3 className="text-lg font-bold text-gray-900 mb-1">{sim.title}</h3>
                         <div className="flex items-center gap-3 text-sm text-gray-500">
                           {course && <span>{course.title}</span>}
-                          {discipline && <span>• {discipline.title}</span>}
+                          {module && <span>• {module.title}</span>}
                         </div>
                         <div className="flex items-center gap-4 mt-2">
                           <span className="text-sm text-gray-600">
@@ -351,10 +351,10 @@ export default function Simulado() {
                   <span className="font-medium">{pendingSim.questionIds.length}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Disciplina:</span>
+                  <span className="text-gray-600">Módulo:</span>
                   <span className="font-medium">
-                    {pendingSim.disciplineId
-                      ? disciplines.find(d => d.id === pendingSim.disciplineId)?.title || 'N/A'
+                    {pendingSim.moduleId
+                      ? modules.find(m => m.id === pendingSim.moduleId)?.title || 'N/A'
                       : 'Varias'}
                   </span>
                 </div>

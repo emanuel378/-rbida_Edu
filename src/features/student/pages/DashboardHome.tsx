@@ -9,7 +9,7 @@ import { BookOpen, ArrowRight, Clock, AlertCircle } from 'lucide-react'
 export default function DashboardHome() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const { courses, enrollments, disciplines, lessons, getEnrollment } = useCourseStore()
+  const { courses, enrollments, modules, lessons, getEnrollment } = useCourseStore()
 
   const firstName = user?.name.split(' ')[0] || 'Aluno'
 
@@ -19,11 +19,13 @@ export default function DashboardHome() {
   )
 
   const getCourseStats = (courseId: string) => {
-    const courseDisciplines = disciplines.filter((d) => d.courseId === courseId)
-    const courseLessons = lessons.filter((l) =>
-      courseDisciplines.some((d) => d.id === l.disciplineId)
-    )
-    return courseLessons.length
+    const courseModules = modules.filter((m) => m.courseId === courseId)
+
+    return {
+      lessons: lessons.filter((l) =>
+        courseModules.some((m) => m.id === l.moduleId)
+      ).length,
+    }
   }
 
   return (
@@ -47,9 +49,9 @@ export default function DashboardHome() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {enrolledCourses.map((course) => {
               const enrollment = getEnrollment(user?.id || '', course.id)
-              const totalLessons = getCourseStats(course.id)
-              const progress = totalLessons > 0
-                ? Math.round((enrollment?.completedLessons.length || 0) / totalLessons * 100)
+              const stats = getCourseStats(course.id)
+              const progress = stats.lessons > 0
+                ? Math.round((enrollment?.completedLessons.length || 0) / stats.lessons * 100)
                 : 0
 
               return (

@@ -5,7 +5,7 @@ export interface TeacherSimulado {
   id: string
   title: string
   teacherId: string
-  disciplineId?: string
+  moduleId?: string
   questionIds: string[]
   timeLimit: number // minutos
   createdAt: string

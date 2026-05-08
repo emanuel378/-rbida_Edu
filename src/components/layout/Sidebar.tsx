@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { useUiStore } from '../../store/uiStore'
-import { useAuthStore } from '../../store/authStore'
+import { useUiStore } from '../../features/dashboard/store/uiStore'
+import { useAuthStore } from '../../features/auth/services/authStore'
 import {
   LayoutDashboard,
   BookOpen,

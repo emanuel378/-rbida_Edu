@@ -9,17 +9,17 @@ import { BookOpen, ArrowRight, Layers } from 'lucide-react'
 export default function MeusCursos() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const { courses, disciplines, lessons, getEnrollment } = useCourseStore()
+  const { courses, modules, lessons, getEnrollment } = useCourseStore()
 
   const enrolledCourses = courses.filter((course) => getEnrollment(user?.id || '', course.id))
 
   const getCourseStats = (courseId: string) => {
-    const courseDisciplines = disciplines.filter((d) => d.courseId === courseId)
+    const courseModules = modules.filter((m) => m.courseId === courseId)
     const courseLessons = lessons.filter((l) =>
-      courseDisciplines.some((d) => d.id === l.disciplineId)
+      courseModules.some((m) => m.id === l.moduleId)
     )
     return {
-      disciplines: courseDisciplines.length,
+      modules: courseModules.length,
       lessons: courseLessons.length,
     }
   }
@@ -61,13 +61,13 @@ export default function MeusCursos() {
                   action={<Badge text={`${progress}%`} color={badgeColor} />}
                 />
                 <CardContent>
-                  <div className="flex items-center gap-4 mb-4 text-xs text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <Layers className="w-3.5 h-3.5" />
-                      {stats.disciplines} disciplinas
-                    </span>
-                    <span>{stats.lessons} aulas</span>
-                  </div>
+                   <div className="flex items-center gap-4 mb-4 text-xs text-gray-500">
+                     <span className="flex items-center gap-1">
+                       <Layers className="w-3.5 h-3.5" />
+                       {stats.modules} módulos
+                     </span>
+                     <span>{stats.lessons} aulas</span>
+                   </div>
                   <div className="mb-4">
                     <ProgressBar progress={progress} size="sm" />
                   </div>

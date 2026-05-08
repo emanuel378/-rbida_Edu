@@ -126,7 +126,7 @@ export default function Desempenho() {
         {/* Subject Performance */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm">
           <div className="p-5 border-b border-gray-100">
-            <h2 className="text-lg font-bold text-gray-900">Desempenho por Disciplina</h2>
+            <h2 className="text-lg font-bold text-gray-900">Desempenho por Módulo</h2>
           </div>
           <div className="p-5">
             <div className="space-y-4">
@@ -160,7 +160,7 @@ export default function Desempenho() {
           <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
             <div className="flex items-center gap-3 mb-2">
               <Trophy className="w-5 h-5 text-green-500" />
-              <h3 className="text-sm font-semibold text-gray-900">Melhor Disciplina</h3>
+              <h3 className="text-sm font-semibold text-gray-900">Melhor Módulo</h3>
             </div>
             <p className="text-2xl font-bold text-gray-900">{bestSubject.subject}</p>
             <p className="text-sm text-gray-500">{bestSubject.percentage}% de acerto</p>

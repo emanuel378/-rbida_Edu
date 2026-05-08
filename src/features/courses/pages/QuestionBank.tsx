@@ -1,20 +1,23 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useCourseStore } from '../data/courseStore'
 import { useQuestionStore } from '../data/questionStore'
-import { BookOpen, Filter, HelpCircle, CheckCircle, XCircle, Plus, Trash2 } from 'lucide-react'
+import { BookOpen, Filter, HelpCircle, CheckCircle, XCircle, Plus, Trash2, Download } from 'lucide-react'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
+import jsPDF from 'jspdf'
 
 export default function QuestionBank() {
-  const { disciplines } = useCourseStore()
+  const { modules } = useCourseStore()
   const { questions, addQuestion } = useQuestionStore()
+  const [searchParams] = useSearchParams()
 
-  const [filterDiscipline, setFilterDiscipline] = useState('')
+  const [filterModule, setFilterModule] = useState(searchParams.get('module') || '')
   const [filterDifficulty, setFilterDifficulty] = useState('')
   const [showAnswer, setShowAnswer] = useState<Record<string, boolean>>({})
   const [showAddForm, setShowAddForm] = useState(false)
 
   const [newQ, setNewQ] = useState({
-    disciplineId: '',
+    moduleId: '',
     question: '',
     options: ['', '', '', ''],
     correctAnswer: 0,
@@ -22,7 +25,7 @@ export default function QuestionBank() {
   })
 
   const filtered = questions.filter(q => {
-    if (filterDiscipline && q.disciplineId !== filterDiscipline) return false
+    if (filterModule && q.moduleId !== filterModule) return false
     if (filterDifficulty && q.difficulty !== filterDifficulty) return false
     return true
   })
@@ -32,12 +35,12 @@ export default function QuestionBank() {
   }
 
   const handleAddQuestion = () => {
-    if (!newQ.disciplineId || !newQ.question || newQ.options.some(o => !o)) return
+    if (!newQ.moduleId || !newQ.question || newQ.options.some(o => !o)) return
     addQuestion({
       id: Date.now().toString(),
       ...newQ,
     })
-    setNewQ({ disciplineId: '', question: '', options: ['', '', '', ''], correctAnswer: 0, difficulty: 'facil' })
+    setNewQ({ moduleId: '', question: '', options: ['', '', '', ''], correctAnswer: 0, difficulty: 'facil' })
     setShowAddForm(false)
   }
 
@@ -45,6 +48,53 @@ export default function QuestionBank() {
     facil: { label: 'Fácil', color: 'bg-green-100 text-green-700 border-green-200', icon: '🟢' },
     medio: { label: 'Médio', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', icon: '🟡' },
     dificil: { label: 'Difícil', color: 'bg-red-100 text-red-700 border-red-200', icon: '🔴' },
+  }
+
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF()
+    let y = 20
+    const pageHeight = doc.internal.pageSize.height
+    const margin = 20
+    const lineHeight = 7
+
+    doc.setFontSize(16)
+    doc.text('Banco de Questões', margin, y)
+    y += 10
+
+    if (filterModule) {
+      const mod = modules.find(m => m.id === filterModule)
+      doc.setFontSize(12)
+      doc.text(`Módulo: ${mod?.title || ''}`, margin, y)
+      y += 8
+    }
+
+    filtered.forEach((q, index) => {
+      if (y > pageHeight - 40) {
+        doc.addPage()
+        y = 20
+      }
+
+      const module = modules.find(m => m.id === q.moduleId)
+      doc.setFontSize(10)
+      doc.text(`${module?.title || ''} - ${difficultyConfig[q.difficulty].label}`, margin, y)
+      y += lineHeight
+
+      doc.setFontSize(11)
+      const questionLines = doc.splitTextToSize(`${index + 1}. ${q.question}`, 170)
+      doc.text(questionLines, margin, y)
+      y += questionLines.length * lineHeight
+
+      q.options.forEach((opt, i) => {
+        const prefix = i === q.correctAnswer ? '✓ ' : '  '
+        const optionLines = doc.splitTextToSize(`${prefix}${String.fromCharCode(97 + i)}) ${opt}`, 165)
+        doc.text(optionLines, margin + 5, y)
+        y += optionLines.length * lineHeight
+      })
+
+      y += 5
+    })
+
+    doc.save('questoes.pdf')
   }
 
   return (
@@ -55,13 +105,23 @@ export default function QuestionBank() {
           <h1 className="text-3xl font-bold text-gray-900">Banco de Questões</h1>
           <p className="text-gray-600 mt-1">{filtered.length} questões disponíveis</p>
         </div>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
-        >
-          <Plus className="w-5 h-5" />
-          Nova Questão
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+          >
+            <Plus className="w-5 h-5" />
+            Nova Questão
+          </button>
+          <button
+            onClick={handleDownloadPDF}
+            disabled={filtered.length === 0}
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50"
+          >
+            <Download className="w-5 h-5" />
+            Baixar PDF
+          </button>
+        </div>
       </div>
 
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6">
@@ -71,13 +131,13 @@ export default function QuestionBank() {
         </div>
         <div className="flex flex-wrap gap-3">
           <select
-            value={filterDiscipline}
-            onChange={e => setFilterDiscipline(e.target.value)}
+            value={filterModule}
+            onChange={e => setFilterModule(e.target.value)}
             className="px-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
           >
-            <option value="">Todas as disciplinas</option>
-            {disciplines.map(d => (
-              <option key={d.id} value={d.id}>{d.title}</option>
+            <option value="">Todos os módulos</option>
+            {modules.map(m => (
+              <option key={m.id} value={m.id}>{m.title}</option>
             ))}
           </select>
           <select
@@ -101,7 +161,7 @@ export default function QuestionBank() {
           </div>
         ) : (
           filtered.map((q, index) => {
-            const discipline = disciplines.find(d => d.id === q.disciplineId)
+            const module = modules.find(d => d.id === q.moduleId)
             const config = difficultyConfig[q.difficulty]
             const isAnswerShown = showAnswer[q.id]
             return (
@@ -113,7 +173,7 @@ export default function QuestionBank() {
                         {index + 1}
                       </span>
                       <div>
-                        <span className="text-sm font-medium text-gray-500">{discipline?.title}</span>
+                        <span className="text-sm font-medium text-gray-500">{module?.title}</span>
                       </div>
                     </div>
                     <span className={`px-3 py-1 rounded-full text-xs font-medium border ${config.color}`}>
@@ -184,13 +244,13 @@ export default function QuestionBank() {
           </div>
           <div className="p-6 space-y-4">
             <select
-              value={newQ.disciplineId}
-              onChange={e => setNewQ({ ...newQ, disciplineId: e.target.value })}
+              value={newQ.moduleId}
+              onChange={e => setNewQ({ ...newQ, moduleId: e.target.value })}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">Selecione a disciplina</option>
-              {disciplines.map(d => (
-                <option key={d.id} value={d.id}>{d.title}</option>
+              <option value="">Selecione o módulo</option>
+              {modules.map(m => (
+                <option key={m.id} value={m.id}>{m.title}</option>
               ))}
             </select>
             <textarea
@@ -241,7 +301,7 @@ export default function QuestionBank() {
               </select>
               <button
                 onClick={handleAddQuestion}
-                disabled={!newQ.disciplineId || !newQ.question || newQ.options.some(o => !o)}
+                disabled={!newQ.moduleId || !newQ.question || newQ.options.some(o => !o)}
                 className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Adicionar Questão

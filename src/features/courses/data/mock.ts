@@ -14,16 +14,17 @@ export interface Course {
   createdAt: string
 }
 
-export interface Discipline {
+export interface Module {
   id: string
   courseId: string
   title: string
   order: number
+  teacherId: string
 }
 
 export interface Lesson {
   id: string
-  disciplineId: string
+  moduleId: string
   title: string
   videoUrl: string
   pdfUrl: string
@@ -32,7 +33,7 @@ export interface Lesson {
 
 export interface Question {
   id: string
-  disciplineId: string
+  moduleId: string
   question: string
   options: string[]
   correctAnswer: number
@@ -46,6 +47,20 @@ export interface Comment {
   userName: string
   text: string
   createdAt: string
+}
+
+export interface Message {
+  id: string
+  courseId: string
+  moduleId?: string
+  lessonId?: string
+  fromUserId: string
+  fromUserName: string
+  toTeacherId: string
+  text: string
+  reply?: string
+  createdAt: string
+  repliedAt?: string
 }
 
 export interface Enrollment {
@@ -77,22 +92,22 @@ export const mockCourses: Course[] = [
   { id: 'c2', title: 'Preparatório IFMG', description: 'Matemática e Português para IFMG', teacherId: '3', createdAt: '2026-02-20' },
 ]
 
-export const mockDisciplines: Discipline[] = [
-  { id: 'd1', courseId: 'c1', title: 'Matemática', order: 1 },
-  { id: 'd2', courseId: 'c1', title: 'Português', order: 2 },
-  { id: 'd3', courseId: 'c2', title: 'Matemática', order: 1 },
+export const mockModules: Module[] = [
+  { id: 'd1', courseId: 'c1', title: 'Matemática', order: 1, teacherId: '3' },
+  { id: 'd2', courseId: 'c1', title: 'Português', order: 2, teacherId: '4' },
+  { id: 'd3', courseId: 'c2', title: 'Matemática', order: 1, teacherId: '3' },
 ]
 
 export const mockLessons: Lesson[] = [
-  { id: 'l1', disciplineId: 'd1', title: 'Álgebra Básica', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', pdfUrl: '#', order: 1 },
-  { id: 'l2', disciplineId: 'd1', title: 'Geometria Plana', videoUrl: 'https://www.youtube.com/watch?v=9bZkp7q19f0', pdfUrl: '#', order: 2 },
-  { id: 'l3', disciplineId: 'd2', title: 'Interpretação de Texto', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', pdfUrl: '#', order: 1 },
+  { id: 'l1', moduleId: 'd1', title: 'Álgebra Básica', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', pdfUrl: '#', order: 1 },
+  { id: 'l2', moduleId: 'd1', title: 'Geometria Plana', videoUrl: 'https://www.youtube.com/watch?v=9bZkp7q19f0', pdfUrl: '#', order: 2 },
+  { id: 'l3', moduleId: 'd2', title: 'Interpretação de Texto', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', pdfUrl: '#', order: 1 },
 ]
 
 export const mockQuestions: Question[] = [
-  { id: 'q1', disciplineId: 'd1', question: 'Quanto é 2 + 2?', options: ['3', '4', '5', '6'], correctAnswer: 1, difficulty: 'facil' },
-  { id: 'q2', disciplineId: 'd1', question: 'Quanto é 5 x 3?', options: ['10', '12', '15', '18'], correctAnswer: 2, difficulty: 'facil' },
-  { id: 'q3', disciplineId: 'd1', question: 'Resolva: x² - 4 = 0', options: ['x=±1', 'x=±2', 'x=±3', 'x=±4'], correctAnswer: 1, difficulty: 'medio' },
-  { id: 'q4', disciplineId: 'd2', question: 'Qual a classe gramatical de "bonito"?', options: ['Substantivo', 'Adjetivo', 'Advérbio', 'Verbo'], correctAnswer: 1, difficulty: 'facil' },
-  { id: 'q5', disciplineId: 'd2', question: 'O pronome relativo "que" pode substituir:', options: ['Apenas pessoas', 'Apenas objetos', 'Pessoas e objetos', 'Apenas lugares'], correctAnswer: 2, difficulty: 'medio' },
+  { id: 'q1', moduleId: 'd1', question: 'Quanto é 2 + 2?', options: ['3', '4', '5', '6'], correctAnswer: 1, difficulty: 'facil' },
+  { id: 'q2', moduleId: 'd1', question: 'Quanto é 5 x 3?', options: ['10', '12', '15', '18'], correctAnswer: 2, difficulty: 'facil' },
+  { id: 'q3', moduleId: 'd1', question: 'Resolva: x² - 4 = 0', options: ['x=±1', 'x=±2', 'x=±3', 'x=±4'], correctAnswer: 1, difficulty: 'medio' },
+  { id: 'q4', moduleId: 'd2', question: 'Qual a classe gramatical de "bonito"?', options: ['Substantivo', 'Adjetivo', 'Advérbio', 'Verbo'], correctAnswer: 1, difficulty: 'facil' },
+  { id: 'q5', moduleId: 'd2', question: 'O pronome relativo "que" pode substituir:', options: ['Apenas pessoas', 'Apenas objetos', 'Pessoas e objetos', 'Apenas lugares'], correctAnswer: 2, difficulty: 'medio' },
 ]

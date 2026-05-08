@@ -3,9 +3,9 @@ import { ProtectedRoute, AppLayout } from './shared'
 import { Landing } from './features/landing'
 import { Login, Pending } from './features/auth'
 import { DashboardHome, MeusCursos, Cronograma, Desempenho, Configuracoes } from './features/student'
-import { Course, Lesson, QuestionBank } from './features/courses'
+import { Course, Lesson, QuestionBank, CourseMessages } from './features/courses'
 import { Simulado } from './features/simulado'
-import { TeacherDashboard, TeacherCourses, TeacherCourseDetail, TeacherSimulados } from './features/teacher'
+import { TeacherDashboard, TeacherCourses, TeacherCourseDetail, TeacherSimulados, TeacherMessages } from './features/teacher'
 import { Admin } from './features/admin'
 
 export default function App() {
@@ -29,6 +29,7 @@ export default function App() {
           <Route path="desempenho" element={<Desempenho />} />
           <Route path="configuracoes" element={<Configuracoes />} />
           <Route path="course/:id" element={<Course />} />
+          <Route path="course/:id/messages" element={<CourseMessages />} />
           <Route path="lesson/:id" element={<Lesson />} />
           <Route path="questions" element={<QuestionBank />} />
         </Route>
@@ -42,6 +43,7 @@ export default function App() {
           <Route index element={<TeacherDashboard />} />
           <Route path="courses" element={<TeacherCourses />} />
           <Route path="course/:id" element={<TeacherCourseDetail />} />
+          <Route path="messages" element={<TeacherMessages />} />
           <Route path="simulados" element={<TeacherSimulados />} />
           <Route path="configuracoes" element={<Configuracoes />} />
         </Route>

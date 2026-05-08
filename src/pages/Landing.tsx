@@ -85,7 +85,7 @@ const plans = [
 const faqData = [
   {
     question: 'Como funciona o acesso às aulas?',
-    answer: 'Após a matrícula, você tem acesso imediato a todas as aulas gravadas da sua disciplina. As aulas ficam disponíveis 24h por dia, 7 dias por semana, e você pode assistir quantas vezes quiser.',
+     answer: 'Após a matrícula, você tem acesso imediato a todas as aulas gravadas do seu módulo. As aulas ficam disponíveis 24h por dia, 7 dias por semana, e você pode assistir quantas vezes quiser.',
   },
   {
     question: 'Posso cancelar minha assinatura a qualquer momento?',
@@ -229,7 +229,7 @@ export default function Landing() {
                   <div className="w-full h-full flex flex-col items-center justify-center text-white p-8">
                     <MonitorPlay className="w-16 h-16 mb-4" />
                     <h3 className="text-2xl font-bold mb-2">+500 Aulas</h3>
-                    <p className="text-blue-100 text-center text-sm">Em todas as disciplinas para sua preparação</p>
+                     <p className="text-blue-100 text-center text-sm">Em todos os módulos para sua preparação</p>
                     <div className="grid grid-cols-2 gap-4 mt-6 w-full">
                       <div className="bg-white/15 rounded-xl p-3 text-center">
                         <FileText className="w-6 h-6 mx-auto mb-1" />
@@ -282,7 +282,7 @@ export default function Landing() {
               {
                 icon: FileText,
                 title: 'Banco de Questões',
-                description: 'Milhares de questões organizadas por disciplina, dificuldade e instituição.',
+                 description: 'Milhares de questões organizadas por módulo, dificuldade e instituição.',
                 color: 'green',
               },
               {
@@ -300,7 +300,7 @@ export default function Landing() {
               {
                 icon: BarChart3,
                 title: 'Desempenho Detalhado',
-                description: 'Acompanhe seu progresso com gráficos e estatísticas por disciplina.',
+                 description: 'Acompanhe seu progresso com gráficos e estatísticas por módulo.',
                 color: 'pink',
               },
               {

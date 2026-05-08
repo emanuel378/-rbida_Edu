@@ -9,7 +9,7 @@ import Breadcrumb from '../../../shared/components/Breadcrumb'
 export default function Lesson() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { lessons, completeLesson, disciplines, courses } = useCourseStore()
+  const { lessons, completeLesson, modules, courses } = useCourseStore()
   const { comments, addComment, getComments } = useQuestionStore()
   const user = useAuthStore(s => s.user)
 
@@ -18,18 +18,18 @@ export default function Lesson() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const lessonComments = getComments(id || '')
 
-  const discipline = disciplines.find(d => d.id === lesson?.disciplineId)
-  const course = discipline ? courses.find(c => c.id === discipline.courseId) : null
-  const courseLessons = lessons.filter(l => l.disciplineId === lesson?.disciplineId)
+  const module = modules.find(m => m.id === lesson?.moduleId)
+  const course = module ? courses.find(c => c.id === module.courseId) : null
+  const courseLessons = lessons.filter(l => l.moduleId === lesson?.moduleId)
 
   useEffect(() => {
-    if (lesson && discipline && course) {
+    if (lesson && module && course) {
     }
-  }, [lesson, discipline, course])
+  }, [lesson, module, course])
 
   const handleComplete = () => {
-    if (user && lesson && discipline) {
-      completeLesson(user.id, discipline.courseId, lesson.id)
+    if (user && lesson && module) {
+      completeLesson(user.id, module.courseId, lesson.id)
     }
   }
 
@@ -89,8 +89,8 @@ export default function Lesson() {
             <ArrowLeft className="w-4 h-4" />
             Voltar ao Curso
           </Link>
-          {discipline && (
-            <p className="text-sm text-gray-500 mt-2">{discipline.title}</p>
+          {module && (
+            <p className="text-sm text-gray-500 mt-2">{module.title}</p>
           )}
         </div>
         <div className="p-2">
@@ -130,11 +130,11 @@ export default function Lesson() {
       )}
 
       <main className="flex-1 max-w-4xl w-full p-4 sm:p-6 mx-auto">
-        {course && discipline && (
+        {course && module && (
           <Breadcrumb items={[
             { label: 'Meus Cursos', to: '/dashboard/cursos' },
             { label: course.title, to: `/dashboard/course/${course.id}` },
-            { label: discipline.title },
+            { label: module.title },
           ]} />
         )}
         <div className="mb-6">
@@ -168,6 +168,14 @@ export default function Lesson() {
           >
             <CheckCircle className="w-4 h-4" />
             Marcar como Concluída
+          </button>
+
+          <button
+            onClick={() => navigate(`/dashboard/course/${course?.id}/messages?lesson=${lesson.id}`)}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-orange-50 border-2 border-orange-600 text-orange-600 rounded-xl hover:bg-orange-100 transition-all text-sm font-medium"
+          >
+            <MessageCircle className="w-4 h-4" />
+            Enviar Dúvida desta Aula
           </button>
         </div>
 

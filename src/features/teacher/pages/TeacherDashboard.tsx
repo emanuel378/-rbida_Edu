@@ -3,19 +3,19 @@ import { useQuestionStore } from '../../courses/data/questionStore'
 import { useAuthStore } from '../../auth/services/authStore'
 import { BookOpen, Video, HelpCircle, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import type { Discipline, Lesson } from '../../courses/data/mock'
+import type { Module, Lesson } from '../../courses/data/mock'
 
 export default function TeacherDashboard() {
   const { user } = useAuthStore()
-  const { courses, disciplines, lessons } = useCourseStore()
-  const { questions } = useQuestionStore()
   const navigate = useNavigate()
+  const { courses, modules, lessons } = useCourseStore()
+  const { questions } = useQuestionStore()
 
   const myCourses = courses.filter(c => c.teacherId === user?.id)
-  const myDisciplines: Discipline[] = disciplines.filter(d => myCourses.some(c => c.id === d.courseId))
-  const myLessons: Lesson[] = lessons.filter(l => myDisciplines.some(d => d.id === l.disciplineId))
+  const myModules: Module[] = modules.filter(m => myCourses.some(c => c.id === m.courseId))
+  const myLessons: Lesson[] = lessons.filter(l => myModules.some(m => m.id === l.moduleId))
   const myQuestions = questions.filter(q =>
-    myDisciplines.some(d => d.id === q.disciplineId)
+    myModules.some(m => m.id === q.moduleId)
   )
 
   return (
@@ -43,8 +43,8 @@ export default function TeacherDashboard() {
               <BookOpen className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{myDisciplines.length}</p>
-              <p className="text-sm text-gray-500">Disciplinas</p>
+              <p className="text-2xl font-bold text-gray-900">{myModules.length}</p>
+              <p className="text-sm text-gray-500">Módulos</p>
             </div>
           </div>
         </div>
