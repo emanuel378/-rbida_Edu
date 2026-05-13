@@ -1,5 +1,6 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Home, ChevronRight } from 'lucide-react'
+import { useAuthStore } from '../../features/auth/services/authStore'
 
 interface BreadcrumbItem {
   label: string
@@ -11,9 +12,12 @@ interface BreadcrumbProps {
 }
 
 export default function Breadcrumb({ items }: BreadcrumbProps) {
+  const user = useAuthStore(s => s.user)
+  const homeLink = user?.role === 'professor' ? '/teacher' : '/dashboard'
+
   return (
     <nav className="flex items-center gap-1 text-sm text-gray-500 mb-6">
-      <Link to="/dashboard" className="flex items-center gap-1 hover:text-gray-700 transition-colors">
+      <Link to={homeLink} className="flex items-center gap-1 hover:text-gray-700 transition-colors">
         <Home className="w-4 h-4" />
         <span>Início</span>
       </Link>

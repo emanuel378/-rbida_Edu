@@ -41,15 +41,6 @@ const initData = <T>(key: string, mockData: T[]): T[] => {
     return migrated as T[]
   }
 
-  if (key === 'questions' && data.length > 0 && 'disciplineId' in data[0]) {
-    const migrated = data.map((item: any) => ({
-      ...item,
-      moduleId: item.disciplineId,
-    }))
-    localStorage.setItem(key, JSON.stringify(migrated))
-    return migrated as T[]
-  }
-
   return data
 }
 

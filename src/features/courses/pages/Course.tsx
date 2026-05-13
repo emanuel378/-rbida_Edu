@@ -2,7 +2,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../auth/services/authStore'
 import { useCourseStore } from '../data/courseStore'
 import { useQuestionStore } from '../data/questionStore'
-import { BookOpen, Play, FileText, MessageCircle, HelpCircle } from 'lucide-react'
+import { BookOpen, Play, FileText, MessageCircle, HelpCircle, CheckCircle } from 'lucide-react'
 import ProgressBar from '../../../shared/components/ProgressBar'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 
@@ -107,21 +107,37 @@ export default function Course() {
                   {moduleLessons.length > 0 ? (
                     <div className="space-y-2 ml-2 mb-4">
                       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Aulas</p>
-                      {moduleLessons.map((lesson, lessonIndex) => (
+                      {moduleLessons.map((lesson, lessonIndex) => {
+                        const completed = enrollment?.completedLessons.includes(lesson.id)
+                        return (
                         <Link
                           key={lesson.id}
                           to={`/dashboard/lesson/${lesson.id}`}
-                          className="flex items-center gap-3 p-3 rounded-xl hover:bg-blue-50 transition-colors group"
+                          className={`flex items-center gap-3 p-3 rounded-xl transition-colors group ${
+                            completed ? 'bg-green-50 hover:bg-green-100' : 'hover:bg-blue-50'
+                          }`}
                         >
-                          <div className="w-8 h-8 bg-gray-100 group-hover:bg-blue-100 rounded-lg flex items-center justify-center text-xs font-medium text-gray-600 group-hover:text-blue-600 transition-colors flex-shrink-0">
-                            {lessonIndex + 1}
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium transition-colors flex-shrink-0 ${
+                            completed
+                              ? 'bg-green-500 text-white'
+                              : 'bg-gray-100 group-hover:bg-blue-100 text-gray-600 group-hover:text-blue-600'
+                          }`}>
+                            {completed ? <CheckCircle className="w-4 h-4" /> : lessonIndex + 1}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-800 group-hover:text-blue-600 transition-colors truncate">
+                            <p className={`text-sm font-medium transition-colors truncate ${
+                              completed
+                                ? 'text-green-700 line-through'
+                                : 'text-gray-800 group-hover:text-blue-600'
+                            }`}>
                               {lesson.title}
                             </p>
                             <div className="flex items-center gap-2 mt-1">
-                              <Play className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                              {completed ? (
+                                <CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0" />
+                              ) : (
+                                <Play className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                              )}
                               <span className="text-xs text-gray-500">Vídeo</span>
                               {lesson.pdfUrl && (
                                 <>
@@ -132,9 +148,13 @@ export default function Course() {
                               )}
                             </div>
                           </div>
-                          <Play className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors flex-shrink-0" />
+                          {completed ? (
+                            <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                          ) : (
+                            <Play className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors flex-shrink-0" />
+                          )}
                         </Link>
-                      ))}
+                      )})}
                     </div>
                   ) : (
                     <p className="text-sm text-gray-400 ml-2 mb-4">Nenhuma aula cadastrada neste módulo.</p>

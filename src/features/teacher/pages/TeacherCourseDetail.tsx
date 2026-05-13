@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useCourseStore } from '../../courses/data/courseStore'
 import { useQuestionStore } from '../../courses/data/questionStore'
 import { useAuthStore } from '../../auth/services/authStore'
-import { BookOpen, Plus, Video, HelpCircle, Trash2, ArrowLeft, ChevronDown, ChevronRight, FileText } from 'lucide-react'
+import { BookOpen, Plus, Video, HelpCircle, Trash2, ArrowLeft, ChevronDown, ChevronRight, FileText, List, CheckCircle, Loader2 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 export default function TeacherCourseDetail() {
@@ -39,6 +39,64 @@ export default function TeacherCourseDetail() {
     difficulty: 'facil',
   })
   const [showQuestionForm, setShowQuestionForm] = useState(false)
+
+  const [showPlaylistForm, setShowPlaylistForm] = useState(false)
+  const [videoUrls, setVideoUrls] = useState('')
+  const [playlistModuleId, setPlaylistModuleId] = useState('')
+  const [playlistVideos, setPlaylistVideos] = useState<{title: string; videoId: string; selected: boolean}[]>([])
+  const [loadingPlaylist, setLoadingPlaylist] = useState(false)
+  const [playlistError, setPlaylistError] = useState('')
+
+  const getVideoId = (url: string): string | null => {
+    try {
+      const u = new URL(url)
+      if (u.hostname.includes('youtube.com') || u.hostname === 'youtu.be') {
+        if (u.searchParams.has('v')) return u.searchParams.get('v')
+        const path = u.pathname.replace(/^\//, '')
+        if (u.hostname === 'youtu.be' && path) return path
+      }
+      return null
+    } catch { return null }
+  }
+
+  const handleFetchVideos = async () => {
+    const ids = [...new Set(videoUrls.split('\n').map(u => getVideoId(u.trim())).filter(Boolean) as string[])]
+    if (!ids.length) { setPlaylistError('Nenhum link do YouTube válido encontrado'); return }
+    setLoadingPlaylist(true)
+    setPlaylistError('')
+    const videos: {title: string; videoId: string; selected: boolean}[] = []
+    for (const id of ids) {
+      try {
+        const res = await fetch(`https://www.youtube.com/oembed?format=json&url=https://www.youtube.com/watch?v=${id}`)
+        const data = await res.json()
+        videos.push({ title: data.title || 'Sem título', videoId: id, selected: true })
+      } catch {
+        videos.push({ title: `Vídeo (${id})`, videoId: id, selected: true })
+      }
+    }
+    setPlaylistVideos(videos)
+    setLoadingPlaylist(false)
+  }
+
+  const handleImportPlaylist = () => {
+    if (!playlistModuleId) return
+    const selected = playlistVideos.filter(v => v.selected)
+    let order = lessons.filter(l => l.moduleId === playlistModuleId).length
+    selected.forEach(video => {
+      order++
+      addLesson({
+        id: Date.now().toString() + Math.random(),
+        moduleId: playlistModuleId,
+        title: video.title,
+        videoUrl: `https://www.youtube.com/watch?v=${video.videoId}`,
+        pdfUrl: '',
+        order,
+      })
+    })
+    setVideoUrls('')
+    setPlaylistVideos([])
+    setShowPlaylistForm(false)
+  }
 
   if (!course) return <p className="text-center py-8">Curso não encontrado</p>
 
@@ -194,6 +252,78 @@ export default function TeacherCourseDetail() {
             className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium">
             Criar Aula
           </button>
+
+          <div className="border-t border-gray-200 pt-4">
+            <button
+              onClick={() => setShowPlaylistForm(!showPlaylistForm)}
+              className="flex items-center gap-2 text-sm text-purple-600 hover:text-purple-700 font-medium"
+            >
+              <List className="w-4 h-4" />
+              {showPlaylistForm ? 'Ocultar' : 'Importar da Playlist do YouTube'}
+            </button>
+
+            {showPlaylistForm && (
+              <div className="mt-4 space-y-3">
+                <select
+                  value={playlistModuleId}
+                  onChange={e => setPlaylistModuleId(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white">
+                  <option value="">Selecione o módulo destino</option>
+                  {myModules.map(m => (
+                    <option key={m.id} value={m.id}>{m.title}</option>
+                  ))}
+                </select>
+
+                <textarea value={videoUrls} onChange={e => setVideoUrls(e.target.value)}
+                  placeholder="Cole os links dos vídeos, um por linha:&#10;https://www.youtube.com/watch?v=...&#10;https://youtu.be/...&#10;https://www.youtube.com/watch?v=..."
+                  rows={4} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none text-sm" />
+                <button onClick={handleFetchVideos} disabled={!videoUrls.trim() || loadingPlaylist || !playlistModuleId}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors disabled:opacity-50 font-medium text-sm">
+                  {loadingPlaylist ? <Loader2 className="w-4 h-4 animate-spin" /> : <List className="w-4 h-4" />}
+                  {loadingPlaylist ? 'Buscando...' : 'Buscar Dados dos Vídeos'}
+                </button>
+
+                {playlistError && (
+                  <p className="text-sm text-red-600">{playlistError}</p>
+                )}
+
+                {playlistVideos.length > 0 && (
+                  <>
+                    <div className="max-h-48 overflow-y-auto space-y-2 border border-gray-200 rounded-xl p-3">
+                      {playlistVideos.map((v, i) => (
+                        <label key={i} className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                          <input type="checkbox" checked={v.selected}
+                            onChange={() => {
+                              const updated = [...playlistVideos]
+                              updated[i].selected = !updated[i].selected
+                              setPlaylistVideos(updated)
+                            }}
+                            className="mt-1 w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{v.title}</p>
+                            <p className="text-xs text-gray-500 truncate">youtube.com/watch?v={v.videoId}</p>
+                          </div>
+                          <Video className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />
+                        </label>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">
+                        {playlistVideos.filter(v => v.selected).length} de {playlistVideos.length} selecionados
+                      </span>
+                      <button onClick={handleImportPlaylist}
+                        disabled={!playlistVideos.some(v => v.selected)}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors disabled:opacity-50 font-medium text-sm">
+                        <CheckCircle className="w-4 h-4" />
+                        Importar Selecionadas
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

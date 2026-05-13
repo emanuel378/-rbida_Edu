@@ -3,13 +3,13 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../auth/services/authStore'
 import { useCourseStore } from '../data/courseStore'
 import { useQuestionStore } from '../data/questionStore'
-import { ArrowLeft, FileDown, CheckCircle, Send, MessageCircle, Play, Menu, X } from 'lucide-react'
+import { ArrowLeft, FileDown, CheckCircle, Send, MessageCircle, Play, Menu, X, BookOpen } from 'lucide-react'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 
 export default function Lesson() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { lessons, completeLesson, modules, courses } = useCourseStore()
+  const { lessons, completeLesson, modules, courses, enrollments } = useCourseStore()
   const { comments, addComment, getComments } = useQuestionStore()
   const user = useAuthStore(s => s.user)
 
@@ -22,10 +22,18 @@ export default function Lesson() {
   const course = module ? courses.find(c => c.id === module.courseId) : null
   const courseLessons = lessons.filter(l => l.moduleId === lesson?.moduleId)
 
-  useEffect(() => {
-    if (lesson && module && course) {
-    }
-  }, [lesson, module, course])
+  const enrollment = user && module ? enrollments.find(e => e.userId === user.id && e.courseId === module.courseId) : null
+  const isLessonCompleted = enrollment?.completedLessons.includes(lesson?.id || '')
+
+  const videoId = (() => {
+    if (!lesson?.videoUrl) return ''
+    try {
+      const u = new URL(lesson.videoUrl)
+      if (u.hostname === 'youtu.be') return u.pathname.slice(1)
+      if (u.hostname.includes('youtube.com')) return u.searchParams.get('v') || ''
+    } catch {}
+    return ''
+  })()
 
   const handleComplete = () => {
     if (user && lesson && module) {
@@ -54,10 +62,6 @@ export default function Lesson() {
       </Link>
     </div>
   )
-
-  const videoId = lesson.videoUrl.includes('youtube.com/watch?v=')
-    ? lesson.videoUrl.split('v=')[1]
-    : lesson.videoUrl.split('/').pop()
 
   const currentIndex = courseLessons.findIndex(l => l.id === lesson.id)
   const prevLesson = currentIndex > 0 ? courseLessons[currentIndex - 1] : null
@@ -94,7 +98,9 @@ export default function Lesson() {
           )}
         </div>
         <div className="p-2">
-          {courseLessons.map((l, index) => (
+          {courseLessons.map((l, index) => {
+            const completed = enrollment?.completedLessons.includes(l.id)
+            return (
             <Link
               key={l.id}
               to={`/dashboard/lesson/${l.id}`}
@@ -102,23 +108,35 @@ export default function Lesson() {
               className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${
                 l.id === lesson.id
                   ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                  : completed
+                  ? 'bg-green-50 hover:bg-green-100'
                   : 'hover:bg-gray-50 text-gray-700'
               }`}
             >
               <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
-                l.id === lesson.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
+                completed
+                  ? 'bg-green-500 text-white'
+                  : l.id === lesson.id
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-600'
               }`}>
-                {index + 1}
+                {completed ? <CheckCircle className="w-4 h-4" /> : index + 1}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{l.title}</p>
-                {l.id === lesson.id && (
+                <p className={`text-sm font-medium truncate ${
+                  completed ? 'text-green-700 line-through' : ''
+                }`}>{l.title}</p>
+                {l.id === lesson.id && !completed && (
                   <p className="text-xs text-blue-600">Assistindo agora</p>
                 )}
+                {completed && (
+                  <p className="text-xs text-green-600">Concluída</p>
+                )}
               </div>
-              {l.id === lesson.id && <Play className="w-4 h-4 text-blue-600 flex-shrink-0" />}
+              {completed && <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />}
+              {l.id === lesson.id && !completed && <Play className="w-4 h-4 text-blue-600 flex-shrink-0" />}
             </Link>
-          ))}
+          )})}
         </div>
       </aside>
 
@@ -164,10 +182,14 @@ export default function Lesson() {
 
           <button
             onClick={handleComplete}
-            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-white border-2 border-blue-600 text-blue-600 rounded-xl hover:bg-blue-50 transition-all text-sm font-medium"
+            className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl transition-all text-sm font-medium ${
+              isLessonCompleted
+                ? 'bg-green-100 border-2 border-green-500 text-green-700 cursor-default'
+                : 'bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50'
+            }`}
           >
             <CheckCircle className="w-4 h-4" />
-            Marcar como Concluída
+            {isLessonCompleted ? 'Concluída' : 'Marcar como Concluída'}
           </button>
 
           <button

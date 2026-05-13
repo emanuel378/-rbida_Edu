@@ -15,6 +15,8 @@ export default function Login() {
       login(user)
       if (user.role === 'professor' && !user.approved) {
         navigate('/pending')
+      } else if (user.role === 'professor') {
+        navigate('/teacher')
       } else {
         navigate('/dashboard')
       }

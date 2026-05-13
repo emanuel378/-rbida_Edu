@@ -8,7 +8,13 @@ const initData = <T>(key: string, mockData: T[]): T[] => {
     localStorage.setItem(key, JSON.stringify(mockData))
     return mockData
   }
-  return JSON.parse(saved)
+  const data = JSON.parse(saved)
+  if (key === 'questions' && data.length > 0 && 'disciplineId' in data[0]) {
+    const migrated = data.map((item: any) => ({ ...item, moduleId: item.disciplineId }))
+    localStorage.setItem(key, JSON.stringify(migrated))
+    return migrated as T[]
+  }
+  return data
 }
 
 interface QuestionState {

@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, CheckCircle2, AlertCircle, BookOpen } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Calendar as CalendarIcon, Clock, CheckCircle2, AlertCircle, BookOpen } from 'lucide-react'
+import { useAuthStore } from '../../auth/services/authStore'
+import { useCourseStore } from '../../courses/data/courseStore'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 
 interface ScheduleItem {
@@ -11,34 +13,50 @@ interface ScheduleItem {
   completed: boolean
 }
 
-const scheduleData: ScheduleItem[] = [
-  { id: '1', day: 'Segunda', time: '08:00', subject: 'Matemática - Álgebra', type: 'aula', completed: true },
-  { id: '2', day: 'Segunda', time: '10:00', subject: 'Português - Gramática', type: 'aula', completed: true },
-  { id: '3', day: 'Terça', time: '08:00', subject: 'Física - Mecânica', type: 'aula', completed: false },
-  { id: '4', day: 'Terça', time: '14:00', subject: 'Simulado Geral', type: 'simulado', completed: false },
-  { id: '5', day: 'Quarta', time: '08:00', subject: 'Química - Orgânica', type: 'aula', completed: false },
-  { id: '6', day: 'Quarta', time: '10:00', subject: 'Revisão da Semana', type: 'revisao', completed: false },
-  { id: '7', day: 'Quinta', time: '08:00', subject: 'Matemática - Geometria', type: 'aula', completed: false },
-  { id: '8', day: 'Quinta', time: '14:00', subject: 'Português - Redação', type: 'aula', completed: false },
-  { id: '9', day: 'Sexta', time: '08:00', subject: 'Biologia - Ecologia', type: 'aula', completed: false },
-  { id: '10', day: 'Sexta', time: '10:00', subject: 'História - Brasil', type: 'aula', completed: false },
-  { id: '11', day: 'Sábado', time: '09:00', subject: 'Simulado Específico', type: 'simulado', completed: false },
-]
-
 const days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+
+const timeSlots = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00']
 
 export default function Cronograma() {
   const [selectedDay, setSelectedDay] = useState<string>('Segunda')
+  const { user } = useAuthStore()
+  const { courses, modules, lessons, enrollments } = useCourseStore()
+
+  const scheduleData = useMemo<ScheduleItem[]>(() => {
+    const enrolledCourses = courses.filter(c =>
+      enrollments.some(e => e.userId === user?.id && e.courseId === c.id)
+    )
+    const enrolledCourseIds = enrolledCourses.map(c => c.id)
+    const courseModules = modules.filter(m => enrolledCourseIds.includes(m.courseId))
+    const courseModuleIds = courseModules.map(m => m.id)
+    const allLessons = lessons.filter(l => courseModuleIds.includes(l.moduleId))
+
+    return allLessons.map((lesson, index) => {
+      const mod = courseModules.find(m => m.id === lesson.moduleId)
+      const course = enrolledCourses.find(c => c.id === mod?.courseId)
+      const enrollment = enrollments.find(e => e.userId === user?.id && e.courseId === course?.id)
+      const completed = enrollment?.completedLessons.includes(lesson.id) || false
+
+      return {
+        id: lesson.id,
+        day: days[index % days.length],
+        time: timeSlots[Math.floor(index / days.length) % timeSlots.length],
+        subject: course ? `${course.title} - ${lesson.title}` : lesson.title,
+        type: 'aula' as const,
+        completed,
+      }
+    })
+  }, [user, courses, modules, lessons, enrollments])
+
+  const completedCount = scheduleData.filter((item) => item.completed).length
+  const totalCount = scheduleData.length
+  const todayItems = scheduleData.filter((item) => item.day === selectedDay)
 
   const typeConfig = {
     aula: { color: 'bg-blue-50 text-blue-700 border-blue-200', icon: BookOpen },
     simulado: { color: 'bg-purple-50 text-purple-700 border-purple-200', icon: CalendarIcon },
     revisao: { color: 'bg-green-50 text-green-700 border-green-200', icon: Clock },
   }
-
-  const completedCount = scheduleData.filter((item) => item.completed).length
-  const totalCount = scheduleData.length
-  const todayItems = scheduleData.filter((item) => item.day === selectedDay)
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl">
@@ -55,7 +73,6 @@ export default function Cronograma() {
         </p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
           <div className="flex items-center gap-3">
@@ -92,8 +109,13 @@ export default function Cronograma() {
         </div>
       </div>
 
+      {totalCount === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-100">
+          <CalendarIcon className="w-12 h-12 text-gray-200 mb-3" />
+          <p className="text-gray-500 text-sm">Nenhum curso matriculado. Matricule-se em um curso para ver o cronograma.</p>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Week Overview */}
         <div className="lg:col-span-1">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
             <div className="p-5 border-b border-gray-100">
@@ -143,7 +165,6 @@ export default function Cronograma() {
           </div>
         </div>
 
-        {/* Right: Day Detail */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
@@ -208,6 +229,7 @@ export default function Cronograma() {
           </div>
         </div>
       </div>
+      )}
     </div>
   )
 }
