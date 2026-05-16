@@ -13,8 +13,9 @@ export default function DashboardHome() {
 
   const firstName = user?.name.split(' ')[0] || 'Aluno'
 
-  const enrolledCourses = courses.filter((course) => getEnrollment(user?.id || '', course.id))
-  const availableCourses = courses.filter(
+  const visibleCourses = courses.filter(c => c.status === 'approved')
+  const enrolledCourses = visibleCourses.filter((course) => getEnrollment(user?.id || '', course.id))
+  const availableCourses = visibleCourses.filter(
     (course) => !getEnrollment(user?.id || '', course.id)
   )
 

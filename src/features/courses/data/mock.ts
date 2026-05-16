@@ -11,6 +11,8 @@ export interface Course {
   title: string
   description: string
   teacherId: string
+  price: number
+  status: 'pending' | 'approved' | 'rejected'
   createdAt: string
 }
 
@@ -88,8 +90,8 @@ export const mockUsers: User[] = [
 ]
 
 export const mockCourses: Course[] = [
-  { id: 'c1', title: 'Preparatório IFSP', description: 'Curso completo para concursos do IFSP', teacherId: '3', createdAt: '2026-01-15' },
-  { id: 'c2', title: 'Preparatório IFMG', description: 'Matemática e Português para IFMG', teacherId: '3', createdAt: '2026-02-20' },
+  { id: 'c1', title: 'Preparatório IFSP', description: 'Curso completo para concursos do IFSP', teacherId: '3', price: 0, status: 'approved', createdAt: '2026-01-15' },
+  { id: 'c2', title: 'Preparatório IFMG', description: 'Matemática e Português para IFMG', teacherId: '3', price: 49.90, status: 'approved', createdAt: '2026-02-20' },
 ]
 
 export const mockModules: Module[] = [

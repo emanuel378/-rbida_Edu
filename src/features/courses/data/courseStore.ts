@@ -53,11 +53,16 @@ interface CourseState {
   messages: Message[]
   users: User[]
   addCourse: (course: Course) => void
+  approveCourse: (courseId: string) => void
+  rejectCourse: (courseId: string) => void
+  updateCoursePrice: (courseId: string, price: number) => void
   addModule: (module: Module) => void
   addLesson: (lesson: Lesson) => void
   deleteCourse: (courseId: string) => void
   deleteModule: (moduleId: string) => void
   deleteLesson: (lessonId: string) => void
+  updateModule: (id: string, data: Partial<Module>) => void
+  updateLesson: (id: string, data: Partial<Lesson>) => void
   enroll: (enrollment: Enrollment) => void
   completeLesson: (userId: string, courseId: string, lessonId: string) => void
   getEnrollment: (userId: string, courseId: string) => Enrollment | undefined
@@ -77,6 +82,32 @@ export const useCourseStore = create<CourseState>((set, get) => ({
 
   addCourse: (course) => {
     const courses = [...get().courses, course]
+    localStorage.setItem('courses', JSON.stringify(courses))
+    set({ courses })
+  },
+
+  approveCourse: (courseId) => {
+    const courses = get().courses.map(c =>
+      c.id === courseId ? { ...c, status: 'approved' as const } : c
+    )
+    localStorage.setItem('courses', JSON.stringify(courses))
+    set({ courses })
+  },
+
+  rejectCourse: (courseId) => {
+    const courses = get().courses.map(c =>
+      c.id === courseId ? { ...c, status: 'rejected' as const } : c
+    )
+    localStorage.setItem('courses', JSON.stringify(courses))
+    set({ courses })
+  },
+
+  updateCoursePrice: (courseId, price) => {
+    const courses = get().courses.map(c =>
+      c.id === courseId
+        ? { ...c, price, status: (c.status === 'approved' ? 'pending' : c.status) as Course['status'] }
+        : c
+    )
     localStorage.setItem('courses', JSON.stringify(courses))
     set({ courses })
   },
@@ -114,6 +145,18 @@ export const useCourseStore = create<CourseState>((set, get) => ({
 
   deleteLesson: (lessonId) => {
     const lessons = get().lessons.filter(l => l.id !== lessonId)
+    localStorage.setItem('lessons', JSON.stringify(lessons))
+    set({ lessons })
+  },
+
+  updateModule: (id, data) => {
+    const modules = get().modules.map(m => m.id === id ? { ...m, ...data } : m)
+    localStorage.setItem('modules', JSON.stringify(modules))
+    set({ modules })
+  },
+
+  updateLesson: (id, data) => {
+    const lessons = get().lessons.map(l => l.id === id ? { ...l, ...data } : l)
     localStorage.setItem('lessons', JSON.stringify(lessons))
     set({ lessons })
   },

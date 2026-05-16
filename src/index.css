@@ -23,6 +23,10 @@
   .animate-scale:hover {
     transform: scale(1.02);
   }
+
+  .animate-slideDown {
+    animation: slideDown 0.25s ease-out;
+  }
 }
 
 @keyframes fadeIn {
@@ -42,6 +46,17 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 2000px;
   }
 }
 

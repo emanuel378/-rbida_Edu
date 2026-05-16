@@ -11,7 +11,8 @@ export default function MeusCursos() {
   const { user } = useAuthStore()
   const { courses, modules, lessons, getEnrollment } = useCourseStore()
 
-  const enrolledCourses = courses.filter((course) => getEnrollment(user?.id || '', course.id))
+  const visibleCourses = courses.filter(c => c.status === 'approved')
+  const enrolledCourses = visibleCourses.filter((course) => getEnrollment(user?.id || '', course.id))
 
   const getCourseStats = (courseId: string) => {
     const courseModules = modules.filter((m) => m.courseId === courseId)

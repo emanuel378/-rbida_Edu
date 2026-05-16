@@ -26,8 +26,9 @@ export default function Dashboard() {
     })
   }
 
-  const enrolledCourses = user ? allCourses.filter(c => getEnrollment(user.id, c.id)) : []
-  const availableCourses = user ? allCourses.filter(c => !getEnrollment(user.id, c.id)) : allCourses
+  const visibleCourses = allCourses.filter(c => c.status === 'approved')
+  const enrolledCourses = user ? visibleCourses.filter(c => getEnrollment(user.id, c.id)) : []
+  const availableCourses = user ? visibleCourses.filter(c => !getEnrollment(user.id, c.id)) : visibleCourses
 
   return (
     <div>

@@ -55,6 +55,7 @@ export default function App() {
           </ProtectedRoute>
         }>
           <Route index element={<Admin />} />
+          <Route path="configuracoes" element={<Configuracoes />} />
         </Route>
 
         <Route path="*" element={<Landing />} />

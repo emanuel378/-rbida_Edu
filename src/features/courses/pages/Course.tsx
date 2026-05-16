@@ -2,7 +2,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../auth/services/authStore'
 import { useCourseStore } from '../data/courseStore'
 import { useQuestionStore } from '../data/questionStore'
-import { BookOpen, Play, FileText, MessageCircle, HelpCircle, CheckCircle } from 'lucide-react'
+import { BookOpen, Play, FileText, MessageCircle, HelpCircle, CheckCircle, DollarSign } from 'lucide-react'
 import ProgressBar from '../../../shared/components/ProgressBar'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 
@@ -62,7 +62,11 @@ export default function Course() {
               <span>{totalLessons} aulas</span>
             </div>
             <div className="flex items-center gap-2 text-blue-600">
-              <span>Professor do curso: {getTeacherName(course.teacherId)}</span>
+              <span>Professor: {getTeacherName(course.teacherId)}</span>
+            </div>
+            <div className="flex items-center gap-2 text-green-600">
+              <DollarSign className="w-4 h-4" />
+              <span>{course.price > 0 ? `R$ ${course.price.toFixed(2)}` : 'Gratuito'}</span>
             </div>
             <button
               onClick={() => navigate(`/dashboard/course/${id}/messages`)}

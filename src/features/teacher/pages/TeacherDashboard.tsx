@@ -1,7 +1,7 @@
 import { useCourseStore } from '../../courses/data/courseStore'
 import { useQuestionStore } from '../../courses/data/questionStore'
 import { useAuthStore } from '../../auth/services/authStore'
-import { BookOpen, Video, HelpCircle, Plus } from 'lucide-react'
+import { BookOpen, Video, HelpCircle, Plus, Clock, CheckCircle, XCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { Module, Lesson } from '../../courses/data/mock'
 
@@ -17,6 +17,8 @@ export default function TeacherDashboard() {
   const myQuestions = questions.filter(q =>
     myModules.some(m => m.id === q.moduleId)
   )
+  const pendingCourses = myCourses.filter(c => c.status === 'pending')
+  const rejectedCourses = myCourses.filter(c => c.status === 'rejected')
 
   return (
     <div>
@@ -72,6 +74,29 @@ export default function TeacherDashboard() {
         </div>
       </div>
 
+      {(pendingCourses.length > 0 || rejectedCourses.length > 0) && (
+        <div className="space-y-3 mb-8">
+          {pendingCourses.length > 0 && (
+            <div className="flex items-center gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+              <Clock className="w-5 h-5 text-yellow-600 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-yellow-800">{pendingCourses.length} curso(s) aguardando aprovação do admin</p>
+                <p className="text-xs text-yellow-600">Os cursos precisam ser aprovados antes de ficarem visíveis para os alunos.</p>
+              </div>
+            </div>
+          )}
+          {rejectedCourses.length > 0 && (
+            <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
+              <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-red-800">{rejectedCourses.length} curso(s) foram rejeitados</p>
+                <p className="text-xs text-red-600">Edite e reenvie para aprovação.</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-gray-900">Meus Cursos</h2>
@@ -96,6 +121,16 @@ export default function TeacherDashboard() {
                 <div className="flex-1">
                   <p className="font-medium text-gray-900">{course.title}</p>
                   <p className="text-sm text-gray-500">{course.description}</p>
+                  <span className={`inline-flex items-center gap-1 text-xs font-medium mt-1 ${
+                    course.status === 'approved' ? 'text-green-600' :
+                    course.status === 'rejected' ? 'text-red-600' : 'text-yellow-600'
+                  }`}>
+                    {course.status === 'approved' ? <CheckCircle className="w-3 h-3" /> :
+                     course.status === 'rejected' ? <XCircle className="w-3 h-3" /> :
+                     <Clock className="w-3 h-3" />}
+                    {course.status === 'approved' ? 'Aprovado' :
+                     course.status === 'rejected' ? 'Rejeitado' : 'Pendente'}
+                  </span>
                 </div>
                 <span className="text-sm text-blue-600">Gerenciar →</span>
               </div>

@@ -14,6 +14,8 @@ import {
   GraduationCap,
   MessageCircle,
   HelpCircle,
+  ShieldCheck,
+  Users,
 } from 'lucide-react'
 
 interface NavItem {
@@ -39,6 +41,10 @@ const teacherNavItems: NavItem[] = [
   { to: '/teacher/messages', icon: MessageCircle, label: 'Mensagens', end: false },
 ]
 
+const adminNavItems: NavItem[] = [
+  { to: '/admin', icon: ShieldCheck, label: 'Painel', end: true },
+]
+
 export default function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUiStore()
   const { user, logout } = useAuthStore()
@@ -49,7 +55,7 @@ export default function Sidebar() {
     navigate('/login')
   }
 
-  const navItems = user?.role === 'professor' ? teacherNavItems : studentNavItems
+  const navItems = user?.role === 'professor' ? teacherNavItems : user?.role === 'admin' ? adminNavItems : studentNavItems
 
   return (
     <aside
@@ -108,7 +114,7 @@ export default function Sidebar() {
         {/* Footer */}
         <div className="py-4 px-3 border-t border-gray-100 space-y-1">
           <NavLink
-            to={user?.role === 'professor' ? '/teacher/configuracoes' : '/dashboard/configuracoes'}
+            to={user?.role === 'professor' ? '/teacher/configuracoes' : user?.role === 'admin' ? '/admin/configuracoes' : '/dashboard/configuracoes'}
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-lg transition-all duration-200 ${
                 sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'
