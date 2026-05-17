@@ -6,7 +6,7 @@ import { DashboardHome, MeusCursos, Cronograma, Desempenho, Configuracoes } from
 import { Course, Lesson, QuestionBank, CourseMessages } from './features/courses'
 import { Simulado } from './features/simulado'
 import { TeacherDashboard, TeacherCourses, TeacherCourseDetail, TeacherSimulados, TeacherMessages } from './features/teacher'
-import { Admin } from './features/admin'
+import { Admin, AdminAnalytics } from './features/admin'
 
 export default function App() {
   return (
@@ -36,13 +36,14 @@ export default function App() {
 
         {/* Rotas do Professor */}
         <Route path="/teacher" element={
-          <ProtectedRoute roles={['professor']}>
+          <ProtectedRoute roles={['professor', 'admin']}>
             <AppLayout />
           </ProtectedRoute>
         }>
           <Route index element={<TeacherDashboard />} />
           <Route path="courses" element={<TeacherCourses />} />
           <Route path="course/:id" element={<TeacherCourseDetail />} />
+          <Route path="questions" element={<QuestionBank />} />
           <Route path="messages" element={<TeacherMessages />} />
           <Route path="simulados" element={<TeacherSimulados />} />
           <Route path="configuracoes" element={<Configuracoes />} />
@@ -55,6 +56,8 @@ export default function App() {
           </ProtectedRoute>
         }>
           <Route index element={<Admin />} />
+          <Route path="analytics" element={<AdminAnalytics />} />
+          <Route path="questions" element={<QuestionBank />} />
           <Route path="configuracoes" element={<Configuracoes />} />
         </Route>
 

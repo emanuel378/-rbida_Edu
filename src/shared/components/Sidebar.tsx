@@ -15,6 +15,7 @@ import {
   MessageCircle,
   HelpCircle,
   ShieldCheck,
+  TrendingUp,
   Users,
 } from 'lucide-react'
 
@@ -37,12 +38,15 @@ const studentNavItems: NavItem[] = [
 const teacherNavItems: NavItem[] = [
   { to: '/teacher', icon: GraduationCap, label: 'Painel', end: true },
   { to: '/teacher/courses', icon: BookOpen, label: 'Meus Cursos', end: false },
+  { to: '/teacher/questions', icon: HelpCircle, label: 'Banco de Questões', end: false },
   { to: '/teacher/simulados', icon: ClipboardList, label: 'Simulados', end: false },
   { to: '/teacher/messages', icon: MessageCircle, label: 'Mensagens', end: false },
 ]
 
 const adminNavItems: NavItem[] = [
   { to: '/admin', icon: ShieldCheck, label: 'Painel', end: true },
+  { to: '/admin/questions', icon: HelpCircle, label: 'Banco de Questões', end: false },
+  { to: '/admin/analytics', icon: TrendingUp, label: 'Analytics & Financeiro', end: false },
 ]
 
 export default function Sidebar() {

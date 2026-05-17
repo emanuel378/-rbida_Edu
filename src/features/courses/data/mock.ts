@@ -4,6 +4,7 @@ export interface User {
   email: string
   role: 'aluno' | 'professor' | 'admin'
   approved?: boolean
+  lastLogin?: string
 }
 
 export interface Course {
@@ -14,6 +15,7 @@ export interface Course {
   price: number
   status: 'pending' | 'approved' | 'rejected'
   createdAt: string
+  published: boolean
 }
 
 export interface Module {
@@ -35,7 +37,8 @@ export interface Lesson {
 
 export interface Question {
   id: string
-  moduleId: string
+  code: string
+  moduleId?: string
   question: string
   options: string[]
   correctAnswer: number
@@ -63,6 +66,11 @@ export interface Message {
   reply?: string
   createdAt: string
   repliedAt?: string
+  type?: 'question' | 'price_request' | 'delete_request' | 'publish_request'
+  status?: 'pending' | 'approved' | 'rejected'
+  resolvedAt?: string
+  targetType?: 'course' | 'module' | 'lesson' | 'question'
+  targetName?: string
 }
 
 export interface Enrollment {
@@ -71,6 +79,7 @@ export interface Enrollment {
   courseId: string
   progress: number
   completedLessons: string[]
+  createdAt: string
 }
 
 export interface SimuladoResult {
@@ -90,8 +99,8 @@ export const mockUsers: User[] = [
 ]
 
 export const mockCourses: Course[] = [
-  { id: 'c1', title: 'Preparatório IFSP', description: 'Curso completo para concursos do IFSP', teacherId: '3', price: 0, status: 'approved', createdAt: '2026-01-15' },
-  { id: 'c2', title: 'Preparatório IFMG', description: 'Matemática e Português para IFMG', teacherId: '3', price: 49.90, status: 'approved', createdAt: '2026-02-20' },
+  { id: 'c1', title: 'Preparatório IFSP', description: 'Curso completo para concursos do IFSP', teacherId: '3', price: 0, status: 'approved', createdAt: '2026-01-15', published: true },
+  { id: 'c2', title: 'Preparatório IFMG', description: 'Matemática e Português para IFMG', teacherId: '3', price: 49.90, status: 'approved', createdAt: '2026-02-20', published: true },
 ]
 
 export const mockModules: Module[] = [
@@ -107,9 +116,9 @@ export const mockLessons: Lesson[] = [
 ]
 
 export const mockQuestions: Question[] = [
-  { id: 'q1', moduleId: 'd1', question: 'Quanto é 2 + 2?', options: ['3', '4', '5', '6'], correctAnswer: 1, difficulty: 'facil' },
-  { id: 'q2', moduleId: 'd1', question: 'Quanto é 5 x 3?', options: ['10', '12', '15', '18'], correctAnswer: 2, difficulty: 'facil' },
-  { id: 'q3', moduleId: 'd1', question: 'Resolva: x² - 4 = 0', options: ['x=±1', 'x=±2', 'x=±3', 'x=±4'], correctAnswer: 1, difficulty: 'medio' },
-  { id: 'q4', moduleId: 'd2', question: 'Qual a classe gramatical de "bonito"?', options: ['Substantivo', 'Adjetivo', 'Advérbio', 'Verbo'], correctAnswer: 1, difficulty: 'facil' },
-  { id: 'q5', moduleId: 'd2', question: 'O pronome relativo "que" pode substituir:', options: ['Apenas pessoas', 'Apenas objetos', 'Pessoas e objetos', 'Apenas lugares'], correctAnswer: 2, difficulty: 'medio' },
+  { id: 'q1', code: 'QST-A1B2', moduleId: 'd1', question: 'Quanto é 2 + 2?', options: ['3', '4', '5', '6'], correctAnswer: 1, difficulty: 'facil' },
+  { id: 'q2', code: 'QST-C3D4', moduleId: 'd1', question: 'Quanto é 5 x 3?', options: ['10', '12', '15', '18'], correctAnswer: 2, difficulty: 'facil' },
+  { id: 'q3', code: 'QST-E5F6', moduleId: 'd1', question: 'Resolva: x² - 4 = 0', options: ['x=±1', 'x=±2', 'x=±3', 'x=±4'], correctAnswer: 1, difficulty: 'medio' },
+  { id: 'q4', code: 'QST-G7H8', moduleId: 'd2', question: 'Qual a classe gramatical de "bonito"?', options: ['Substantivo', 'Adjetivo', 'Advérbio', 'Verbo'], correctAnswer: 1, difficulty: 'facil' },
+  { id: 'q5', code: 'QST-I9J0', moduleId: 'd2', question: 'O pronome relativo "que" pode substituir:', options: ['Apenas pessoas', 'Apenas objetos', 'Pessoas e objetos', 'Apenas lugares'], correctAnswer: 2, difficulty: 'medio' },
 ]

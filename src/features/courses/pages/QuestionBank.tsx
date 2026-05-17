@@ -1,31 +1,30 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { useCourseStore } from '../data/courseStore'
+import { useAuthStore } from '../../auth/services/authStore'
 import { useQuestionStore } from '../data/questionStore'
-import { BookOpen, Filter, HelpCircle, CheckCircle, XCircle, Plus, Trash2, Download } from 'lucide-react'
+import { HelpCircle, CheckCircle, XCircle, Plus, Download, Search, Trash2 } from 'lucide-react'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 import jsPDF from 'jspdf'
 
 export default function QuestionBank() {
-  const { modules } = useCourseStore()
-  const { questions, addQuestion } = useQuestionStore()
-  const [searchParams] = useSearchParams()
+  const user = useAuthStore(s => s.user)
+  const { questions, addQuestion, deleteQuestion } = useQuestionStore()
 
-  const [filterModule, setFilterModule] = useState(searchParams.get('module') || '')
+  const [searchCode, setSearchCode] = useState('')
   const [filterDifficulty, setFilterDifficulty] = useState('')
   const [showAnswer, setShowAnswer] = useState<Record<string, boolean>>({})
-  const [showAddForm, setShowAddForm] = useState(false)
+  const [showModal, setShowModal] = useState(false)
 
   const [newQ, setNewQ] = useState({
-    moduleId: '',
     question: '',
     options: ['', '', '', ''],
     correctAnswer: 0,
     difficulty: 'facil' as 'facil' | 'medio' | 'dificil',
   })
 
+  const isAdmin = user?.role === 'admin'
+
   const filtered = questions.filter(q => {
-    if (filterModule && q.moduleId !== filterModule) return false
+    if (searchCode && !q.code.toLowerCase().includes(searchCode.toLowerCase())) return false
     if (filterDifficulty && q.difficulty !== filterDifficulty) return false
     return true
   })
@@ -35,13 +34,16 @@ export default function QuestionBank() {
   }
 
   const handleAddQuestion = () => {
-    if (!newQ.moduleId || !newQ.question || newQ.options.some(o => !o)) return
-    addQuestion({
-      id: Date.now().toString(),
-      ...newQ,
-    })
-    setNewQ({ moduleId: '', question: '', options: ['', '', '', ''], correctAnswer: 0, difficulty: 'facil' })
-    setShowAddForm(false)
+    if (!newQ.question || newQ.options.some(o => !o)) return
+    addQuestion({ id: Date.now().toString(), code: '', ...newQ })
+    setNewQ({ question: '', options: ['', '', '', ''], correctAnswer: 0, difficulty: 'facil' })
+    setShowModal(false)
+  }
+
+  const handleDelete = (qId: string) => {
+    if (confirm('Tem certeza que deseja excluir esta questão?')) {
+      deleteQuestion(qId)
+    }
   }
 
   const difficultyConfig = {
@@ -61,22 +63,14 @@ export default function QuestionBank() {
     doc.text('Banco de Questões', margin, y)
     y += 10
 
-    if (filterModule) {
-      const mod = modules.find(m => m.id === filterModule)
-      doc.setFontSize(12)
-      doc.text(`Módulo: ${mod?.title || ''}`, margin, y)
-      y += 8
-    }
-
     filtered.forEach((q, index) => {
       if (y > pageHeight - 40) {
         doc.addPage()
         y = 20
       }
 
-      const module = modules.find(m => m.id === q.moduleId)
       doc.setFontSize(10)
-      doc.text(`${module?.title || ''} - ${difficultyConfig[q.difficulty].label}`, margin, y)
+      doc.text(`${q.code} - ${difficultyConfig[q.difficulty].label}`, margin, y)
       y += lineHeight
 
       doc.setFontSize(11)
@@ -107,7 +101,7 @@ export default function QuestionBank() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => setShowAddForm(!showAddForm)}
+            onClick={() => setShowModal(true)}
             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
           >
             <Plus className="w-5 h-5" />
@@ -125,31 +119,32 @@ export default function QuestionBank() {
       </div>
 
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <Filter className="w-4 h-4 text-gray-500" />
-          <span className="text-sm font-medium text-gray-700">Filtros</span>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <select
-            value={filterModule}
-            onChange={e => setFilterModule(e.target.value)}
-            className="px-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          >
-            <option value="">Todos os módulos</option>
-            {modules.map(m => (
-              <option key={m.id} value={m.id}>{m.title}</option>
-            ))}
-          </select>
-          <select
-            value={filterDifficulty}
-            onChange={e => setFilterDifficulty(e.target.value)}
-            className="px-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          >
-            <option value="">Todas dificuldades</option>
-            <option value="facil">🟢 Fácil</option>
-            <option value="medio">🟡 Médio</option>
-            <option value="dificil">🔴 Difícil</option>
-          </select>
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-xs font-medium text-gray-500 mb-1">Buscar por código</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                value={searchCode}
+                onChange={e => setSearchCode(e.target.value)}
+                placeholder="Ex: QST-A1B2"
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Dificuldade</label>
+            <select
+              value={filterDifficulty}
+              onChange={e => setFilterDifficulty(e.target.value)}
+              className="px-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="">Todas</option>
+              <option value="facil">🟢 Fácil</option>
+              <option value="medio">🟡 Médio</option>
+              <option value="dificil">🔴 Difícil</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -157,11 +152,10 @@ export default function QuestionBank() {
         {filtered.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
             <HelpCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">Nenhuma questão encontrada com os filtros selecionados.</p>
+            <p className="text-gray-500">Nenhuma questão encontrada.</p>
           </div>
         ) : (
           filtered.map((q, index) => {
-            const module = modules.find(d => d.id === q.moduleId)
             const config = difficultyConfig[q.difficulty]
             const isAnswerShown = showAnswer[q.id]
             return (
@@ -172,13 +166,24 @@ export default function QuestionBank() {
                       <span className="flex-shrink-0 w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center text-sm font-bold">
                         {index + 1}
                       </span>
-                      <div>
-                        <span className="text-sm font-medium text-gray-500">{module?.title}</span>
-                      </div>
+                      <code className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-mono font-bold">
+                        {q.code}
+                      </code>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${config.color}`}>
-                      {config.icon} {config.label}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${config.color}`}>
+                        {config.icon} {config.label}
+                      </span>
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleDelete(q.id)}
+                          className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Excluir questão"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <p className="text-gray-800 font-medium mb-4">{q.question}</p>
@@ -234,84 +239,85 @@ export default function QuestionBank() {
         )}
       </div>
 
-      {showAddForm && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-100">
-            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <Plus className="w-5 h-5 text-blue-600" />
-              Adicionar Nova Questão
-            </h2>
-          </div>
-          <div className="p-6 space-y-4">
-            <select
-              value={newQ.moduleId}
-              onChange={e => setNewQ({ ...newQ, moduleId: e.target.value })}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Selecione o módulo</option>
-              {modules.map(m => (
-                <option key={m.id} value={m.id}>{m.title}</option>
-              ))}
-            </select>
-            <textarea
-              value={newQ.question}
-              onChange={e => setNewQ({ ...newQ, question: e.target.value })}
-              placeholder="Digite a questão..."
-              rows={3}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-            />
-            {newQ.options.map((opt, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <span className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
-                  i === newQ.correctAnswer ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                }`}>
-                  {String.fromCharCode(97 + i)}
-                </span>
-                <input
-                  value={opt}
-                  onChange={e => {
-                    const opts = [...newQ.options]
-                    opts[i] = e.target.value
-                    setNewQ({ ...newQ, options: opts })
-                  }}
-                  placeholder={`Opção ${i + 1}`}
-                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <Plus className="w-5 h-5 text-blue-600" />
+                  Adicionar Nova Questão
+                </h2>
                 <button
-                  onClick={() => setNewQ({ ...newQ, correctAnswer: i })}
-                  className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
-                    i === newQ.correctAnswer
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
+                  onClick={() => setShowModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  {i === newQ.correctAnswer ? '✓ Correta' : 'Marcar'}
+                  <XCircle className="w-5 h-5" />
                 </button>
               </div>
-            ))}
-            <div className="flex gap-3">
-              <select
-                value={newQ.difficulty}
-                onChange={e => setNewQ({ ...newQ, difficulty: e.target.value as 'facil' | 'medio' | 'dificil' })}
-                className="px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="facil">🟢 Fácil</option>
-                <option value="medio">🟡 Médio</option>
-                <option value="dificil">🔴 Difícil</option>
-              </select>
-              <button
-                onClick={handleAddQuestion}
-                disabled={!newQ.moduleId || !newQ.question || newQ.options.some(o => !o)}
-                className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Adicionar Questão
-              </button>
-              <button
-                onClick={() => setShowAddForm(false)}
-                className="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors"
-              >
-                Cancelar
-              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <textarea
+                value={newQ.question}
+                onChange={e => setNewQ({ ...newQ, question: e.target.value })}
+                placeholder="Digite a questão..."
+                rows={3}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              />
+              {newQ.options.map((opt, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <span className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
+                    i === newQ.correctAnswer ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {String.fromCharCode(97 + i)}
+                  </span>
+                  <input
+                    value={opt}
+                    onChange={e => {
+                      const opts = [...newQ.options]
+                      opts[i] = e.target.value
+                      setNewQ({ ...newQ, options: opts })
+                    }}
+                    placeholder={`Opção ${i + 1}`}
+                    className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setNewQ({ ...newQ, correctAnswer: i })}
+                    className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                      i === newQ.correctAnswer
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {i === newQ.correctAnswer ? '✓ Correta' : 'Marcar'}
+                  </button>
+                </div>
+              ))}
+              <div className="flex gap-3">
+                <select
+                  value={newQ.difficulty}
+                  onChange={e => setNewQ({ ...newQ, difficulty: e.target.value as 'facil' | 'medio' | 'dificil' })}
+                  className="px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="facil">🟢 Fácil</option>
+                  <option value="medio">🟡 Médio</option>
+                  <option value="dificil">🔴 Difícil</option>
+                </select>
+                <button
+                  onClick={handleAddQuestion}
+                  disabled={!newQ.question || newQ.options.some(o => !o)}
+                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Adicionar Questão
+                </button>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           </div>
         </div>

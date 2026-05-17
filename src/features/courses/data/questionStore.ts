@@ -1,6 +1,7 @@
 import { create } from 'zustand'
-import { mockQuestions } from './mock'
+import { subscribeQuestions, addQuestion as addQuestionToFirestore, deleteQuestion as deleteQuestionFromFirestore, generateQuestionCode } from './questionsService'
 import type { Question, Comment, SimuladoResult } from './mock'
+import { mockQuestions } from './mock'
 
 const initData = <T>(key: string, mockData: T[]): T[] => {
   const saved = localStorage.getItem(key)
@@ -8,13 +9,21 @@ const initData = <T>(key: string, mockData: T[]): T[] => {
     localStorage.setItem(key, JSON.stringify(mockData))
     return mockData
   }
-  const data = JSON.parse(saved)
-  if (key === 'questions' && data.length > 0 && 'disciplineId' in data[0]) {
-    const migrated = data.map((item: any) => ({ ...item, moduleId: item.disciplineId }))
-    localStorage.setItem(key, JSON.stringify(migrated))
-    return migrated as T[]
+  return JSON.parse(saved)
+}
+
+const ensureCode = (q: Question): Question => {
+  if (!q.code) return { ...q, code: generateQuestionCode() }
+  return q
+}
+
+const fallbackLocal = (): Question[] => {
+  const saved = localStorage.getItem('questions')
+  if (saved) {
+    const parsed: Question[] = JSON.parse(saved)
+    return parsed.map(ensureCode)
   }
-  return data
+  return mockQuestions
 }
 
 interface QuestionState {
@@ -22,40 +31,92 @@ interface QuestionState {
   comments: Comment[]
   results: SimuladoResult[]
   addQuestion: (question: Question) => void
+  deleteQuestion: (questionId: string) => void
   addComment: (comment: Comment) => void
   getComments: (lessonId: string) => Comment[]
   addResult: (result: SimuladoResult) => void
   getResults: () => SimuladoResult[]
+  syncLocalToFirestore: () => Promise<void>
 }
 
-export const useQuestionStore = create<QuestionState>((set, get) => ({
-  questions: initData('questions', mockQuestions),
-  comments: initData('comments', []),
-  results: initData('results', []),
+export const useQuestionStore = create<QuestionState>((set, get) => {
+  let usingFirestore = false
 
-  addQuestion: (question) => {
-    const questions = [...get().questions, question]
-    localStorage.setItem('questions', JSON.stringify(questions))
-    set({ questions })
-  },
+  subscribeQuestions(
+    (questions) => {
+      usingFirestore = true
+      set({ questions: questions.map(ensureCode) })
+    },
+    () => {
+      if (!usingFirestore) {
+        set({ questions: fallbackLocal() })
+      }
+    }
+  )
 
-  addComment: (comment) => {
-    const comments = [...get().comments, comment]
-    localStorage.setItem('comments', JSON.stringify(comments))
-    set({ comments })
-  },
+  return {
+    questions: fallbackLocal(),
+    comments: initData('comments', []),
+    results: initData('results', []),
 
-  getComments: (lessonId) => {
-    return get().comments.filter(c => c.lessonId === lessonId)
-  },
+    addQuestion: (question) => {
+      const q = ensureCode(question)
+      if (usingFirestore) {
+        addQuestionToFirestore(q).catch(() => {
+          const questions = [...get().questions, q]
+          localStorage.setItem('questions', JSON.stringify(questions))
+          set({ questions })
+        })
+      } else {
+        const questions = [...get().questions, q]
+        localStorage.setItem('questions', JSON.stringify(questions))
+        set({ questions })
+      }
+    },
 
-  addResult: (result) => {
-    const results = [...get().results, result]
-    localStorage.setItem('results', JSON.stringify(results))
-    set({ results })
-  },
+    deleteQuestion: (questionId) => {
+      if (usingFirestore) {
+        deleteQuestionFromFirestore(questionId).catch(() => {
+          const questions = get().questions.filter(q => q.id !== questionId)
+          localStorage.setItem('questions', JSON.stringify(questions))
+          set({ questions })
+        })
+      } else {
+        const questions = get().questions.filter(q => q.id !== questionId)
+        localStorage.setItem('questions', JSON.stringify(questions))
+        set({ questions })
+      }
+    },
 
-  getResults: () => {
-    return get().results.sort((a, b) => b.score - a.score)
-  },
-}))
+    addComment: (comment) => {
+      const comments = [...get().comments, comment]
+      localStorage.setItem('comments', JSON.stringify(comments))
+      set({ comments })
+    },
+
+    getComments: (lessonId) => {
+      return get().comments.filter(c => c.lessonId === lessonId)
+    },
+
+    addResult: (result) => {
+      const results = [...get().results, result]
+      localStorage.setItem('results', JSON.stringify(results))
+      set({ results })
+    },
+
+    getResults: () => {
+      return get().results.sort((a, b) => b.score - a.score)
+    },
+
+    syncLocalToFirestore: async () => {
+      const local = localStorage.getItem('questions')
+      if (!local) return
+      const localQuestions: Question[] = JSON.parse(local)
+      if (localQuestions.length === 0) return
+      for (const q of localQuestions) {
+        await addQuestionToFirestore(ensureCode(q))
+      }
+      localStorage.removeItem('questions')
+    },
+  }
+})

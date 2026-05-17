@@ -6,10 +6,9 @@ import {
   BookOpen, Plus, Video, HelpCircle, Trash2, ArrowLeft,
   ChevronDown, ChevronRight, FileText, CheckCircle, Loader2,
   Edit2, Check, X, ExternalLink, Upload,
-  GraduationCap, AlertTriangle, XCircle, PlayCircle
+  GraduationCap, AlertTriangle, XCircle, PlayCircle, Send, Clock, DollarSign, Globe
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { DollarSign, Clock } from 'lucide-react'
 
 function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   useEffect(() => {
@@ -35,7 +34,9 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
   )
 }
 
-function ConfirmModal({ open, onClose, onConfirm, title, message }: { open: boolean; onClose: () => void; onConfirm: () => void; title: string; message: string }) {
+function ConfirmModal({ open, onClose, onConfirm, title, message, confirmText = 'Excluir', confirmColor = 'bg-red-600 hover:bg-red-700' }: {
+  open: boolean; onClose: () => void; onConfirm: () => void; title: string; message: string; confirmText?: string; confirmColor?: string
+}) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -52,8 +53,8 @@ function ConfirmModal({ open, onClose, onConfirm, title, message }: { open: bool
           <button onClick={onClose} className="px-4 py-2.5 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors font-medium text-sm">
             Cancelar
           </button>
-          <button onClick={() => { onConfirm(); onClose() }} className="px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium text-sm">
-            Excluir
+          <button onClick={() => { onConfirm(); onClose() }} className={`px-4 py-2.5 text-white rounded-xl transition-colors font-medium text-sm ${confirmColor}`}>
+            {confirmText}
           </button>
         </div>
       </div>
@@ -90,8 +91,8 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
 export default function TeacherCourseDetail() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuthStore()
-  const { courses, modules, lessons, enrollments, addModule, addLesson, deleteModule, deleteLesson, updateModule, updateLesson, updateCoursePrice, getTeacherName } = useCourseStore()
-  const { questions, addQuestion } = useQuestionStore()
+  const { courses, modules, lessons, enrollments, messages, addModule, addLesson, updateModule, updateLesson, requestContentDeletion, requestCoursePublish, getTeacherName } = useCourseStore()
+  const { questions, addQuestion, deleteQuestion } = useQuestionStore()
   const navigate = useNavigate()
 
   const course = courses.find(c => c.id === id)
@@ -122,10 +123,15 @@ export default function TeacherCourseDetail() {
     moduleId: '', question: '', options: ['', '', '', ''], correctAnswer: 0, difficulty: 'facil' as 'facil' | 'medio' | 'dificil'
   })
 
-  const [deleteTarget, setDeleteTarget] = useState<{ type: 'module' | 'lesson'; id: string; name: string } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'module' | 'lesson' | 'question'; id: string; name: string; moduleId?: string } | null>(null)
+  const [successMsg, setSuccessMsg] = useState('')
 
-  const [editingPrice, setEditingPrice] = useState(false)
-  const [priceInput, setPriceInput] = useState('')
+  useEffect(() => {
+    if (successMsg) {
+      const t = setTimeout(() => setSuccessMsg(''), 4000)
+      return () => clearTimeout(t)
+    }
+  }, [successMsg])
 
   const [showPlaylist, setShowPlaylist] = useState(false)
   const [playlistModuleId, setPlaylistModuleId] = useState('')
@@ -181,6 +187,7 @@ export default function TeacherCourseDetail() {
     if (!questionForm.moduleId || !questionForm.question.trim() || questionForm.options.some(o => !o.trim())) return
     addQuestion({
       id: Date.now().toString(),
+      code: '',
       moduleId: questionForm.moduleId,
       question: questionForm.question.trim(),
       options: questionForm.options.map(o => o.trim()),
@@ -272,29 +279,7 @@ export default function TeacherCourseDetail() {
           <div className="flex items-center gap-3 mt-2">
             <div className="flex items-center gap-1.5 text-sm">
               <DollarSign className="w-4 h-4 text-green-600" />
-              {editingPrice ? (
-                <div className="flex items-center gap-2">
-                  <input value={priceInput} onChange={e => setPriceInput(e.target.value)}
-                    type="number" step="0.01" min="0" autoFocus
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        updateCoursePrice(course.id, parseFloat(priceInput) || 0)
-                        setEditingPrice(false)
-                      }
-                      if (e.key === 'Escape') setEditingPrice(false)
-                    }}
-                    className="w-24 px-2 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  <button onClick={() => { updateCoursePrice(course.id, parseFloat(priceInput) || 0); setEditingPrice(false) }}
-                    className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"><Check className="w-4 h-4" /></button>
-                  <button onClick={() => setEditingPrice(false)}
-                    className="p-1 text-gray-400 hover:bg-gray-100 rounded transition-colors"><X className="w-4 h-4" /></button>
-                </div>
-              ) : (
-                <button onClick={() => { setPriceInput(String(course.price)); setEditingPrice(true) }}
-                  className="hover:text-blue-600 transition-colors">
-                  {course.price > 0 ? `R$ ${course.price.toFixed(2)}` : 'Gratuito'}
-                </button>
-              )}
+              {course.price > 0 ? `R$ ${course.price.toFixed(2)}` : 'Gratuito'}
             </div>
             <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
               course.status === 'approved' ? 'bg-green-100 text-green-700' :
@@ -333,6 +318,42 @@ export default function TeacherCourseDetail() {
           <Plus className="w-4 h-4" /> Questão
         </button>
       </div>
+
+      {course.status === 'approved' && (
+        <div className="mb-8 p-4 bg-white rounded-2xl border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Globe className="w-5 h-5 text-blue-600" />
+              <div>
+                <p className="font-medium text-gray-900 text-sm">Publicação do curso</p>
+                <p className="text-xs text-gray-500">
+                  {course.published
+                    ? 'Este curso está publicado e visível na vitrine de cursos.'
+                    : messages.some(m => m.courseId === course.id && m.type === 'publish_request' && m.status === 'pending')
+                      ? 'Solicitação de publicação enviada ao admin. Aguarde aprovação.'
+                      : 'Publique este curso para disponibilizá-lo na vitrine e para matrícula dos alunos.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {course.published ? (
+                <span className="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 rounded-xl text-sm font-medium">
+                  <CheckCircle className="w-4 h-4" /> Publicado
+                </span>
+              ) : messages.some(m => m.courseId === course.id && m.type === 'publish_request' && m.status === 'pending') ? (
+                <span className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-xl text-sm font-medium">
+                  <Clock className="w-4 h-4" /> Pendente
+                </span>
+              ) : (
+                <button onClick={() => { if (user) { requestCoursePublish(course.id, user.name); setSuccessMsg('Solicitação de publicação enviada ao admin.') } }}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-sm font-medium">
+                  <Globe className="w-4 h-4" /> Publicar / Vender
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
         <div className="p-6 border-b border-gray-100">
@@ -448,6 +469,10 @@ export default function TeacherCourseDetail() {
                               <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${difficultyConfig[q.difficulty].color}`}>
                                 {difficultyConfig[q.difficulty].label}
                               </span>
+                              <button onClick={() => setDeleteTarget({ type: 'question', id: q.id, name: q.question, moduleId: q.moduleId })}
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100" title="Excluir questão">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           ))}
                         </div>
@@ -651,12 +676,30 @@ export default function TeacherCourseDetail() {
         </div>
       </Modal>
 
+      {successMsg && (
+        <div className="fixed top-4 right-4 z-[100] bg-green-600 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium animate-fade-in flex items-center gap-2">
+          <CheckCircle className="w-4 h-4" /> {successMsg}
+        </div>
+      )}
+
       <ConfirmModal open={!!deleteTarget} onClose={() => setDeleteTarget(null)}
-        onConfirm={() => { if (deleteTarget?.type === 'module') deleteModule(deleteTarget.id); else if (deleteTarget?.type === 'lesson') deleteLesson(deleteTarget.id) }}
-        title={deleteTarget?.type === 'module' ? 'Excluir módulo' : 'Excluir aula'}
-        message={deleteTarget?.type === 'module'
-          ? `Tem certeza? Todas as aulas e questões deste módulo serão removidas.`
-          : `Tem certeza que deseja excluir "${deleteTarget?.name}"? Esta ação não pode ser desfeita.`} />
+        onConfirm={() => {
+          if (!deleteTarget || !user || !course) return
+          requestContentDeletion({
+            courseId: course.id,
+            moduleId: deleteTarget.type === 'question' ? deleteTarget.moduleId : (deleteTarget.type === 'lesson' ? lessons.find(l => l.id === deleteTarget.id)?.moduleId : undefined),
+            lessonId: deleteTarget.type === 'lesson' ? deleteTarget.id : undefined,
+            teacherName: user.name,
+            targetType: deleteTarget.type,
+            targetName: deleteTarget.name,
+          })
+          setDeleteTarget(null)
+          setSuccessMsg(`Solicitação de exclusão do ${deleteTarget.type === 'module' ? 'módulo' : deleteTarget.type === 'lesson' ? 'aula' : 'questão'} enviada ao admin para aprovação.`)
+        }}
+        title={`Solicitar exclusão de ${deleteTarget?.type === 'module' ? 'módulo' : deleteTarget?.type === 'lesson' ? 'aula' : 'questão'}`}
+        message={`Solicitar exclusão de "${deleteTarget?.name}"? O admin será notificado para aprovação.`}
+        confirmText="Solicitar Exclusão"
+        confirmColor="bg-orange-600 hover:bg-orange-700" />
     </div>
   )
 }
