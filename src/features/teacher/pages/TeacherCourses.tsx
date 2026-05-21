@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useCourseStore } from '../../courses/data/courseStore'
 import { useAuthStore } from '../../auth/services/authStore'
-import { BookOpen, Plus, Trash2, ArrowLeft, X, Layers, Video, GraduationCap, AlertTriangle, Clock, CheckCircle, XCircle, DollarSign } from 'lucide-react'
+import { BookOpen, Plus, Trash2, ArrowLeft, X, Layers, Video, GraduationCap, AlertTriangle, Clock, CheckCircle, XCircle, DollarSign, Send } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-function ConfirmModal({ open, onClose, onConfirm, title, message }: { open: boolean; onClose: () => void; onConfirm: () => void; title: string; message: string }) {
+function ConfirmModal({ open, onClose, onConfirm, title, message, confirmText = 'Excluir', confirmColor = 'bg-red-600 hover:bg-red-700' }: {
+  open: boolean; onClose: () => void; onConfirm: () => void; title: string; message: string; confirmText?: string; confirmColor?: string
+}) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -19,7 +21,7 @@ function ConfirmModal({ open, onClose, onConfirm, title, message }: { open: bool
         <p className="text-gray-600 mb-6">{message}</p>
         <div className="flex gap-3 justify-end">
           <button onClick={onClose} className="px-4 py-2.5 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors font-medium text-sm">Cancelar</button>
-          <button onClick={() => { onConfirm(); onClose() }} className="px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium text-sm">Excluir</button>
+          <button onClick={() => { onConfirm(); onClose() }} className={`px-4 py-2.5 text-white rounded-xl transition-colors font-medium text-sm ${confirmColor}`}>{confirmText}</button>
         </div>
       </div>
     </div>
@@ -35,16 +37,23 @@ const courseColors = [
 
 export default function TeacherCourses() {
   const { user } = useAuthStore()
-  const { courses, modules, lessons, addCourse, deleteCourse, getTeacherName } = useCourseStore()
+  const { courses, modules, lessons, messages, addCourse, requestCoursePrice, requestContentDeletion, getTeacherName } = useCourseStore()
   const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [price, setPrice] = useState('')
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteTitle, setDeleteTitle] = useState('')
+  const [successMsg, setSuccessMsg] = useState('')
 
   const myCourses = courses.filter(c => c.teacherId === user?.id)
+
+  useEffect(() => {
+    if (successMsg) {
+      const t = setTimeout(() => setSuccessMsg(''), 4000)
+      return () => clearTimeout(t)
+    }
+  }, [successMsg])
 
   useEffect(() => {
     if (showModal) document.body.style.overflow = 'hidden'
@@ -54,19 +63,39 @@ export default function TeacherCourses() {
 
   const handleCreate = () => {
     if (!user || !title.trim()) return
+    const courseId = Date.now().toString()
     addCourse({
-      id: Date.now().toString(),
+      id: courseId,
       title: title.trim(),
       description: description.trim(),
       teacherId: user.id,
-      price: parseFloat(price) || 0,
+      price: 0,
       status: 'pending',
       createdAt: new Date().toISOString(),
+      published: false,
     })
+    requestCoursePrice(courseId, user.name)
     setTitle('')
     setDescription('')
-    setPrice('')
     setShowModal(false)
+    setSuccessMsg('Curso criado! O admin será notificado para definir o preço.')
+  }
+
+  const getPendingDeletion = (courseId: string) =>
+    messages.find(m => m.courseId === courseId && m.type === 'delete_request' && m.status === 'pending')
+
+  const handleDeleteRequest = () => {
+    if (!deleteId || !user) return
+    const course = courses.find(c => c.id === deleteId)
+    if (!course) return
+    requestContentDeletion({
+      courseId: deleteId,
+      teacherName: user.name,
+      targetType: 'course',
+      targetName: course.title,
+    })
+    setDeleteId(null)
+    setSuccessMsg('Solicitação de exclusão enviada ao admin para aprovação.')
   }
 
   return (
@@ -103,6 +132,7 @@ export default function TeacherCourses() {
             const courseModules = modules.filter(m => m.courseId === course.id)
             const courseLessons = lessons.filter(l => courseModules.some(m => m.id === l.moduleId))
             const color = courseColors[idx % courseColors.length]
+            const pendingDel = getPendingDeletion(course.id)
             return (
               <div key={course.id}
                 className="group bg-white rounded-2xl border border-gray-100 hover:shadow-md hover:border-gray-200 transition-all duration-300 overflow-hidden">
@@ -137,6 +167,16 @@ export default function TeacherCourses() {
                            course.status === 'rejected' ? 'Rejeitado' :
                            'Pendente'}
                         </span>
+                        {pendingDel && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                            <Clock className="w-3 h-3" /> Exclusão solicitada
+                          </span>
+                        )}
+                        {course.price === 0 && course.status === 'pending' && (
+                          <span className="text-gray-400 flex items-center gap-1">
+                            <DollarSign className="w-3 h-3" /> Aguardando preço
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -144,10 +184,12 @@ export default function TeacherCourses() {
                         className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors opacity-0 group-hover:opacity-100">
                         Gerenciar
                       </button>
-                      <button onClick={() => { setDeleteId(course.id); setDeleteTitle(course.title) }}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {!pendingDel && (
+                        <button onClick={() => { setDeleteId(course.id); setDeleteTitle(course.title) }}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -181,13 +223,11 @@ export default function TeacherCourses() {
                   placeholder="Descreva o objetivo do curso..."
                   rows={3} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Preço (R$)</label>
-                <input value={price} onChange={e => setPrice(e.target.value)}
-                  type="number" step="0.01" min="0"
-                  placeholder="0,00"
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                <p className="text-xs text-gray-400 mt-1">Defina o valor do curso. O preço será enviado para aprovação do admin.</p>
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                <p className="text-sm text-blue-700 flex items-center gap-2">
+                  <Send className="w-4 h-4 flex-shrink-0" />
+                  O preço será definido pelo admin após a criação do curso.
+                </p>
               </div>
               <div className="flex gap-3 justify-end pt-2">
                 <button onClick={() => setShowModal(false)} className="px-4 py-2.5 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors font-medium text-sm">Cancelar</button>
@@ -201,12 +241,20 @@ export default function TeacherCourses() {
         </div>
       )}
 
+      {successMsg && (
+        <div className="fixed top-4 right-4 z-[100] bg-green-600 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium animate-fade-in flex items-center gap-2">
+          <CheckCircle className="w-4 h-4" /> {successMsg}
+        </div>
+      )}
+
       <ConfirmModal
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => { if (deleteId) deleteCourse(deleteId); setDeleteId(null) }}
-        title="Excluir curso"
-        message={`Tem certeza que deseja excluir "${deleteTitle}"? Todas as aulas, módulos e dados serão removidos.`} />
+        onConfirm={handleDeleteRequest}
+        title="Solicitar exclusão"
+        message={`Solicitar exclusão de "${deleteTitle}"? O admin será notificado para aprovação.`}
+        confirmText="Solicitar Exclusão"
+        confirmColor="bg-orange-600 hover:bg-orange-700" />
     </div>
   )
 }

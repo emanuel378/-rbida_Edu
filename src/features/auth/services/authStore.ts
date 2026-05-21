@@ -27,8 +27,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   users: initUsers(),
 
   login: (user) => {
-    localStorage.setItem('user', JSON.stringify(user))
-    set({ user })
+    const users = JSON.parse(localStorage.getItem('users') || '[]')
+    const updated = users.map((u: User) => u.id === user.id ? { ...u, lastLogin: new Date().toISOString() } : u)
+    localStorage.setItem('users', JSON.stringify(updated))
+    localStorage.setItem('user', JSON.stringify({ ...user, lastLogin: new Date().toISOString() }))
+    set({ user: { ...user, lastLogin: new Date().toISOString() }, users: updated })
   },
 
   logout: () => {

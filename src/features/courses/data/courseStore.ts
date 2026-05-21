@@ -69,6 +69,13 @@ interface CourseState {
   addMessage: (message: Message) => void
   replyMessage: (messageId: string, reply: string) => void
   getTeacherName: (teacherId: string) => string
+  requestCoursePrice: (courseId: string, teacherName: string) => void
+  requestContentDeletion: (params: { courseId: string; moduleId?: string; lessonId?: string; teacherName: string; targetType: 'course' | 'module' | 'lesson' | 'question'; targetName: string }) => void
+  requestCoursePublish: (courseId: string, teacherName: string) => void
+  adminSetCoursePrice: (courseId: string, price: number, messageId: string) => void
+  adminApprovePublish: (messageId: string, courseId: string) => void
+  adminApproveDeletion: (messageId: string) => void
+  adminRejectRequest: (messageId: string) => void
 }
 
 export const useCourseStore = create<CourseState>((set, get) => ({
@@ -162,7 +169,7 @@ export const useCourseStore = create<CourseState>((set, get) => ({
   },
 
   enroll: (enrollment) => {
-    const enrollments = [...get().enrollments, enrollment]
+    const enrollments = [...get().enrollments, { ...enrollment, createdAt: enrollment.createdAt || new Date().toISOString() }]
     localStorage.setItem('enrollments', JSON.stringify(enrollments))
     set({ enrollments })
   },
@@ -172,7 +179,7 @@ export const useCourseStore = create<CourseState>((set, get) => ({
     let enrollment = enrollments.find(e => e.userId === userId && e.courseId === courseId)
 
     if (!enrollment) {
-      enrollment = { id: Date.now().toString(), userId, courseId, progress: 0, completedLessons: [] }
+      enrollment = { id: Date.now().toString(), userId, courseId, progress: 0, completedLessons: [], createdAt: new Date().toISOString() }
       enrollments.push(enrollment)
     }
 
@@ -210,5 +217,137 @@ export const useCourseStore = create<CourseState>((set, get) => ({
   getTeacherName: (teacherId) => {
     const user = get().users.find(u => u.id === teacherId)
     return user ? user.name : 'Professor'
+  },
+
+  requestCoursePrice: (courseId, teacherName) => {
+    const admin = get().users.find(u => u.role === 'admin')
+    const course = get().courses.find(c => c.id === courseId)
+    if (!admin || !course) return
+    const message: Message = {
+      id: Date.now().toString(),
+      courseId,
+      fromUserId: course.teacherId,
+      fromUserName: teacherName,
+      toTeacherId: admin.id,
+      text: `O professor ${teacherName} criou o curso "${course.title}" e aguarda a definição do preço.`,
+      createdAt: new Date().toISOString(),
+      type: 'price_request',
+      status: 'pending',
+    }
+    const messages = [...get().messages, message]
+    localStorage.setItem('messages', JSON.stringify(messages))
+    set({ messages })
+  },
+
+  requestContentDeletion: ({ courseId, moduleId, lessonId, teacherName, targetType, targetName }) => {
+    const admin = get().users.find(u => u.role === 'admin')
+    const course = get().courses.find(c => c.id === courseId)
+    if (!admin || !course) return
+    const typeLabel = { course: 'curso', module: 'módulo', lesson: 'aula', question: 'questão' }[targetType]
+    const message: Message = {
+      id: Date.now().toString(),
+      courseId,
+      moduleId,
+      lessonId,
+      fromUserId: course.teacherId,
+      fromUserName: teacherName,
+      toTeacherId: admin.id,
+      text: `O professor ${teacherName} solicita a exclusão do ${typeLabel} "${targetName}" do curso "${course.title}".`,
+      createdAt: new Date().toISOString(),
+      type: 'delete_request',
+      status: 'pending',
+      targetType,
+      targetName,
+    }
+    const messages = [...get().messages, message]
+    localStorage.setItem('messages', JSON.stringify(messages))
+    set({ messages })
+  },
+
+  requestCoursePublish: (courseId, teacherName) => {
+    const admin = get().users.find(u => u.role === 'admin')
+    const course = get().courses.find(c => c.id === courseId)
+    if (!admin || !course) return
+    const message: Message = {
+      id: Date.now().toString(),
+      courseId,
+      fromUserId: course.teacherId,
+      fromUserName: teacherName,
+      toTeacherId: admin.id,
+      text: `O professor ${teacherName} solicita a publicação do curso "${course.title}" (R$ ${course.price.toFixed(2)}).`,
+      createdAt: new Date().toISOString(),
+      type: 'publish_request',
+      status: 'pending',
+      targetType: 'course',
+      targetName: course.title,
+    }
+    const messages = [...get().messages, message]
+    localStorage.setItem('messages', JSON.stringify(messages))
+    set({ messages })
+  },
+
+  adminSetCoursePrice: (courseId, price, messageId) => {
+    const courses = get().courses.map(c =>
+      c.id === courseId ? { ...c, price, status: 'approved' as const, published: false } : c
+    )
+    const messages = get().messages.map(m =>
+      m.id === messageId ? { ...m, status: 'approved' as const, resolvedAt: new Date().toISOString() } : m
+    )
+    localStorage.setItem('courses', JSON.stringify(courses))
+    localStorage.setItem('messages', JSON.stringify(messages))
+    set({ courses, messages })
+  },
+
+  adminApprovePublish: (messageId, courseId) => {
+    const courses = get().courses.map(c =>
+      c.id === courseId ? { ...c, published: true } : c
+    )
+    const messages = get().messages.map(m =>
+      m.id === messageId ? { ...m, status: 'approved' as const, resolvedAt: new Date().toISOString() } : m
+    )
+    localStorage.setItem('courses', JSON.stringify(courses))
+    localStorage.setItem('messages', JSON.stringify(messages))
+    set({ courses, messages })
+  },
+
+  adminApproveDeletion: (messageId) => {
+    const msg = get().messages.find(m => m.id === messageId)
+    if (!msg) return
+    const messages = get().messages.map(m =>
+      m.id === messageId ? { ...m, status: 'approved' as const, resolvedAt: new Date().toISOString() } : m
+    )
+    localStorage.setItem('messages', JSON.stringify(messages))
+    let updates: Partial<ReturnType<typeof get>> = { messages }
+
+    if (msg.targetType === 'course') {
+      const courses = get().courses.filter(c => c.id !== msg.courseId)
+      const modules = get().modules.filter(m => m.courseId !== msg.courseId)
+      const modIds = modules.map(m => m.id)
+      const lessons = get().lessons.filter(l => !modIds.includes(l.moduleId))
+      localStorage.setItem('courses', JSON.stringify(courses))
+      localStorage.setItem('modules', JSON.stringify(modules))
+      localStorage.setItem('lessons', JSON.stringify(lessons))
+      updates = { ...updates, courses, modules, lessons }
+    } else if (msg.targetType === 'module' && msg.moduleId) {
+      const modules = get().modules.filter(m => m.id !== msg.moduleId)
+      const lessons = get().lessons.filter(l => l.moduleId !== msg.moduleId)
+      localStorage.setItem('modules', JSON.stringify(modules))
+      localStorage.setItem('lessons', JSON.stringify(lessons))
+      updates = { ...updates, modules, lessons }
+    } else if (msg.targetType === 'lesson' && msg.lessonId) {
+      const lessons = get().lessons.filter(l => l.id !== msg.lessonId)
+      localStorage.setItem('lessons', JSON.stringify(lessons))
+      updates = { ...updates, lessons }
+    }
+
+    set(updates as any)
+  },
+
+  adminRejectRequest: (messageId) => {
+    const messages = get().messages.map(m =>
+      m.id === messageId ? { ...m, status: 'rejected' as const, resolvedAt: new Date().toISOString() } : m
+    )
+    localStorage.setItem('messages', JSON.stringify(messages))
+    set({ messages })
   },
 }))

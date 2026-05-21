@@ -23,6 +23,7 @@ export default function Dashboard() {
       courseId,
       progress: 0,
       completedLessons: [],
+      createdAt: new Date().toISOString(),
     })
   }
 

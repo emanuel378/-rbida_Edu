@@ -13,7 +13,7 @@ export default function DashboardHome() {
 
   const firstName = user?.name.split(' ')[0] || 'Aluno'
 
-  const visibleCourses = courses.filter(c => c.status === 'approved')
+  const visibleCourses = courses.filter(c => c.published)
   const enrolledCourses = visibleCourses.filter((course) => getEnrollment(user?.id || '', course.id))
   const availableCourses = visibleCourses.filter(
     (course) => !getEnrollment(user?.id || '', course.id)
@@ -109,6 +109,7 @@ export default function DashboardHome() {
                       courseId: course.id,
                       progress: 0,
                       completedLessons: [],
+                      createdAt: new Date().toISOString(),
                     })}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl transition-colors text-sm font-medium"
                   >

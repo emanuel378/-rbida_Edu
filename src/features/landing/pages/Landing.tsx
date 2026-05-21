@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useCourseStore } from '../../courses/data/courseStore'
 import {
   BookOpen,
   PlayCircle,
@@ -18,69 +19,9 @@ import {
   MonitorPlay,
   Target,
   BarChart3,
+  GraduationCap,
+  DollarSign,
 } from 'lucide-react'
-
-const teachers = [
-  { name: 'Carlos Silva', specialty: 'Matemática', experience: '12 anos', formation: 'Doutorando em Matemática - USP', avatar: 'CS' },
-  { name: 'Maria Santos', specialty: 'Português', experience: '8 anos', formation: 'Mestre em Letras - UNICAMP', avatar: 'MS' },
-  { name: 'João Oliveira', specialty: 'Física', experience: '10 anos', formation: 'Doutor em Física - UFRJ', avatar: 'JO' },
-  { name: 'Ana Costa', specialty: 'Química', experience: '6 anos', formation: 'Mestre em Química - UFMG', avatar: 'AC' },
-  { name: 'Pedro Lima', specialty: 'Biologia', experience: '9 anos', formation: 'Doutorando em Biologia - USP', avatar: 'PL' },
-  { name: 'Lucia Ferreira', specialty: 'História', experience: '15 anos', formation: 'Doutora em História - UNB', avatar: 'LF' },
-]
-
-const plans = [
-  {
-    name: 'Gratuito',
-    price: '0',
-    period: '',
-    description: 'Para conhecer a plataforma',
-    features: [
-      'Acesso a 2 aulas demonstrativas',
-      '5 questões por dia',
-      '1 simulado por mês',
-      'Fórum da comunidade',
-    ],
-    cta: 'Começar Grátis',
-    highlighted: false,
-    color: 'gray',
-  },
-  {
-    name: 'Premium',
-    price: '29',
-    period: '/mês',
-    description: 'O mais escolhido pelos alunos',
-    features: [
-      'Todas as aulas disponíveis',
-      'Questões ilimitadas',
-      'Simulados semanais',
-      'Correção de redação',
-      'Cronograma personalizado',
-      'Suporte prioritário',
-    ],
-    cta: 'Assine Já',
-    highlighted: true,
-    color: 'blue',
-    badge: 'Recomendado',
-  },
-  {
-    name: 'VIP',
-    price: '59',
-    period: '/mês',
-    description: 'Preparação completa e intensiva',
-    features: [
-      'Tudo do plano Premium',
-      'Aulas ao vivo semanais',
-      'Mentoria individual',
-      'Grupo exclusivo WhatsApp',
-      'Material em PDF completo',
-      'Garantia de aprovação',
-    ],
-    cta: 'Garantir Vaga',
-    highlighted: false,
-    color: 'purple',
-  },
-]
 
 const faqData = [
   {
@@ -133,11 +74,17 @@ const testimonials = [
 export default function Landing() {
   const navigate = useNavigate()
   const [openFaq, setOpenFaq] = useState<number | null>(null)
+  const { courses, getTeacherName } = useCourseStore()
+  const [publishedCourses, setPublishedCourses] = useState<typeof courses>([])
+
+  useEffect(() => {
+    setPublishedCourses(courses.filter(c => c.published))
+  }, [courses])
 
   return (
     <div className="min-h-screen bg-white font-sans">
       {/* Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2">
@@ -145,8 +92,7 @@ export default function Landing() {
             </div>
             <div className="hidden md:flex items-center gap-8">
               <a href="#features" className="text-gray-600 hover:text-blue-600 transition-colors text-sm font-medium">Recursos</a>
-              <a href="#plans" className="text-gray-600 hover:text-blue-600 transition-colors text-sm font-medium">Planos</a>
-              <a href="#teachers" className="text-gray-600 hover:text-blue-600 transition-colors text-sm font-medium">Professores</a>
+              <a href="#cursos" className="text-gray-600 hover:text-blue-600 transition-colors text-sm font-medium">Cursos</a>
               <a href="#faq" className="text-gray-600 hover:text-blue-600 transition-colors text-sm font-medium">FAQ</a>
             </div>
             <div className="flex items-center gap-3">
@@ -200,10 +146,10 @@ export default function Landing() {
                   <ArrowRight className="w-5 h-5" />
                 </button>
                 <a
-                  href="#plans"
+                  href="#cursos"
                   className="inline-flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white font-medium px-8 py-4 rounded-xl text-lg transition-all border border-white/20"
                 >
-                  Ver Planos
+                  Ver Cursos
                 </a>
               </div>
               <div className="flex items-center gap-6 mt-10">
@@ -332,121 +278,61 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Plans Section */}
-      <section id="plans" className="py-20 bg-white">
+      {/* Courses Section */}
+      <section id="cursos" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <span className="inline-block bg-blue-50 text-blue-600 text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
-              Planos
+              Cursos
             </span>
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Escolha o plano ideal para você
+              Escolha seu curso e comece agora
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Planos flexíveis que cabem no seu bolso. Comece grátis e faça upgrade quando quiser.
+              Cursos completos com aulas, questões e simulados. Pagamento único por curso, sem assinatura.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {plans.map((plan, index) => (
-              <div
-                key={index}
-                className={`relative rounded-2xl p-8 transition-all animate-scale ${
-                  plan.highlighted
-                    ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-xl shadow-blue-200 scale-105'
-                    : 'bg-white border border-gray-200 shadow-sm hover:shadow-md'
-                }`}
-              >
-                {plan.badge && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <span className="bg-lime-400 text-gray-900 text-xs font-bold px-4 py-1.5 rounded-full shadow-sm">
-                      {plan.badge}
-                    </span>
+          {publishedCourses.length === 0 ? (
+            <div className="text-center py-12">
+              <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-500">Nenhum curso disponível ainda</h3>
+              <p className="text-gray-400 mt-2">Em breve novos cursos serão publicados.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+              {publishedCourses.map((course) => (
+                <div key={course.id}
+                  className="group bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all duration-300 overflow-hidden">
+                  <div className="h-2 bg-gradient-to-r from-blue-500 to-purple-600" />
+                  <div className="p-6">
+                    <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mb-4">
+                      <BookOpen className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                      {course.title}
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-4 line-clamp-2">{course.description || 'Sem descrição'}</p>
+                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
+                      <GraduationCap className="w-4 h-4" />
+                      <span>{getTeacherName(course.teacherId)}</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-sm text-gray-500">R$</span>
+                        <span className="text-2xl font-bold text-gray-900">{course.price.toFixed(2).replace('.', ',')}</span>
+                      </div>
+                      <button
+                        onClick={() => navigate('/login')}
+                        className="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm shadow-blue-200">
+                        Matricular-se
+                      </button>
+                    </div>
                   </div>
-                )}
-
-                <div className="text-center mb-6">
-                  <h3 className={`text-xl font-bold mb-2 ${plan.highlighted ? 'text-white' : 'text-gray-900'}`}>
-                    {plan.name}
-                  </h3>
-                  <p className={`text-sm mb-4 ${plan.highlighted ? 'text-blue-100' : 'text-gray-500'}`}>
-                    {plan.description}
-                  </p>
-                  <div className="flex items-baseline justify-center gap-1">
-                    <span className={`text-sm ${plan.highlighted ? 'text-blue-200' : 'text-gray-500'}`}>R$</span>
-                    <span className={`text-5xl font-bold ${plan.highlighted ? 'text-white' : 'text-gray-900'}`}>
-                      {plan.price}
-                    </span>
-                    <span className={`text-sm ${plan.highlighted ? 'text-blue-200' : 'text-gray-500'}`}>
-                      {plan.period}
-                    </span>
-                  </div>
                 </div>
-
-                <ul className="space-y-3 mb-8">
-                  {plan.features.map((feature, fIndex) => (
-                    <li key={fIndex} className="flex items-start gap-3">
-                      <CheckCircle2 className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-                        plan.highlighted ? 'text-lime-400' : 'text-green-500'
-                      }`} />
-                      <span className={`text-sm ${plan.highlighted ? 'text-blue-50' : 'text-gray-600'}`}>
-                        {feature}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-
-                <button
-                  onClick={() => navigate('/login')}
-                  className={`w-full py-3 rounded-xl font-semibold text-sm transition-all ${
-                    plan.highlighted
-                      ? 'bg-lime-400 hover:bg-lime-500 text-gray-900 shadow-sm hover:shadow-md'
-                      : plan.color === 'purple'
-                        ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                  }`}
-                >
-                  {plan.cta}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Teachers Section */}
-      <section id="teachers" className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-       <div className="text-center mb-16">
-         <span className="inline-block bg-blue-50 text-blue-600 text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
-           Equipe
-         </span>
-         <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-           Professores especializados
-         </h2>
-         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-           Nossa equipe é formada por professores com anos de experiência em preparação para concursos de Institutos Federais.
-         </p>
-       </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
-            {teachers.map((teacher, index) => (
-              <div key={index} className="group relative overflow-hidden bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl transition-all duration-300 cursor-pointer">
-                <div className="aspect-square bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                  <span className="text-white text-4xl font-bold">{teacher.avatar}</span>
-                </div>
-                <div className="p-4 text-center">
-                  <h3 className="text-sm font-bold text-gray-900 mb-1">{teacher.name}</h3>
-                  <p className="text-xs text-blue-600 font-medium">{teacher.specialty}</p>
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-blue-900 via-blue-800 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-4">
-                  <h3 className="text-white font-bold text-sm mb-1">{teacher.name}</h3>
-                  <p className="text-blue-200 text-xs mb-2">{teacher.specialty} • {teacher.experience}</p>
-                  <p className="text-blue-100 text-xs leading-relaxed">{teacher.formation}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

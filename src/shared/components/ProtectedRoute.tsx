@@ -16,7 +16,7 @@ export default function ProtectedRoute({ children, roles }: Props) {
     return <Navigate to="/dashboard" replace />
   }
 
-  if (user.role === 'professor' && !user.approved) {
+  if (user.role === 'professor' && !user.approved && roles?.includes('professor')) {
     return <Navigate to="/pending" replace />
   }
 

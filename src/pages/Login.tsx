@@ -13,8 +13,12 @@ export default function Login() {
     const user = mockUsers.find(u => u.id === selectedUserId)
     if (user) {
       login(user)
-      if (user.role === 'professor' && !user.approved) {
+      if (user.role === 'admin') {
+        navigate('/admin')
+      } else if (user.role === 'professor' && !user.approved) {
         navigate('/pending')
+      } else if (user.role === 'professor') {
+        navigate('/teacher')
       } else {
         navigate('/dashboard')
       }
