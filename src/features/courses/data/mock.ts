@@ -43,6 +43,7 @@ export interface Question {
   options: string[]
   correctAnswer: number
   difficulty: 'facil' | 'medio' | 'dificil'
+  banca?: string
 }
 
 export interface Comment {
@@ -116,9 +117,9 @@ export const mockLessons: Lesson[] = [
 ]
 
 export const mockQuestions: Question[] = [
-  { id: 'q1', code: 'QST-A1B2', moduleId: 'd1', question: 'Quanto é 2 + 2?', options: ['3', '4', '5', '6'], correctAnswer: 1, difficulty: 'facil' },
-  { id: 'q2', code: 'QST-C3D4', moduleId: 'd1', question: 'Quanto é 5 x 3?', options: ['10', '12', '15', '18'], correctAnswer: 2, difficulty: 'facil' },
-  { id: 'q3', code: 'QST-E5F6', moduleId: 'd1', question: 'Resolva: x² - 4 = 0', options: ['x=±1', 'x=±2', 'x=±3', 'x=±4'], correctAnswer: 1, difficulty: 'medio' },
-  { id: 'q4', code: 'QST-G7H8', moduleId: 'd2', question: 'Qual a classe gramatical de "bonito"?', options: ['Substantivo', 'Adjetivo', 'Advérbio', 'Verbo'], correctAnswer: 1, difficulty: 'facil' },
-  { id: 'q5', code: 'QST-I9J0', moduleId: 'd2', question: 'O pronome relativo "que" pode substituir:', options: ['Apenas pessoas', 'Apenas objetos', 'Pessoas e objetos', 'Apenas lugares'], correctAnswer: 2, difficulty: 'medio' },
+  { id: 'q1', code: 'QST-A1B2', moduleId: 'd1', question: 'Quanto é 2 + 2?', options: ['3', '4', '5', '6'], correctAnswer: 1, difficulty: 'facil', banca: 'IFSP' },
+  { id: 'q2', code: 'QST-C3D4', moduleId: 'd1', question: 'Quanto é 5 x 3?', options: ['10', '12', '15', '18'], correctAnswer: 2, difficulty: 'facil', banca: 'IFSP' },
+  { id: 'q3', code: 'QST-E5F6', moduleId: 'd1', question: 'Resolva: x² - 4 = 0', options: ['x=±1', 'x=±2', 'x=±3', 'x=±4'], correctAnswer: 1, difficulty: 'medio', banca: 'IFMG' },
+  { id: 'q4', code: 'QST-G7H8', moduleId: 'd2', question: 'Qual a classe gramatical de "bonito"?', options: ['Substantivo', 'Adjetivo', 'Advérbio', 'Verbo'], correctAnswer: 1, difficulty: 'facil', banca: 'IFSP' },
+  { id: 'q5', code: 'QST-I9J0', moduleId: 'd2', question: 'O pronome relativo "que" pode substituir:', options: ['Apenas pessoas', 'Apenas objetos', 'Pessoas e objetos', 'Apenas lugares'], correctAnswer: 2, difficulty: 'medio', banca: 'IFMG' },
 ]

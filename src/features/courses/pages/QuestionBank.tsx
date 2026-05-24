@@ -1,15 +1,23 @@
 import { useState } from 'react'
 import { useQuestionStore } from '../data/questionStore'
+import { useCourseStore } from '../data/courseStore'
 import type { Question } from '../data/mock'
-import { Plus, CheckCircle, XCircle } from 'lucide-react'
+import { Plus, CheckCircle } from 'lucide-react'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 
 const STANDARD_FIELDS = new Set(['id', 'code', 'question', 'options', 'correctAnswer', 'difficulty', 'moduleId'])
-const BLOCKED_FIELDS = new Set(['nivel', 'ano'])
+const BLOCKED_FIELDS = new Set(['nivel', 'ano', 'banca', 'disciplina', 'disciplinas'])
+
+const BANCAS = [
+  'CESPE/CEBRASPE', 'FGV', 'VUNESP', 'FCC',
+  'IFSP', 'IFMG', 'IFBA', 'IFRJ', 'IFSUL', 'IFSC', 'IFPR', 'IFES',
+  'IFPE', 'IFCE', 'IFMA', 'IFPA', 'IFRN', 'IFGOIANO', 'IFTM', 'IFSULDEMINAS',
+]
 const normalizeKey = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
 export default function QuestionBank() {
   const { questions, addQuestion } = useQuestionStore()
+  const modules = useCourseStore(s => s.modules)
 
   const asRecord = (q: Question): Record<string, unknown> => q as unknown as Record<string, unknown>
 
@@ -36,6 +44,39 @@ export default function QuestionBank() {
   }
   const fieldNivel = findFieldKey('nivel') ?? 'nivel'
   const fieldAno = findFieldKey('ano') ?? 'ano'
+  const disciplinaFields = ['disciplina', 'disciplinas', 'materia', 'materias']
+    .map(name => ({ name, key: findFieldKey(name) }))
+    .filter((entry): entry is { name: string; key: string } => !!entry.key && entry.key !== entry.name)
+
+  const getDisciplineOptions = () => {
+    const seenLabels = new Set<string>()
+    const result: { value: string; label: string }[] = []
+
+    modules.forEach(m => {
+      const norm = normalizeKey(m.title)
+      if (!seenLabels.has(norm)) {
+        seenLabels.add(norm)
+        result.push({ value: m.id, label: m.title })
+      }
+    })
+
+    questions.forEach(q => {
+      const vals: string[] = []
+      if (q.moduleId) vals.push(q.moduleId)
+      disciplinaFields.forEach(({ name, key }) => {
+        const v = asRecord(q)[key]
+        if (v) vals.push(String(v))
+      })
+      vals.forEach(v => {
+        if (!seenLabels.has(normalizeKey(v))) {
+          seenLabels.add(normalizeKey(v))
+          result.push({ value: v, label: v })
+        }
+      })
+    })
+
+    return result
+  }
 
   const getRelatedValues = (field: string, currentSelections: Record<string, string>) => {
     const values = new Set<string>()
@@ -50,11 +91,18 @@ export default function QuestionBank() {
     return Array.from(values).sort()
   }
 
+  const getBancaValues = () => {
+    const fromExisting = getRelatedValues('banca', { ...meta, moduleId: newQ.moduleId })
+    const all = new Set([...BANCAS, ...fromExisting])
+    return Array.from(all)
+  }
+
   const [newQ, setNewQ] = useState({
     question: '',
     options: ['', '', '', ''],
     correctAnswer: 0,
     difficulty: 'facil' as 'facil' | 'medio' | 'dificil',
+    moduleId: '',
   })
   const [meta, setMeta] = useState<Record<string, string>>({})
 
@@ -63,13 +111,18 @@ export default function QuestionBank() {
   const handleAdd = () => {
     if (!newQ.question || newQ.options.some(o => !o)) return
     const metaData: Record<string, string> = {}
+    if (newQ.moduleId) metaData.moduleId = newQ.moduleId
+    if (newQ.moduleId && !modules.some(m => m.id === newQ.moduleId)) {
+      disciplinaFields.forEach(({ key }) => { metaData[key] = newQ.moduleId })
+    }
     dynamicFields.forEach(field => {
       if (meta[field]) metaData[field] = meta[field]
     })
     if (meta[fieldNivel]) metaData[fieldNivel] = meta[fieldNivel]
     if (meta[fieldAno]) metaData[fieldAno] = meta[fieldAno]
+    if (meta.banca) metaData.banca = meta.banca
     addQuestion({ id: Date.now().toString(), code: '', ...newQ, ...metaData })
-    setNewQ({ question: '', options: ['', '', '', ''], correctAnswer: 0, difficulty: 'facil' })
+    setNewQ({ question: '', options: ['', '', '', ''], correctAnswer: 0, difficulty: 'facil', moduleId: '' })
     setMeta({})
     setShowSuccess(true)
     setTimeout(() => setShowSuccess(false), 2500)
@@ -92,6 +145,36 @@ export default function QuestionBank() {
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-6 space-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">DISCIPLINA</label>
+              <select
+                value={newQ.moduleId}
+                onChange={e => setNewQ({ ...newQ, moduleId: e.target.value })}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="">Selecione a disciplina...</option>
+                {getDisciplineOptions().map(d => (
+                  <option key={d.value} value={d.value}>{d.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">BANCA</label>
+              <select
+                value={meta.banca ?? ''}
+                onChange={e => setMeta(prev => ({ ...prev, banca: e.target.value }))}
+                disabled={!newQ.moduleId}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="">{newQ.moduleId ? 'Selecione a banca...' : 'Primeiro selecione a disciplina'}</option>
+                {getBancaValues().map(v => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">QUESTÃO</label>
             <textarea
