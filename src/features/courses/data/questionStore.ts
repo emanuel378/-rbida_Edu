@@ -1,14 +1,12 @@
 import { create } from 'zustand'
 import { subscribeQuestions, addQuestion as addQuestionToFirestore, deleteQuestion as deleteQuestionFromFirestore, generateQuestionCode } from './questionsService'
 import type { Question, Comment, SimuladoResult } from './mock'
-import { mockQuestions } from './mock'
 
-const initData = <T>(key: string, mockData: T[]): T[] => {
+const CACHE_KEY = 'questions_cache'
+
+const initData = <T>(key: string, defaultData: T[]): T[] => {
   const saved = localStorage.getItem(key)
-  if (!saved) {
-    localStorage.setItem(key, JSON.stringify(mockData))
-    return mockData
-  }
+  if (!saved) return defaultData
   return JSON.parse(saved)
 }
 
@@ -17,19 +15,21 @@ const ensureCode = (q: Question): Question => {
   return q
 }
 
-const fallbackLocal = (): Question[] => {
-  const saved = localStorage.getItem('questions')
-  if (saved) {
-    const parsed: Question[] = JSON.parse(saved)
-    return parsed.map(ensureCode)
-  }
-  return mockQuestions
+const cacheQuestions = (questions: Question[]) => {
+  localStorage.setItem(CACHE_KEY, JSON.stringify(questions))
+}
+
+const loadCached = (): Question[] => {
+  const saved = localStorage.getItem(CACHE_KEY)
+  if (!saved) return []
+  return JSON.parse(saved).map(ensureCode)
 }
 
 interface QuestionState {
   questions: Question[]
   comments: Comment[]
   results: SimuladoResult[]
+  firestoreReady: boolean
   addQuestion: (question: Question) => void
   deleteQuestion: (questionId: string) => void
   addComment: (comment: Comment) => void
@@ -40,52 +40,47 @@ interface QuestionState {
 }
 
 export const useQuestionStore = create<QuestionState>((set, get) => {
-  let usingFirestore = false
+  let firestoreInitialized = false
+  let unsubscribe: (() => void) | null = null
 
-  subscribeQuestions(
+  unsubscribe = subscribeQuestions(
     (questions) => {
-      usingFirestore = true
-      set({ questions: questions.map(ensureCode) })
+      const normalized = questions.map(ensureCode)
+      cacheQuestions(normalized)
+      firestoreInitialized = true
+      set({ questions: normalized, firestoreReady: true })
     },
     () => {
-      if (!usingFirestore) {
-        set({ questions: fallbackLocal() })
+      if (!firestoreInitialized) {
+        const cached = loadCached()
+        set({ questions: cached.length > 0 ? cached : [], firestoreReady: true })
       }
     }
   )
 
+  const cached = loadCached()
+
   return {
-    questions: fallbackLocal(),
+    questions: cached,
     comments: initData('comments', []),
     results: initData('results', []),
+    firestoreReady: false,
 
     addQuestion: (question) => {
       const q = ensureCode(question)
-      if (usingFirestore) {
-        addQuestionToFirestore(q).catch(() => {
-          const questions = [...get().questions, q]
-          localStorage.setItem('questions', JSON.stringify(questions))
-          set({ questions })
-        })
-      } else {
+      addQuestionToFirestore(q).catch(() => {
         const questions = [...get().questions, q]
-        localStorage.setItem('questions', JSON.stringify(questions))
+        cacheQuestions(questions)
         set({ questions })
-      }
+      })
     },
 
     deleteQuestion: (questionId) => {
-      if (usingFirestore) {
-        deleteQuestionFromFirestore(questionId).catch(() => {
-          const questions = get().questions.filter(q => q.id !== questionId)
-          localStorage.setItem('questions', JSON.stringify(questions))
-          set({ questions })
-        })
-      } else {
+      deleteQuestionFromFirestore(questionId).catch(() => {
         const questions = get().questions.filter(q => q.id !== questionId)
-        localStorage.setItem('questions', JSON.stringify(questions))
+        cacheQuestions(questions)
         set({ questions })
-      }
+      })
     },
 
     addComment: (comment) => {
@@ -109,14 +104,11 @@ export const useQuestionStore = create<QuestionState>((set, get) => {
     },
 
     syncLocalToFirestore: async () => {
-      const local = localStorage.getItem('questions')
-      if (!local) return
-      const localQuestions: Question[] = JSON.parse(local)
-      if (localQuestions.length === 0) return
-      for (const q of localQuestions) {
+      const local = loadCached()
+      if (local.length === 0) return
+      for (const q of local) {
         await addQuestionToFirestore(ensureCode(q))
       }
-      localStorage.removeItem('questions')
     },
   }
 })

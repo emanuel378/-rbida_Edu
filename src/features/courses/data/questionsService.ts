@@ -1,11 +1,8 @@
 import { db } from '../../../lib/firebase'
 import { collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore'
 import type { Question } from './mock'
-import { mockQuestions } from './mock'
 
-const COLLECTION = 'questions'
-
-let seeded = false
+const COLLECTION = 'questoes'
 
 const CODE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
@@ -26,15 +23,6 @@ export function subscribeQuestions(
   return onSnapshot(
     ref,
     (snapshot) => {
-      if (snapshot.empty && !seeded) {
-        seeded = true
-        const promises = mockQuestions.map(q => setDoc(doc(ref, q.id), q))
-        Promise.all(promises).catch(err => {
-          console.error('Erro ao semear dados no Firestore:', err)
-        })
-        return
-      }
-
       const questions = snapshot.docs.map(d => ({
         id: d.id,
         ...d.data(),
