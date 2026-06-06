@@ -35,14 +35,20 @@ export interface Lesson {
   order: number
 }
 
+export interface Topic {
+  id: string
+  moduleId: string
+  title: string
+}
+
 export interface Question {
   id: string
   code: string
   moduleId?: string
+  topicId?: string
   question: string
   options: string[]
   correctAnswer: number
-  difficulty: 'facil' | 'medio' | 'dificil'
   banca?: string
 }
 
@@ -110,6 +116,17 @@ export const mockModules: Module[] = [
   { id: 'd3', courseId: 'c2', title: 'Matemática', order: 1, teacherId: '3' },
 ]
 
+export const mockTopics: Topic[] = [
+  { id: 't1', moduleId: 'd1', title: 'Álgebra' },
+  { id: 't2', moduleId: 'd1', title: 'Geometria' },
+  { id: 't3', moduleId: 'd1', title: 'Aritmética' },
+  { id: 't4', moduleId: 'd2', title: 'Morfologia' },
+  { id: 't5', moduleId: 'd2', title: 'Sintaxe' },
+  { id: 't6', moduleId: 'd2', title: 'Interpretação Textual' },
+  { id: 't7', moduleId: 'd3', title: 'Álgebra' },
+  { id: 't8', moduleId: 'd3', title: 'Geometria' },
+]
+
 export const mockLessons: Lesson[] = [
   { id: 'l1', moduleId: 'd1', title: 'Álgebra Básica', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', pdfUrl: '#', order: 1 },
   { id: 'l2', moduleId: 'd1', title: 'Geometria Plana', videoUrl: 'https://www.youtube.com/watch?v=9bZkp7q19f0', pdfUrl: '#', order: 2 },
@@ -117,9 +134,9 @@ export const mockLessons: Lesson[] = [
 ]
 
 export const mockQuestions: Question[] = [
-  { id: 'q1', code: 'QST-A1B2', moduleId: 'd1', question: 'Quanto é 2 + 2?', options: ['3', '4', '5', '6'], correctAnswer: 1, difficulty: 'facil', banca: 'IFSP' },
-  { id: 'q2', code: 'QST-C3D4', moduleId: 'd1', question: 'Quanto é 5 x 3?', options: ['10', '12', '15', '18'], correctAnswer: 2, difficulty: 'facil', banca: 'IFSP' },
-  { id: 'q3', code: 'QST-E5F6', moduleId: 'd1', question: 'Resolva: x² - 4 = 0', options: ['x=±1', 'x=±2', 'x=±3', 'x=±4'], correctAnswer: 1, difficulty: 'medio', banca: 'IFMG' },
-  { id: 'q4', code: 'QST-G7H8', moduleId: 'd2', question: 'Qual a classe gramatical de "bonito"?', options: ['Substantivo', 'Adjetivo', 'Advérbio', 'Verbo'], correctAnswer: 1, difficulty: 'facil', banca: 'IFSP' },
-  { id: 'q5', code: 'QST-I9J0', moduleId: 'd2', question: 'O pronome relativo "que" pode substituir:', options: ['Apenas pessoas', 'Apenas objetos', 'Pessoas e objetos', 'Apenas lugares'], correctAnswer: 2, difficulty: 'medio', banca: 'IFMG' },
+  { id: 'q1', code: 'QST-A1B2', moduleId: 'd1', topicId: 't3', question: 'Quanto é 2 + 2?', options: ['3', '4', '5', '6'], correctAnswer: 1, banca: 'IFSP' },
+  { id: 'q2', code: 'QST-C3D4', moduleId: 'd1', topicId: 't3', question: 'Quanto é 5 x 3?', options: ['10', '12', '15', '18'], correctAnswer: 2, banca: 'IFSP' },
+  { id: 'q3', code: 'QST-E5F6', moduleId: 'd1', topicId: 't1', question: 'Resolva: x² - 4 = 0', options: ['x=±1', 'x=±2', 'x=±3', 'x=±4'], correctAnswer: 1, banca: 'IFMG' },
+  { id: 'q4', code: 'QST-G7H8', moduleId: 'd2', topicId: 't4', question: 'Qual a classe gramatical de "bonito"?', options: ['Substantivo', 'Adjetivo', 'Advérbio', 'Verbo'], correctAnswer: 1, banca: 'IFSP' },
+  { id: 'q5', code: 'QST-I9J0', moduleId: 'd2', topicId: 't5', question: 'O pronome relativo "que" pode substituir:', options: ['Apenas pessoas', 'Apenas objetos', 'Pessoas e objetos', 'Apenas lugares'], correctAnswer: 2, banca: 'IFMG' },
 ]

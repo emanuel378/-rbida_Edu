@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import { mockCourses, mockModules, mockLessons, mockUsers } from './mock'
-import type { Course, Module, Lesson, Enrollment, Comment, Message, User } from './mock'
+import { mockCourses, mockModules, mockLessons, mockTopics, mockUsers } from './mock'
+import type { Course, Module, Lesson, Topic, Enrollment, Comment, Message, User } from './mock'
 
 const initData = <T>(key: string, mockData: T[]): T[] => {
   if (key === 'modules') {
@@ -48,6 +48,7 @@ interface CourseState {
   courses: Course[]
   modules: Module[]
   lessons: Lesson[]
+  topics: Topic[]
   enrollments: Enrollment[]
   comments: Comment[]
   messages: Message[]
@@ -63,6 +64,9 @@ interface CourseState {
   deleteLesson: (lessonId: string) => void
   updateModule: (id: string, data: Partial<Module>) => void
   updateLesson: (id: string, data: Partial<Lesson>) => void
+  addTopic: (topic: Topic) => void
+  deleteTopic: (topicId: string) => void
+  updateTopic: (id: string, data: Partial<Topic>) => void
   enroll: (enrollment: Enrollment) => void
   completeLesson: (userId: string, courseId: string, lessonId: string) => void
   getEnrollment: (userId: string, courseId: string) => Enrollment | undefined
@@ -82,6 +86,7 @@ export const useCourseStore = create<CourseState>((set, get) => ({
   courses: initData('courses', mockCourses),
   modules: initData('modules', mockModules),
   lessons: initData('lessons', mockLessons),
+  topics: initData('topics', mockTopics),
   enrollments: initData('enrollments', []),
   comments: initData('comments', []),
   messages: initData('messages', []),
@@ -136,18 +141,22 @@ export const useCourseStore = create<CourseState>((set, get) => ({
     const modules = get().modules.filter(m => m.courseId !== courseId)
     const modIds = modules.map(m => m.id)
     const lessons = get().lessons.filter(l => !modIds.includes(l.moduleId))
+    const topics = get().topics.filter(t => !modIds.includes(t.moduleId))
     localStorage.setItem('courses', JSON.stringify(courses))
     localStorage.setItem('modules', JSON.stringify(modules))
     localStorage.setItem('lessons', JSON.stringify(lessons))
-    set({ courses, modules, lessons })
+    localStorage.setItem('topics', JSON.stringify(topics))
+    set({ courses, modules, lessons, topics })
   },
 
   deleteModule: (moduleId) => {
     const modules = get().modules.filter(m => m.id !== moduleId)
     const lessons = get().lessons.filter(l => l.moduleId !== moduleId)
+    const topics = get().topics.filter(t => t.moduleId !== moduleId)
     localStorage.setItem('modules', JSON.stringify(modules))
     localStorage.setItem('lessons', JSON.stringify(lessons))
-    set({ modules, lessons })
+    localStorage.setItem('topics', JSON.stringify(topics))
+    set({ modules, lessons, topics })
   },
 
   deleteLesson: (lessonId) => {
@@ -166,6 +175,24 @@ export const useCourseStore = create<CourseState>((set, get) => ({
     const lessons = get().lessons.map(l => l.id === id ? { ...l, ...data } : l)
     localStorage.setItem('lessons', JSON.stringify(lessons))
     set({ lessons })
+  },
+
+  addTopic: (topic) => {
+    const topics = [...get().topics, topic]
+    localStorage.setItem('topics', JSON.stringify(topics))
+    set({ topics })
+  },
+
+  deleteTopic: (topicId) => {
+    const topics = get().topics.filter(t => t.id !== topicId)
+    localStorage.setItem('topics', JSON.stringify(topics))
+    set({ topics })
+  },
+
+  updateTopic: (id, data) => {
+    const topics = get().topics.map(t => t.id === id ? { ...t, ...data } : t)
+    localStorage.setItem('topics', JSON.stringify(topics))
+    set({ topics })
   },
 
   enroll: (enrollment) => {
@@ -331,9 +358,11 @@ export const useCourseStore = create<CourseState>((set, get) => ({
     } else if (msg.targetType === 'module' && msg.moduleId) {
       const modules = get().modules.filter(m => m.id !== msg.moduleId)
       const lessons = get().lessons.filter(l => l.moduleId !== msg.moduleId)
+      const topics = get().topics.filter(t => t.moduleId !== msg.moduleId)
       localStorage.setItem('modules', JSON.stringify(modules))
       localStorage.setItem('lessons', JSON.stringify(lessons))
-      updates = { ...updates, modules, lessons }
+      localStorage.setItem('topics', JSON.stringify(topics))
+      updates = { ...updates, modules, lessons, topics }
     } else if (msg.targetType === 'lesson' && msg.lessonId) {
       const lessons = get().lessons.filter(l => l.id !== msg.lessonId)
       localStorage.setItem('lessons', JSON.stringify(lessons))

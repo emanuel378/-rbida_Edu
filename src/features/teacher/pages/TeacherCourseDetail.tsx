@@ -10,6 +10,61 @@ import {
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 
+const TOPICOS_POR_DISCIPLINA: Record<string, string[]> = {
+  portugues: [
+    'Interpretação e Compreensão de Texto',
+    'Tipologia e Gêneros Textuais',
+    'Coesão e Coerência Textual',
+    'Sintaxe da Norma Padrão',
+    'Morfologia',
+    'Semântica e Léxico',
+    'Sintaxe do Período',
+    'Variação Linguística',
+    'Estilística e Figuras de Linguagem',
+    'Fonética e Fonologia',
+    'Redação Oficial',
+    'Análise do Discurso',
+  ],
+  legislacao: [
+    'Constituição Federal de 1988',
+    'Regime Jurídico Único da União – Lei nº 8.112/1990',
+    'Código de Ética Profissional - Decreto nº 1.171/1994',
+    'Lei de Acesso à Informação (LAI) - Lei nº 12.527/2011',
+    'Lei Geral de Proteção de Dados (LGPD) - Lei nº 13.709/2018',
+    'Processo Administrativo Federal - LEI nº 9.784/1999',
+    'Licitações e Contratos Administrativos - Lei nº 14.133/2021',
+    'Lei de Improbidade Administrativa - Lei nº 8.429/1992',
+    'Criação dos Institutos Federais - Lei nº 11.892/2008',
+    'Estrutura do Plano de Carreira dos Técnico-Administrativos - Lei nº 11.091/2005',
+    'Plano de carreiras e cargos docentes - Lei nº 12.772/2012',
+    'Lei de Diretrizes e Bases da Educação (LDB) - Lei nº 9.394/1996',
+    'Decreto nº 5.154/2004',
+    'Decreto nº 5.840/2006',
+    'Diretrizes Gerais para EPT - Resolução CNE/CP nº 1/2021',
+    'Estatuto da Criança e do Adolescente (ECA) - Lei nº 8.069/1990',
+    'Inclusão e Acessibilidade',
+    'Diretrizes e Planos Educacionais',
+    'Normas específicas de cada instituição',
+  ],
+  conhecimentos_educacionais: [
+    'Didática Geral e Formação Docente',
+    'Tendências Pedagógicas',
+    'Planejamento Escolar e Pedagógico',
+    'Avaliação no Processo de Ensino-Aprendizagem',
+    'Psicologia da Aprendizagem e do Desenvolvimento',
+    'Educação de Jovens e Adultos',
+    'Tecnologias de Informação e Comunicação (TICs) na Educação',
+    'Metodologias Ativas de Aprendizagem',
+    'Inclusão na Educação Escolar',
+    'Gestão Escolar',
+    'Base Nacional Comum Curricular',
+    'Conhecimentos sobre Educação Profissional e Tecnológica',
+    'Outros Temas Educacionais',
+  ],
+}
+
+const normalizeKey = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
 function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   useEffect(() => {
     if (open) document.body.style.overflow = 'hidden'
@@ -91,7 +146,7 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
 export default function TeacherCourseDetail() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuthStore()
-  const { courses, modules, lessons, enrollments, messages, addModule, addLesson, updateModule, updateLesson, requestContentDeletion, requestCoursePublish, getTeacherName } = useCourseStore()
+  const { courses, modules, lessons, topics, enrollments, messages, addModule, addLesson, updateModule, updateLesson, requestContentDeletion, requestCoursePublish, getTeacherName } = useCourseStore()
   const { questions, addQuestion, deleteQuestion } = useQuestionStore()
   const navigate = useNavigate()
 
@@ -120,7 +175,7 @@ export default function TeacherCourseDetail() {
 
   const [showQuestionModal, setShowQuestionModal] = useState(false)
   const [questionForm, setQuestionForm] = useState({
-    moduleId: '', question: '', options: ['', '', '', ''], correctAnswer: 0, difficulty: 'facil' as 'facil' | 'medio' | 'dificil'
+    moduleId: '', assunto: '', question: '', options: ['', '', '', ''], correctAnswer: 0
   })
 
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'module' | 'lesson' | 'question'; id: string; name: string; moduleId?: string } | null>(null)
@@ -185,16 +240,17 @@ export default function TeacherCourseDetail() {
 
   const handleAddQuestion = () => {
     if (!questionForm.moduleId || !questionForm.question.trim() || questionForm.options.some(o => !o.trim())) return
-    addQuestion({
+    const data: Record<string, any> = {
       id: Date.now().toString(),
       code: '',
       moduleId: questionForm.moduleId,
       question: questionForm.question.trim(),
       options: questionForm.options.map(o => o.trim()),
       correctAnswer: questionForm.correctAnswer,
-      difficulty: questionForm.difficulty,
-    })
-    setQuestionForm({ moduleId: '', question: '', options: ['', '', '', ''], correctAnswer: 0, difficulty: 'facil' })
+    }
+    if (questionForm.assunto) data.topicId = questionForm.assunto
+    addQuestion(data as any)
+    setQuestionForm({ moduleId: '', assunto: '', question: '', options: ['', '', '', ''], correctAnswer: 0 })
     setShowQuestionModal(false)
   }
 
@@ -259,12 +315,6 @@ export default function TeacherCourseDetail() {
     setVideoUrls('')
     setPlaylistVideos([])
     setShowPlaylist(false)
-  }
-
-  const difficultyConfig = {
-    facil: { label: 'Fácil', color: 'bg-green-100 text-green-700 border-green-200' },
-    medio: { label: 'Médio', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-    dificil: { label: 'Difícil', color: 'bg-red-100 text-red-700 border-red-200' },
   }
 
   return (
@@ -466,9 +516,6 @@ export default function TeacherCourseDetail() {
                                 <HelpCircle className="w-3.5 h-3.5" />
                               </div>
                               <span className="flex-1 text-sm text-gray-700 truncate">{q.question}</span>
-                              <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${difficultyConfig[q.difficulty].color}`}>
-                                {difficultyConfig[q.difficulty].label}
-                              </span>
                               <button onClick={() => setDeleteTarget({ type: 'question', id: q.id, name: q.question, moduleId: q.moduleId })}
                                 className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100" title="Excluir questão">
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -626,10 +673,29 @@ export default function TeacherCourseDetail() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Módulo</label>
-            <select value={questionForm.moduleId} onChange={e => setQuestionForm({ ...questionForm, moduleId: e.target.value })}
+            <select value={questionForm.moduleId} onChange={e => setQuestionForm({ ...questionForm, moduleId: e.target.value, assunto: '' })}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white">
               <option value="">Selecione o módulo</option>
               {myModules.map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Assunto</label>
+            <select value={questionForm.assunto} onChange={e => setQuestionForm({ ...questionForm, assunto: e.target.value })}
+              disabled={!questionForm.moduleId}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60">
+              <option value="">{questionForm.moduleId ? 'Selecione o assunto...' : 'Primeiro selecione o módulo'}</option>
+              {(() => {
+                const mod = modules.find(m => m.id === questionForm.moduleId)
+                const title = mod ? mod.title : questionForm.moduleId
+                if (!title) return null
+                const key = normalizeKey(title)
+                let topicos: string[] = []
+                if (key.includes('portugues')) topicos = TOPICOS_POR_DISCIPLINA.portugues
+                else if (key.includes('legislacao')) topicos = TOPICOS_POR_DISCIPLINA.legislacao
+                else if (key.includes('educacional') || key.includes('pedagogia') || key.includes('conhecimento')) topicos = TOPICOS_POR_DISCIPLINA.conhecimentos_educacionais
+                return topicos.map(t => <option key={t} value={t}>{t}</option>)
+              })()}
             </select>
           </div>
           <div>
@@ -656,15 +722,6 @@ export default function TeacherCourseDetail() {
                 </div>
               ))}
             </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Dificuldade</label>
-            <select value={questionForm.difficulty} onChange={e => setQuestionForm({ ...questionForm, difficulty: e.target.value as 'facil' | 'medio' | 'dificil' })}
-              className="px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white">
-              <option value="facil">Fácil</option>
-              <option value="medio">Médio</option>
-              <option value="dificil">Difícil</option>
-            </select>
           </div>
           <div className="flex gap-3 justify-end pt-2">
             <button onClick={() => setShowQuestionModal(false)} className="px-4 py-2.5 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors font-medium text-sm">Cancelar</button>

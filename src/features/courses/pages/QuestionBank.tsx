@@ -5,19 +5,131 @@ import type { Question } from '../data/mock'
 import { Plus, CheckCircle } from 'lucide-react'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 
-const STANDARD_FIELDS = new Set(['id', 'code', 'question', 'options', 'correctAnswer', 'difficulty', 'moduleId'])
-const BLOCKED_FIELDS = new Set(['nivel', 'ano', 'banca', 'disciplina', 'disciplinas'])
+const STANDARD_FIELDS = new Set(['id', 'code', 'question', 'options', 'correctAnswer', 'moduleId', 'topicId', 'assunto'])
+const BLOCKED_FIELDS = new Set(['nivel', 'ano', 'banca', 'disciplina', 'disciplinas', 'assunto'])
 
 const BANCAS = [
-  'CESPE/CEBRASPE', 'FGV', 'VUNESP', 'FCC',
-  'IFSP', 'IFMG', 'IFBA', 'IFRJ', 'IFSUL', 'IFSC', 'IFPR', 'IFES',
-  'IFPE', 'IFCE', 'IFMA', 'IFPA', 'IFRN', 'IFGOIANO', 'IFTM', 'IFSULDEMINAS',
+  'Cebraspe',
+  'Fundação Getúlio Vargas - FGV',
+  'Fundação Carlos Chagas - FCC',
+  'Fundação Cesgranrio',
+  'Instituto AOCP',
+  'IDECAN',
+  'IBFC',
+  'Quadrix',
+  'Consulplan',
+  'Consulpam',
+  'FUNDEP',
+  'VUNESP',
+  'IADES',
+  'FUNCAB',
+  'FUNRIO',
+  'Fundação CEFETMINAS',
+  'IFPI',
+  'Objetiva Concursos',
+  'FAURGS',
+  'COPEVE-UFAL',
+  'Fundatec',
+  'FAU',
+  'COPESE/COPED',
+  'UFRN',
+  'UFSM',
+  'UFPE',
+  'UFAL',
+  'UFAM',
+  'IFSertãoPE',
+  'IFMG',
+  'IFSP',
+  'IF Goiano',
+  'IFPR',
+  'IFAC',
+  'IFAL',
+  'IFAM',
+  'IFAP',
+  'IF Baiano',
+  'IFBA',
+  'IFB',
+  'IFCE',
+  'IFES',
+  'IF Fluminense',
+  'IFG',
+  'IFMA',
+  'IFMT',
+  'IFMS',
+  'IFNMG',
+  'IFPA',
+  'IFPB',
+  'IFPE',
+  'IFRN',
+  'IFRO',
+  'IFRR',
+  'IFRS',
+  'IFSul',
+  'IF Sudeste MG',
+  'IFS',
+  'IFTO',
+  'IFC',
+  'IF Farroupilha',
 ]
+const TOPICOS_POR_DISCIPLINA: Record<string, string[]> = {
+  portugues: [
+    'Interpretação e Compreensão de Texto',
+    'Tipologia e Gêneros Textuais',
+    'Coesão e Coerência Textual',
+    'Sintaxe da Norma Padrão',
+    'Morfologia',
+    'Semântica e Léxico',
+    'Sintaxe do Período',
+    'Variação Linguística',
+    'Estilística e Figuras de Linguagem',
+    'Fonética e Fonologia',
+    'Redação Oficial',
+    'Análise do Discurso',
+  ],
+  legislacao: [
+    'Constituição Federal de 1988',
+    'Regime Jurídico Único da União – Lei nº 8.112/1990',
+    'Código de Ética Profissional - Decreto nº 1.171/1994',
+    'Lei de Acesso à Informação (LAI) - Lei nº 12.527/2011',
+    'Lei Geral de Proteção de Dados (LGPD) - Lei nº 13.709/2018',
+    'Processo Administrativo Federal - LEI nº 9.784/1999',
+    'Licitações e Contratos Administrativos - Lei nº 14.133/2021',
+    'Lei de Improbidade Administrativa - Lei nº 8.429/1992',
+    'Criação dos Institutos Federais - Lei nº 11.892/2008',
+    'Estrutura do Plano de Carreira dos Técnico-Administrativos - Lei nº 11.091/2005',
+    'Plano de carreiras e cargos docentes - Lei nº 12.772/2012',
+    'Lei de Diretrizes e Bases da Educação (LDB) - Lei nº 9.394/1996',
+    'Decreto nº 5.154/2004',
+    'Decreto nº 5.840/2006',
+    'Diretrizes Gerais para EPT - Resolução CNE/CP nº 1/2021',
+    'Estatuto da Criança e do Adolescente (ECA) - Lei nº 8.069/1990',
+    'Inclusão e Acessibilidade',
+    'Diretrizes e Planos Educacionais',
+    'Normas específicas de cada instituição',
+  ],
+  conhecimentos_educacionais: [
+    'Didática Geral e Formação Docente',
+    'Tendências Pedagógicas',
+    'Planejamento Escolar e Pedagógico',
+    'Avaliação no Processo de Ensino-Aprendizagem',
+    'Psicologia da Aprendizagem e do Desenvolvimento',
+    'Educação de Jovens e Adultos',
+    'Tecnologias de Informação e Comunicação (TICs) na Educação',
+    'Metodologias Ativas de Aprendizagem',
+    'Inclusão na Educação Escolar',
+    'Gestão Escolar',
+    'Base Nacional Comum Curricular',
+    'Conhecimentos sobre Educação Profissional e Tecnológica',
+    'Outros Temas Educacionais',
+  ],
+}
+
 const normalizeKey = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
 export default function QuestionBank() {
   const { questions, addQuestion } = useQuestionStore()
   const modules = useCourseStore(s => s.modules)
+  const topics = useCourseStore(s => s.topics)
 
   const asRecord = (q: Question): Record<string, unknown> => q as unknown as Record<string, unknown>
 
@@ -91,18 +203,25 @@ export default function QuestionBank() {
     return Array.from(values).sort()
   }
 
-  const getBancaValues = () => {
-    const fromExisting = getRelatedValues('banca', { ...meta, moduleId: newQ.moduleId })
-    const all = new Set([...BANCAS, ...fromExisting])
-    return Array.from(all)
+  const getBancaValues = () => BANCAS
+
+  const getTopicOptions = () => {
+    const module = modules.find(m => m.id === newQ.moduleId)
+    const title = module ? module.title : newQ.moduleId
+    if (!title) return []
+    const key = normalizeKey(title)
+    if (key.includes('portugues')) return TOPICOS_POR_DISCIPLINA.portugues
+    if (key.includes('legislacao')) return TOPICOS_POR_DISCIPLINA.legislacao
+    if (key.includes('educacional') || key.includes('pedagogia') || key.includes('conhecimento')) return TOPICOS_POR_DISCIPLINA.conhecimentos_educacionais
+    return []
   }
 
   const [newQ, setNewQ] = useState({
     question: '',
     options: ['', '', '', ''],
     correctAnswer: 0,
-    difficulty: 'facil' as 'facil' | 'medio' | 'dificil',
     moduleId: '',
+    topicId: '',
   })
   const [meta, setMeta] = useState<Record<string, string>>({})
 
@@ -112,6 +231,7 @@ export default function QuestionBank() {
     if (!newQ.question || newQ.options.some(o => !o)) return
     const metaData: Record<string, string> = {}
     if (newQ.moduleId) metaData.moduleId = newQ.moduleId
+    if (newQ.topicId) { metaData.topicId = newQ.topicId; metaData.assunto = newQ.topicId }
     if (newQ.moduleId && !modules.some(m => m.id === newQ.moduleId)) {
       disciplinaFields.forEach(({ key }) => { metaData[key] = newQ.moduleId })
     }
@@ -122,7 +242,7 @@ export default function QuestionBank() {
     if (meta[fieldAno]) metaData[fieldAno] = meta[fieldAno]
     if (meta.banca) metaData.banca = meta.banca
     addQuestion({ id: Date.now().toString(), code: '', ...newQ, ...metaData })
-    setNewQ({ question: '', options: ['', '', '', ''], correctAnswer: 0, difficulty: 'facil', moduleId: '' })
+    setNewQ({ question: '', options: ['', '', '', ''], correctAnswer: 0, moduleId: '', topicId: '' })
     setMeta({})
     setShowSuccess(true)
     setTimeout(() => setShowSuccess(false), 2500)
@@ -150,7 +270,7 @@ export default function QuestionBank() {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">DISCIPLINA</label>
               <select
                 value={newQ.moduleId}
-                onChange={e => setNewQ({ ...newQ, moduleId: e.target.value })}
+                onChange={e => setNewQ({ ...newQ, moduleId: e.target.value, topicId: '' })}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
                 <option value="">Selecione a disciplina...</option>
@@ -164,15 +284,35 @@ export default function QuestionBank() {
               <select
                 value={meta.banca ?? ''}
                 onChange={e => setMeta(prev => ({ ...prev, banca: e.target.value }))}
-                disabled={!newQ.moduleId}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
-                <option value="">{newQ.moduleId ? 'Selecione a banca...' : 'Primeiro selecione a disciplina'}</option>
+                <option value="">Selecione a banca...</option>
                 {getBancaValues().map(v => (
                   <option key={v} value={v}>{v}</option>
                 ))}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">ASSUNTO</label>
+            <select
+              value={newQ.topicId}
+              onChange={e => setNewQ({ ...newQ, topicId: e.target.value })}
+              disabled={!newQ.moduleId || getTopicOptions().length === 0}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">
+                {!newQ.moduleId
+                  ? 'Primeiro selecione a disciplina'
+                  : getTopicOptions().length === 0
+                    ? 'Nenhum assunto disponível para esta disciplina'
+                    : 'Selecione o assunto...'}
+              </option>
+              {getTopicOptions().map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -223,19 +363,6 @@ export default function QuestionBank() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">DIFICULDADE</label>
-              <select
-                value={newQ.difficulty}
-                onChange={e => setNewQ({ ...newQ, difficulty: e.target.value as 'facil' | 'medio' | 'dificil' })}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                <option value="facil">🟢 Fácil</option>
-                <option value="medio">🟡 Médio</option>
-                <option value="dificil">🔴 Difícil</option>
-              </select>
-            </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">NÍVEL</label>
               <select

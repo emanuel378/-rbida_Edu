@@ -182,7 +182,6 @@ export default function Course() {
                                 </p>
                                 <div className="flex items-center gap-2 mt-1">
                                   <HelpCircle className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                                  <span className="text-xs text-gray-500 capitalize">{q.difficulty}</span>
                                 </div>
                               </div>
                             </Link>
