@@ -147,7 +147,7 @@ export default function TeacherCourseDetail() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuthStore()
   const { courses, modules, lessons, topics, enrollments, messages, addModule, addLesson, updateModule, updateLesson, requestContentDeletion, requestCoursePublish, getTeacherName } = useCourseStore()
-  const { questions, addQuestion, deleteQuestion } = useQuestionStore()
+  const { questions, addQuestion, deleteQuestion, updateQuestion } = useQuestionStore()
   const navigate = useNavigate()
 
   const course = courses.find(c => c.id === id)
@@ -177,9 +177,16 @@ export default function TeacherCourseDetail() {
   const [questionForm, setQuestionForm] = useState({
     moduleId: '', assunto: '', question: '', options: ['', '', '', ''], correctAnswer: 0
   })
+  const [questionGabaritoTexto, setQuestionGabaritoTexto] = useState('')
+  const [questionAulasRelacionadas, setQuestionAulasRelacionadas] = useState<string[]>([])
+  const [novaAulaRelacionada, setNovaAulaRelacionada] = useState('')
 
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'module' | 'lesson' | 'question'; id: string; name: string; moduleId?: string } | null>(null)
   const [successMsg, setSuccessMsg] = useState('')
+
+  const [showLinkModal, setShowLinkModal] = useState(false)
+  const [linkModuleId, setLinkModuleId] = useState('')
+  const [selectedBankQuestions, setSelectedBankQuestions] = useState<string[]>([])
 
   useEffect(() => {
     if (successMsg) {
@@ -248,10 +255,33 @@ export default function TeacherCourseDetail() {
       options: questionForm.options.map(o => o.trim()),
       correctAnswer: questionForm.correctAnswer,
     }
-    if (questionForm.assunto) data.topicId = questionForm.assunto
+    if (questionForm.assunto) {
+      data.topicId = questionForm.assunto
+      data.assunto = questionForm.assunto
+    }
+    if (questionGabaritoTexto) data.gabaritoComentado = questionGabaritoTexto
+    if (questionAulasRelacionadas.length > 0) {
+      data.aulasRelacionadas = questionAulasRelacionadas
+    }
     addQuestion(data as any)
     setQuestionForm({ moduleId: '', assunto: '', question: '', options: ['', '', '', ''], correctAnswer: 0 })
+    setQuestionGabaritoTexto('')
+    setQuestionAulasRelacionadas([])
+    setNovaAulaRelacionada('')
     setShowQuestionModal(false)
+  }
+
+  const handleLinkQuestions = () => {
+    if (!linkModuleId || selectedBankQuestions.length === 0) return
+    selectedBankQuestions.forEach(qId => {
+      const q = questions.find(item => item.id === qId)
+      if (q) {
+        updateQuestion({ ...q, moduleId: linkModuleId })
+      }
+    })
+    setSelectedBankQuestions([])
+    setShowLinkModal(false)
+    setSuccessMsg(`${selectedBankQuestions.length} questão(ões) vinculada(s) com sucesso!`)
   }
 
   const startEditingModule = (mod: typeof myModules[0]) => {
@@ -363,7 +393,7 @@ export default function TeacherCourseDetail() {
           className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-all font-medium text-sm shadow-sm shadow-purple-200">
           <Plus className="w-4 h-4" /> Aula
         </button>
-        <button onClick={() => setShowQuestionModal(true)}
+        <button onClick={() => { setLinkModuleId(''); setSelectedBankQuestions([]); setShowLinkModal(true) }}
           className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-all font-medium text-sm shadow-sm shadow-orange-200">
           <Plus className="w-4 h-4" /> Questão
         </button>
@@ -522,6 +552,12 @@ export default function TeacherCourseDetail() {
                               </button>
                             </div>
                           ))}
+                          <div className="px-4 py-2">
+                            <button onClick={() => { setLinkModuleId(mod.id); setSelectedBankQuestions([]); setShowLinkModal(true) }}
+                              className="flex items-center gap-2 px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition-colors font-medium">
+                              <Plus className="w-4 h-4" /> Vincular Questão do Banco
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -723,12 +759,122 @@ export default function TeacherCourseDetail() {
               ))}
             </div>
           </div>
+
+          {/* Gabarito Comentado */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">GABARITO COMENTADO</label>
+            <p className="text-xs text-gray-500 mb-2">Texto exibido quando o aluno responder a questão.</p>
+            <textarea value={questionGabaritoTexto} onChange={e => setQuestionGabaritoTexto(e.target.value)}
+              placeholder="Escreva a explicação da resposta correta..."
+              rows={4} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none text-sm" />
+          </div>
+
+          {/* Aulas Relacionadas */}
+          <div className="border border-gray-100 rounded-xl p-4 space-y-3 bg-gray-50/50">
+            <h3 className="text-sm font-semibold text-gray-800">AULAS RELACIONADAS</h3>
+            <p className="text-xs text-gray-500">Links ou títulos de aulas relacionadas.</p>
+            <div className="flex gap-2">
+              <input value={novaAulaRelacionada} onChange={e => setNovaAulaRelacionada(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (novaAulaRelacionada.trim()) { setQuestionAulasRelacionadas(prev => [...prev, novaAulaRelacionada.trim()]); setNovaAulaRelacionada('') } } }}
+                placeholder="Título ou link da aula"
+                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white text-sm" />
+              <button onClick={() => { if (novaAulaRelacionada.trim()) { setQuestionAulasRelacionadas(prev => [...prev, novaAulaRelacionada.trim()]); setNovaAulaRelacionada('') } }}
+                className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors text-sm font-medium">Adicionar</button>
+            </div>
+            {questionAulasRelacionadas.length > 0 && (
+              <ul className="space-y-2">
+                {questionAulasRelacionadas.map((aula, idx) => (
+                  <li key={idx} className="flex items-center justify-between px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-700">
+                    <span className="truncate">{aula}</span>
+                    <button onClick={() => setQuestionAulasRelacionadas(prev => prev.filter((_, i) => i !== idx))}
+                      className="text-gray-400 hover:text-red-500 ml-2"><X className="w-4 h-4" /></button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <div className="flex gap-3 justify-end pt-2">
             <button onClick={() => setShowQuestionModal(false)} className="px-4 py-2.5 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors font-medium text-sm">Cancelar</button>
             <button onClick={handleAddQuestion} disabled={!questionForm.moduleId || !questionForm.question.trim() || questionForm.options.some(o => !o.trim())}
               className="px-5 py-2.5 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors disabled:opacity-50 font-medium text-sm">
               Criar Questão
             </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Vincular Questões do Banco */}
+      <Modal open={showLinkModal} onClose={() => { setShowLinkModal(false); setSelectedBankQuestions([]) }} title="Questões do Banco">
+        <div className="space-y-4">
+          {!linkModuleId && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Vincular ao módulo</label>
+              <select value={linkModuleId} onChange={e => setLinkModuleId(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white">
+                <option value="">Selecione o módulo...</option>
+                {myModules.map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
+              </select>
+            </div>
+          )}
+          {linkModuleId && (
+            <p className="text-sm text-gray-600">
+              Selecione as questões para vincular ao módulo <strong>{myModules.find(m => m.id === linkModuleId)?.title}</strong>.
+            </p>
+          )}
+          {(() => {
+            const bankQuestions = questions.filter(q => {
+              if (!q.moduleId) return true
+              return !myModules.some(m => m.id === q.moduleId)
+            })
+            if (bankQuestions.length === 0) {
+              return (
+                <div className="text-center py-8">
+                  <HelpCircle className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm text-gray-500">Nenhuma questão disponível no banco.</p>
+                  <button onClick={() => { setShowLinkModal(false); setShowQuestionModal(true) }}
+                    className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors text-sm font-medium">
+                    <Plus className="w-4 h-4" /> Criar nova questão
+                  </button>
+                </div>
+              )
+            }
+            return (
+              <div className="max-h-64 overflow-y-auto space-y-2 border border-gray-200 rounded-xl p-2">
+                {bankQuestions.map(q => (
+                  <label key={q.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-orange-50 cursor-pointer transition-colors">
+                    <input type="checkbox"
+                      checked={selectedBankQuestions.includes(q.id)}
+                      onChange={() => {
+                        setSelectedBankQuestions(prev =>
+                          prev.includes(q.id) ? prev.filter(id => id !== q.id) : [...prev, q.id]
+                        )
+                      }}
+                      className="mt-0.5 w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 line-clamp-2">{q.question}</p>
+                      {q.assunto && <p className="text-xs text-gray-500 mt-1">{q.assunto}</p>}
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )
+          })()}
+          <div className="flex items-center justify-between pt-2">
+            <button onClick={() => { setShowLinkModal(false); setShowQuestionModal(true) }}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition-colors font-medium">
+              <Plus className="w-4 h-4" /> Criar nova questão
+            </button>
+            <div className="flex gap-3">
+              <button onClick={() => { setShowLinkModal(false); setSelectedBankQuestions([]) }}
+                className="px-4 py-2.5 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors font-medium text-sm">
+                Cancelar
+              </button>
+              <button onClick={handleLinkQuestions}
+                disabled={!linkModuleId || selectedBankQuestions.length === 0}
+                className="px-5 py-2.5 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors disabled:opacity-50 font-medium text-sm">
+                Vincular {selectedBankQuestions.length > 0 ? `(${selectedBankQuestions.length})` : ''}
+              </button>
+            </div>
           </div>
         </div>
       </Modal>

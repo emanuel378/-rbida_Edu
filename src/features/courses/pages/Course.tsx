@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../auth/services/authStore'
 import { useCourseStore } from '../data/courseStore'
 import { useQuestionStore } from '../data/questionStore'
-import { BookOpen, Play, FileText, MessageCircle, HelpCircle, CheckCircle, DollarSign } from 'lucide-react'
+import type { Question } from '../data/mock'
+import { BookOpen, Play, FileText, MessageCircle, HelpCircle, CheckCircle, DollarSign, X } from 'lucide-react'
 import ProgressBar from '../../../shared/components/ProgressBar'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 
@@ -12,6 +14,10 @@ export default function Course() {
   const { user } = useAuthStore()
   const { courses, modules, lessons, enrollments, getTeacherName } = useCourseStore()
   const { questions } = useQuestionStore()
+
+  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null)
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
+  const [answered, setAnswered] = useState(false)
 
   const course = courses.find(c => c.id === id)
   const courseModules = modules.filter(m => m.courseId === id)
@@ -168,10 +174,10 @@ export default function Course() {
                         <div className="space-y-2 ml-2">
                           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Atividades</p>
                           {moduleQuestions.map((q, qIndex) => (
-                            <Link
+                            <button
                               key={q.id}
-                              to={`/dashboard/questions?module=${module.id}`}
-                              className="flex items-center gap-3 p-3 rounded-xl hover:bg-orange-50 transition-colors group"
+                              onClick={() => { setSelectedQuestion(q); setSelectedAnswer(null); setAnswered(false) }}
+                              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-orange-100 transition-colors group text-left"
                             >
                               <div className="w-8 h-8 bg-orange-100 group-hover:bg-orange-200 rounded-lg flex items-center justify-center text-xs font-medium text-orange-600 flex-shrink-0">
                                 {qIndex + 1}
@@ -184,7 +190,7 @@ export default function Course() {
                                   <HelpCircle className="w-3 h-3 text-gray-400 flex-shrink-0" />
                                 </div>
                               </div>
-                            </Link>
+                            </button>
                           ))}
                         </div>
                       ) : (
@@ -194,6 +200,75 @@ export default function Course() {
               </div>
             )
           })}
+        </div>
+      )}
+      {selectedQuestion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setSelectedQuestion(null); setSelectedAnswer(null); setAnswered(false) }} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900">Questão</h2>
+              <button onClick={() => { setSelectedQuestion(null); setSelectedAnswer(null); setAnswered(false) }}
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">{selectedQuestion.question}</p>
+              <div className="space-y-2">
+                {selectedQuestion.options.map((opt, i) => {
+                  const isCorrect = i === selectedQuestion.correctAnswer
+                  const isSelected = i === selectedAnswer
+                  let bg = 'bg-white border-gray-200 hover:border-orange-300 hover:bg-orange-50'
+                  if (answered) {
+                    if (isCorrect) bg = 'bg-green-50 border-green-300'
+                    else if (isSelected && !isCorrect) bg = 'bg-red-50 border-red-300'
+                    else bg = 'bg-gray-50 border-gray-200 opacity-50'
+                  } else if (isSelected) {
+                    bg = 'bg-orange-50 border-orange-400 ring-2 ring-orange-200'
+                  }
+                  return (
+                    <button key={i} disabled={answered}
+                      onClick={() => setSelectedAnswer(i)}
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${bg}`}>
+                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                        answered && isCorrect ? 'bg-green-500 text-white' :
+                        answered && isSelected && !isCorrect ? 'bg-red-500 text-white' :
+                        isSelected ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {String.fromCharCode(65 + i)}
+                      </span>
+                      <span className="text-sm text-gray-700">{opt}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              {answered && selectedQuestion.gabaritoComentado && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                  <p className="text-xs font-medium text-blue-700 mb-1">Gabarito Comentado</p>
+                  <p className="text-sm text-blue-800 whitespace-pre-wrap">{selectedQuestion.gabaritoComentado}</p>
+                </div>
+              )}
+              {!answered ? (
+                <button onClick={() => setAnswered(true)} disabled={selectedAnswer === null}
+                  className="w-full py-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+                  Confirmar Resposta
+                </button>
+              ) : (
+                <div className={`flex items-center gap-2 p-3 rounded-xl text-sm font-medium ${
+                  selectedAnswer === selectedQuestion.correctAnswer
+                    ? 'bg-green-50 text-green-700 border border-green-200'
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                }`}>
+                  {selectedAnswer === selectedQuestion.correctAnswer ? (
+                    <><CheckCircle className="w-5 h-5" /> Resposta Correta!</>
+                  ) : (
+                    <>Resposta Incorreta. A alternativa correta é {String.fromCharCode(65 + selectedQuestion.correctAnswer)}.</>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

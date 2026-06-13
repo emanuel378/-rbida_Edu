@@ -50,6 +50,12 @@ export interface Question {
   options: string[]
   correctAnswer: number
   banca?: string
+  assunto?: string
+  nivel?: string
+  ano?: string
+  imageUrl?: string
+  gabaritoComentado?: string
+  aulasRelacionadas?: string[]
 }
 
 export interface Comment {

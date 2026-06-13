@@ -31,7 +31,6 @@ export default function App() {
           <Route path="course/:id" element={<Course />} />
           <Route path="course/:id/messages" element={<CourseMessages />} />
           <Route path="lesson/:id" element={<Lesson />} />
-          <Route path="questions" element={<QuestionBank />} />
         </Route>
 
         {/* Rotas do Professor */}

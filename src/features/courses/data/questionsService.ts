@@ -2,7 +2,7 @@ import { db } from '../../../lib/firebase'
 import { collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore'
 import type { Question } from './mock'
 
-const COLLECTION = 'questoes'
+const COLLECTION = 'BancoQuest'
 
 const CODE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
@@ -51,6 +51,15 @@ export async function deleteQuestion(questionId: string): Promise<void> {
     await deleteDoc(doc(db, COLLECTION, questionId))
   } catch (error) {
     console.error('Erro ao deletar questão no Firestore:', error)
+    throw error
+  }
+}
+
+export async function updateQuestion(question: Question): Promise<void> {
+  try {
+    await setDoc(doc(db, COLLECTION, question.id), question, { merge: true })
+  } catch (error) {
+    console.error('Erro ao atualizar questão no Firestore:', error)
     throw error
   }
 }

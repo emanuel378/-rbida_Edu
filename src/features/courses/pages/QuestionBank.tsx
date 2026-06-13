@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { useQuestionStore } from '../data/questionStore'
 import { useCourseStore } from '../data/courseStore'
 import type { Question } from '../data/mock'
-import { Plus, CheckCircle } from 'lucide-react'
+import { Plus, CheckCircle, Upload, X as XIcon, FileText, Image as ImageIcon } from 'lucide-react'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 
 const STANDARD_FIELDS = new Set(['id', 'code', 'question', 'options', 'correctAnswer', 'moduleId', 'topicId', 'assunto'])
-const BLOCKED_FIELDS = new Set(['nivel', 'ano', 'banca', 'disciplina', 'disciplinas', 'assunto'])
+const BLOCKED_FIELDS = new Set(['nivel', 'ano', 'banca', 'disciplina', 'disciplinas', 'assunto', 'gabaritocomentado', 'createdat', 'imageurl', 'aulasrelacionadas', 'materialurl', 'aularelacionada'])
 
 const BANCAS = [
   'Cebraspe',
@@ -71,6 +71,13 @@ const BANCAS = [
   'IFC',
   'IF Farroupilha',
 ]
+
+const DISCIPLINAS = [
+  { value: 'conhecimentos_educacionais', label: 'Conhecimentos Educacionais' },
+  { value: 'legislacao', label: 'Legislação' },
+  { value: 'portugues', label: 'Português' },
+]
+
 const TOPICOS_POR_DISCIPLINA: Record<string, string[]> = {
   portugues: [
     'Interpretação e Compreensão de Texto',
@@ -160,36 +167,6 @@ export default function QuestionBank() {
     .map(name => ({ name, key: findFieldKey(name) }))
     .filter((entry): entry is { name: string; key: string } => !!entry.key && entry.key !== entry.name)
 
-  const getDisciplineOptions = () => {
-    const seenLabels = new Set<string>()
-    const result: { value: string; label: string }[] = []
-
-    modules.forEach(m => {
-      const norm = normalizeKey(m.title)
-      if (!seenLabels.has(norm)) {
-        seenLabels.add(norm)
-        result.push({ value: m.id, label: m.title })
-      }
-    })
-
-    questions.forEach(q => {
-      const vals: string[] = []
-      if (q.moduleId) vals.push(q.moduleId)
-      disciplinaFields.forEach(({ name, key }) => {
-        const v = asRecord(q)[key]
-        if (v) vals.push(String(v))
-      })
-      vals.forEach(v => {
-        if (!seenLabels.has(normalizeKey(v))) {
-          seenLabels.add(normalizeKey(v))
-          result.push({ value: v, label: v })
-        }
-      })
-    })
-
-    return result
-  }
-
   const getRelatedValues = (field: string, currentSelections: Record<string, string>) => {
     const values = new Set<string>()
     questions.forEach(q => {
@@ -206,14 +183,7 @@ export default function QuestionBank() {
   const getBancaValues = () => BANCAS
 
   const getTopicOptions = () => {
-    const module = modules.find(m => m.id === newQ.moduleId)
-    const title = module ? module.title : newQ.moduleId
-    if (!title) return []
-    const key = normalizeKey(title)
-    if (key.includes('portugues')) return TOPICOS_POR_DISCIPLINA.portugues
-    if (key.includes('legislacao')) return TOPICOS_POR_DISCIPLINA.legislacao
-    if (key.includes('educacional') || key.includes('pedagogia') || key.includes('conhecimento')) return TOPICOS_POR_DISCIPLINA.conhecimentos_educacionais
-    return []
+    return TOPICOS_POR_DISCIPLINA[newQ.moduleId] ?? []
   }
 
   const [newQ, setNewQ] = useState({
@@ -225,11 +195,62 @@ export default function QuestionBank() {
   })
   const [meta, setMeta] = useState<Record<string, string>>({})
 
+  const [gabaritoComentado, setGabaritoComentado] = useState('')
+
+  // ---- Material de apoio (imagem ou PDF) ----
+  const [materialUrl, setMaterialUrl] = useState('')
+  const [materialPreview, setMaterialPreview] = useState('')
+  const [materialType, setMaterialType] = useState<'image' | 'pdf' | ''>('')
+  const [materialFileName, setMaterialFileName] = useState('')
+
+  // ---- Aula relacionada (link único) ----
+  const [aulaRelacionada, setAulaRelacionada] = useState('')
+
   const [showSuccess, setShowSuccess] = useState(false)
+
+  const handleMaterialFile = (file: File) => {
+    const isPdf = file.type === 'application/pdf'
+    const isImage = file.type.startsWith('image/')
+    if (!isPdf && !isImage) return
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      setMaterialUrl(result)
+      setMaterialType(isPdf ? 'pdf' : 'image')
+      setMaterialFileName(file.name)
+      setMaterialPreview(isImage ? result : '')
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleMaterialUrlChange = (value: string) => {
+    setMaterialUrl(value)
+    setMaterialFileName('')
+    if (!value) {
+      setMaterialType('')
+      setMaterialPreview('')
+      return
+    }
+    if (/\.pdf($|\?)/i.test(value)) {
+      setMaterialType('pdf')
+      setMaterialPreview('')
+    } else {
+      setMaterialType('image')
+      setMaterialPreview(value)
+    }
+  }
+
+  const handleRemoveMaterial = () => {
+    setMaterialUrl('')
+    setMaterialPreview('')
+    setMaterialType('')
+    setMaterialFileName('')
+  }
 
   const handleAdd = () => {
     if (!newQ.question || newQ.options.some(o => !o)) return
-    const metaData: Record<string, string> = {}
+    const metaData: Record<string, unknown> = {}
     if (newQ.moduleId) metaData.moduleId = newQ.moduleId
     if (newQ.topicId) { metaData.topicId = newQ.topicId; metaData.assunto = newQ.topicId }
     if (newQ.moduleId && !modules.some(m => m.id === newQ.moduleId)) {
@@ -241,9 +262,19 @@ export default function QuestionBank() {
     if (meta[fieldNivel]) metaData[fieldNivel] = meta[fieldNivel]
     if (meta[fieldAno]) metaData[fieldAno] = meta[fieldAno]
     if (meta.banca) metaData.banca = meta.banca
+    if (gabaritoComentado) metaData.gabaritoComentado = gabaritoComentado
+    if (materialUrl && !materialUrl.startsWith('data:')) {
+      metaData.materialUrl = materialUrl
+      metaData.materialType = materialType
+    }
+    if (aulaRelacionada) metaData.aulaRelacionada = aulaRelacionada
+
     addQuestion({ id: Date.now().toString(), code: '', ...newQ, ...metaData })
     setNewQ({ question: '', options: ['', '', '', ''], correctAnswer: 0, moduleId: '', topicId: '' })
     setMeta({})
+    setGabaritoComentado('')
+    handleRemoveMaterial()
+    setAulaRelacionada('')
     setShowSuccess(true)
     setTimeout(() => setShowSuccess(false), 2500)
   }
@@ -274,7 +305,7 @@ export default function QuestionBank() {
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
                 <option value="">Selecione a disciplina...</option>
-                {getDisciplineOptions().map(d => (
+                {DISCIPLINAS.map(d => (
                   <option key={d.value} value={d.value}>{d.label}</option>
                 ))}
               </select>
@@ -324,6 +355,71 @@ export default function QuestionBank() {
               rows={4}
               className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
+          </div>
+
+          {/* ---- Material de apoio (imagem ou PDF) ---- */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              MATERIAL DE APOIO — IMAGEM OU PDF (opcional)
+            </label>
+            <p className="text-xs text-gray-500 mb-2">
+              Anexe uma imagem (gráfico, tabela, figura) ou um PDF de apoio que o aluno verá ao responder a questão.
+            </p>
+
+            {materialUrl ? (
+              <div className="relative inline-block">
+                {materialType === 'image' && materialPreview ? (
+                  <img
+                    src={materialPreview}
+                    alt="Pré-visualização do material"
+                    className="max-h-56 rounded-xl border border-gray-200 object-contain"
+                  />
+                ) : (
+                  <div className="flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-xl bg-gray-50">
+                    <FileText className="w-6 h-6 text-red-500" />
+                    <span className="text-sm text-gray-700 truncate max-w-xs">
+                      {materialFileName || 'Arquivo PDF anexado'}
+                    </span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={handleRemoveMaterial}
+                  className="absolute -top-2 -right-2 bg-white border border-gray-200 rounded-full p-1 shadow-sm hover:bg-gray-50"
+                  aria-label="Remover material"
+                >
+                  <XIcon className="w-4 h-4 text-gray-600" />
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center gap-2 w-full px-4 py-8 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors text-gray-500">
+                <div className="flex gap-2">
+                  <ImageIcon className="w-6 h-6" />
+                  <FileText className="w-6 h-6" />
+                </div>
+                <span className="text-sm flex items-center gap-1">
+                  <Upload className="w-4 h-4" /> Clique para enviar uma imagem ou PDF
+                </span>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0]
+                    if (file) handleMaterialFile(file)
+                  }}
+                />
+              </label>
+            )}
+
+            <div className="mt-2">
+              <input
+                value={materialUrl.startsWith('data:') ? '' : materialUrl}
+                onChange={e => handleMaterialUrlChange(e.target.value)}
+                placeholder="ou cole a URL de uma imagem ou PDF"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
 
           <div>
@@ -420,6 +516,35 @@ export default function QuestionBank() {
                 </div>
               )
             })}
+          </div>
+
+          {/* ---- Gabarito Comentado ---- */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">GABARITO COMENTADO (opcional)</label>
+            <p className="text-xs text-gray-500 mb-2">
+              Texto exibido na aba "Gabarito Comentado" quando o aluno responder a questão.
+            </p>
+            <textarea
+              value={gabaritoComentado}
+              onChange={e => setGabaritoComentado(e.target.value)}
+              placeholder="Escreva a explicação/comentário da resposta correta..."
+              rows={4}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            />
+          </div>
+
+          {/* ---- Aula relacionada (link único) ---- */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">AULA RELACIONADA (opcional)</label>
+            <p className="text-xs text-gray-500 mb-2">
+              Link do vídeo da aula relacionada a este assunto, exibido na aba "Aulas".
+            </p>
+            <input
+              value={aulaRelacionada}
+              onChange={e => setAulaRelacionada(e.target.value)}
+              placeholder="URL do vídeo (YouTube, Vimeo, etc.)"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
 
           <button

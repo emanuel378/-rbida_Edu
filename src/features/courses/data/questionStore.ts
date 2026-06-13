@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { subscribeQuestions, addQuestion as addQuestionToFirestore, deleteQuestion as deleteQuestionFromFirestore, generateQuestionCode } from './questionsService'
+import { subscribeQuestions, addQuestion as addQuestionToFirestore, deleteQuestion as deleteQuestionFromFirestore, updateQuestion as updateQuestionToFirestore, generateQuestionCode } from './questionsService'
 import type { Question, Comment, SimuladoResult } from './mock'
 
 const CACHE_KEY = 'questions_cache'
@@ -32,6 +32,7 @@ interface QuestionState {
   firestoreReady: boolean
   addQuestion: (question: Question) => void
   deleteQuestion: (questionId: string) => void
+  updateQuestion: (question: Question) => void
   addComment: (comment: Comment) => void
   getComments: (lessonId: string) => Comment[]
   addResult: (result: SimuladoResult) => void
@@ -68,7 +69,10 @@ export const useQuestionStore = create<QuestionState>((set, get) => {
 
     addQuestion: (question) => {
       const q = ensureCode(question)
-      addQuestionToFirestore(q).catch(() => {
+      addQuestionToFirestore(q).then(() => {
+        console.log('Questão salva no Firestore:', q.id)
+      }).catch((err) => {
+        console.error('Erro ao salvar no Firestore, salvando localmente:', err)
         const questions = [...get().questions, q]
         cacheQuestions(questions)
         set({ questions })
@@ -80,6 +84,16 @@ export const useQuestionStore = create<QuestionState>((set, get) => {
         const questions = get().questions.filter(q => q.id !== questionId)
         cacheQuestions(questions)
         set({ questions })
+      })
+    },
+
+    updateQuestion: (question) => {
+      const q = ensureCode(question)
+      const questions = get().questions.map(item => item.id === q.id ? q : item)
+      cacheQuestions(questions)
+      set({ questions })
+      updateQuestionToFirestore(q).catch((err) => {
+        console.error('Erro ao atualizar questão no Firestore:', err)
       })
     },
 
