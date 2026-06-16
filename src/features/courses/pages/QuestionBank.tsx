@@ -188,7 +188,7 @@ export default function QuestionBank() {
 
   const [newQ, setNewQ] = useState({
     question: '',
-    options: ['', '', '', ''],
+    options: ['', '', '', '', ''],
     correctAnswer: 0,
     moduleId: '',
     topicId: '',
@@ -480,13 +480,9 @@ export default function QuestionBank() {
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
                 <option value="">Selecione...</option>
-                <option value="2020">2020</option>
-                <option value="2021">2021</option>
-                <option value="2022">2022</option>
-                <option value="2023">2023</option>
-                <option value="2024">2024</option>
-                <option value="2025">2025</option>
-                <option value="2026">2026</option>
+                {[2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025,2026].map(y => (
+                  <option key={y} value={String(y)}>{y}</option>
+                ))}
               </select>
             </div>
 

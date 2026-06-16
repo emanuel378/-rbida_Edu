@@ -175,7 +175,7 @@ export default function TeacherCourseDetail() {
 
   const [showQuestionModal, setShowQuestionModal] = useState(false)
   const [questionForm, setQuestionForm] = useState({
-    moduleId: '', assunto: '', question: '', options: ['', '', '', ''], correctAnswer: 0
+    moduleId: '', assunto: '', question: '', options: ['', '', '', '', ''], correctAnswer: 0
   })
   const [questionGabaritoTexto, setQuestionGabaritoTexto] = useState('')
   const [questionAulasRelacionadas, setQuestionAulasRelacionadas] = useState<string[]>([])
