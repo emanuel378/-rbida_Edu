@@ -1,8 +1,10 @@
 import { create } from 'zustand'
 import { subscribeQuestions, addQuestion as addQuestionToFirestore, deleteQuestion as deleteQuestionFromFirestore, updateQuestion as updateQuestionToFirestore, generateQuestionCode } from './questionsService'
-import type { Question, Comment, SimuladoResult } from './mock'
+import type { Question, Comment, SimuladoResult, QuestionStats, QuestionAnswerRecord } from './mock'
+import { mockQuestions, mockQuestionStats } from './mock'
 
 const CACHE_KEY = 'questions_cache'
+const STATS_KEY = 'question_stats'
 
 const initData = <T>(key: string, defaultData: T[]): T[] => {
   const saved = localStorage.getItem(key)
@@ -21,8 +23,25 @@ const cacheQuestions = (questions: Question[]) => {
 
 const loadCached = (): Question[] => {
   const saved = localStorage.getItem(CACHE_KEY)
-  if (!saved) return []
+  if (!saved) {
+    const seeded = mockQuestions.map(ensureCode)
+    localStorage.setItem(CACHE_KEY, JSON.stringify(seeded))
+    return seeded
+  }
   return JSON.parse(saved).map(ensureCode)
+}
+
+const loadStats = (): QuestionStats[] => {
+  const saved = localStorage.getItem(STATS_KEY)
+  if (!saved) {
+    localStorage.setItem(STATS_KEY, JSON.stringify(mockQuestionStats))
+    return mockQuestionStats
+  }
+  return JSON.parse(saved)
+}
+
+const saveStats = (stats: QuestionStats[]) => {
+  localStorage.setItem(STATS_KEY, JSON.stringify(stats))
 }
 
 interface QuestionState {
@@ -30,6 +49,7 @@ interface QuestionState {
   comments: Comment[]
   results: SimuladoResult[]
   firestoreReady: boolean
+  questionStats: QuestionStats[]
   addQuestion: (question: Question) => void
   deleteQuestion: (questionId: string) => void
   updateQuestion: (question: Question) => void
@@ -37,6 +57,8 @@ interface QuestionState {
   getComments: (lessonId: string) => Comment[]
   addResult: (result: SimuladoResult) => void
   getResults: () => SimuladoResult[]
+  getQuestionStats: (questionId: string) => QuestionStats | undefined
+  recordAnswer: (record: QuestionAnswerRecord) => void
   syncLocalToFirestore: () => Promise<void>
 }
 
@@ -60,11 +82,13 @@ export const useQuestionStore = create<QuestionState>((set, get) => {
   )
 
   const cached = loadCached()
+  const initialStats = loadStats()
 
   return {
     questions: cached,
     comments: initData('comments', []),
     results: initData('results', []),
+    questionStats: initialStats,
     firestoreReady: false,
 
     addQuestion: (question) => {
@@ -115,6 +139,25 @@ export const useQuestionStore = create<QuestionState>((set, get) => {
 
     getResults: () => {
       return get().results.sort((a, b) => b.score - a.score)
+    },
+
+    getQuestionStats: (questionId) => {
+      return get().questionStats.find(s => s.questionId === questionId)
+    },
+
+    recordAnswer: (record) => {
+      const stats = [...get().questionStats]
+      let qStat = stats.find(s => s.questionId === record.questionId)
+      if (!qStat) {
+        qStat = { questionId: record.questionId, answers: {}, total: 0, correct: 0 }
+        stats.push(qStat)
+      }
+      qStat.total += 1
+      const prev = qStat.answers[record.selectedAnswer] || 0
+      qStat.answers = { ...qStat.answers, [record.selectedAnswer]: prev + 1 }
+      if (record.correct) qStat.correct += 1
+      saveStats(stats)
+      set({ questionStats: stats })
     },
 
     syncLocalToFirestore: async () => {

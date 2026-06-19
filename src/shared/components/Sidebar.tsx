@@ -32,6 +32,7 @@ const studentNavItems: NavItem[] = [
   { to: '/dashboard/simulados', icon: ClipboardList, label: 'Simulados', end: false },
   { to: '/dashboard/cronograma', icon: Calendar, label: 'Cronograma', end: false },
   { to: '/dashboard/desempenho', icon: BarChart2, label: 'Desempenho', end: false },
+  { to: '/dashboard/questions', icon: HelpCircle, label: 'Banco de Questões', end: false },
 ]
 
 const teacherNavItems: NavItem[] = [

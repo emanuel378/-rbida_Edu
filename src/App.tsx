@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ProtectedRoute, AppLayout } from './shared'
 import { Landing } from './features/landing'
 import { Login, Pending } from './features/auth'
-import { DashboardHome, MeusCursos, Cronograma, Desempenho, Configuracoes } from './features/student'
+import { DashboardHome, MeusCursos, Cronograma, Desempenho, Configuracoes, StudentQuestionBank, QuestionDetail } from './features/student'
 import { Course, Lesson, QuestionBank, CourseMessages } from './features/courses'
 import { Simulado } from './features/simulado'
 import { TeacherDashboard, TeacherCourses, TeacherCourseDetail, TeacherSimulados, TeacherMessages } from './features/teacher'
@@ -31,6 +31,8 @@ export default function App() {
           <Route path="course/:id" element={<Course />} />
           <Route path="course/:id/messages" element={<CourseMessages />} />
           <Route path="lesson/:id" element={<Lesson />} />
+          <Route path="question/:id" element={<QuestionDetail />} />
+          <Route path="questions" element={<StudentQuestionBank />} />
         </Route>
 
         {/* Rotas do Professor */}

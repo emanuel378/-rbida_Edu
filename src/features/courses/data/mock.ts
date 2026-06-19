@@ -56,6 +56,24 @@ export interface Question {
   imageUrl?: string
   gabaritoComentado?: string
   aulasRelacionadas?: string[]
+  materialUrl?: string
+  materialType?: 'image' | 'pdf'
+  aulaRelacionada?: string
+}
+
+export interface QuestionAnswerRecord {
+  questionId: string
+  selectedAnswer: number
+  correct: boolean
+  userId: string
+  timestamp: string
+}
+
+export interface QuestionStats {
+  questionId: string
+  answers: Record<number, number>
+  total: number
+  correct: number
 }
 
 export interface Comment {
@@ -140,9 +158,17 @@ export const mockLessons: Lesson[] = [
 ]
 
 export const mockQuestions: Question[] = [
-  { id: 'q1', code: 'QST-A1B2', moduleId: 'd1', topicId: 't3', question: 'Quanto é 2 + 2?', options: ['3', '4', '5', '6'], correctAnswer: 1, banca: 'IFSP' },
-  { id: 'q2', code: 'QST-C3D4', moduleId: 'd1', topicId: 't3', question: 'Quanto é 5 x 3?', options: ['10', '12', '15', '18'], correctAnswer: 2, banca: 'IFSP' },
-  { id: 'q3', code: 'QST-E5F6', moduleId: 'd1', topicId: 't1', question: 'Resolva: x² - 4 = 0', options: ['x=±1', 'x=±2', 'x=±3', 'x=±4'], correctAnswer: 1, banca: 'IFMG' },
-  { id: 'q4', code: 'QST-G7H8', moduleId: 'd2', topicId: 't4', question: 'Qual a classe gramatical de "bonito"?', options: ['Substantivo', 'Adjetivo', 'Advérbio', 'Verbo'], correctAnswer: 1, banca: 'IFSP' },
-  { id: 'q5', code: 'QST-I9J0', moduleId: 'd2', topicId: 't5', question: 'O pronome relativo "que" pode substituir:', options: ['Apenas pessoas', 'Apenas objetos', 'Pessoas e objetos', 'Apenas lugares'], correctAnswer: 2, banca: 'IFMG' },
+  { id: 'q1', code: 'QST-A1B2', moduleId: 'd1', topicId: 't3', question: 'Quanto é 2 + 2?', options: ['3', '4', '5', '6'], correctAnswer: 1, banca: 'IFSP', nivel: 'Técnico', ano: '2024', gabaritoComentado: 'A soma de 2 + 2 é igual a 4, conforme a operação básica de adição.', aulaRelacionada: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+  { id: 'q2', code: 'QST-C3D4', moduleId: 'd1', topicId: 't3', question: 'Quanto é 5 x 3?', options: ['10', '12', '15', '18'], correctAnswer: 2, banca: 'IFSP', nivel: 'Técnico', ano: '2024', gabaritoComentado: '5 multiplicado por 3 resulta em 15.' },
+  { id: 'q3', code: 'QST-E5F6', moduleId: 'd1', topicId: 't1', question: 'Resolva: x² - 4 = 0', options: ['x=±1', 'x=±2', 'x=±3', 'x=±4'], correctAnswer: 1, banca: 'IFMG', nivel: 'Médio', ano: '2023', gabaritoComentado: 'x² = 4 → x = ±2', aulaRelacionada: 'https://www.youtube.com/watch?v=9bZkp7q19f0' },
+  { id: 'q4', code: 'QST-G7H8', moduleId: 'd2', topicId: 't4', question: 'Qual a classe gramatical de "bonito"?', options: ['Substantivo', 'Adjetivo', 'Advérbio', 'Verbo'], correctAnswer: 1, banca: 'IFSP', nivel: 'Médio', ano: '2025', gabaritoComentado: '"Bonito" é um adjetivo, pois caracteriza um substantivo.' },
+  { id: 'q5', code: 'QST-I9J0', moduleId: 'd2', topicId: 't5', question: 'O pronome relativo "que" pode substituir:', options: ['Apenas pessoas', 'Apenas objetos', 'Pessoas e objetos', 'Apenas lugares'], correctAnswer: 2, banca: 'IFMG', nivel: 'Superior', ano: '2024', gabaritoComentado: 'O pronome relativo "que" pode substituir tanto pessoas quanto objetos.', aulaRelacionada: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', materialUrl: '#', materialType: 'pdf' },
+]
+
+export const mockQuestionStats: QuestionStats[] = [
+  { questionId: 'q1', answers: { 0: 5, 1: 42, 2: 3, 3: 2 }, total: 52, correct: 42 },
+  { questionId: 'q2', answers: { 0: 8, 1: 4, 2: 35, 3: 3 }, total: 50, correct: 35 },
+  { questionId: 'q3', answers: { 0: 6, 1: 30, 2: 10, 3: 4 }, total: 50, correct: 30 },
+  { questionId: 'q4', answers: { 0: 12, 1: 28, 2: 8, 3: 2 }, total: 50, correct: 28 },
+  { questionId: 'q5', answers: { 0: 3, 1: 5, 2: 40, 3: 2 }, total: 50, correct: 40 },
 ]
