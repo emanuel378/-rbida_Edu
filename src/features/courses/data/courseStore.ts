@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { mockCourses, mockModules, mockLessons, mockTopics, mockUsers } from './mock'
 import type { Course, Module, Lesson, Topic, Enrollment, Comment, Message, User } from './mock'
+import { supabase, isSupabaseConfigured } from '../../../lib/supabase'
+import { generateId } from '../../../lib/id'
 
 const initData = <T>(key: string, mockData: T[]): T[] => {
   if (key === 'modules') {
@@ -53,6 +55,7 @@ interface CourseState {
   comments: Comment[]
   messages: Message[]
   users: User[]
+  supabaseReady: boolean
   addCourse: (course: Course) => void
   approveCourse: (courseId: string) => void
   rejectCourse: (courseId: string) => void
@@ -80,9 +83,39 @@ interface CourseState {
   adminApprovePublish: (messageId: string, courseId: string) => void
   adminApproveDeletion: (messageId: string) => void
   adminRejectRequest: (messageId: string) => void
+  loadFromSupabase: () => Promise<void>
 }
 
-export const useCourseStore = create<CourseState>((set, get) => ({
+export const useCourseStore = create<CourseState>((set, get) => {
+  if (isSupabaseConfigured()) {
+    const tables = [
+      { key: 'courses', table: 'courses' as const },
+      { key: 'modules', table: 'modules' as const },
+      { key: 'lessons', table: 'lessons' as const },
+      { key: 'topics', table: 'topics' as const },
+      { key: 'enrollments', table: 'enrollments' as const },
+      { key: 'comments', table: 'comments' as const },
+      { key: 'messages', table: 'messages' as const },
+    ] as const
+
+    Promise.all(
+      tables.map(async ({ key, table }) => {
+        const { data } = await supabase.from(table).select('*')
+        if (data && data.length > 0) {
+          return { key, data: data.map((r: any) => mapRowToModel(key, r)) }
+        }
+        return null
+      })
+    ).then((results) => {
+      const updates: Record<string, any> = { supabaseReady: true }
+      for (const r of results) {
+        if (r) updates[r.key] = r.data
+      }
+      set(updates as any)
+    })
+  }
+
+  return {
   courses: initData('courses', mockCourses),
   modules: initData('modules', mockModules),
   lessons: initData('lessons', mockLessons),
@@ -91,27 +124,45 @@ export const useCourseStore = create<CourseState>((set, get) => ({
   comments: initData('comments', []),
   messages: initData('messages', []),
   users: initData('users', mockUsers),
+  supabaseReady: false,
 
   addCourse: (course) => {
     const courses = [...get().courses, course]
-    localStorage.setItem('courses', JSON.stringify(courses))
     set({ courses })
+    if (isSupabaseConfigured()) {
+      supabase.from('courses').insert({
+        id: course.id,
+        title: course.title,
+        description: course.description,
+        teacher_id: course.teacherId,
+        price: course.price,
+        status: course.status,
+        published: course.published,
+        created_at: course.createdAt,
+      }).then(({ error }) => { if (error) console.error('Erro ao salvar course no Supabase:', error) })
+    }
   },
 
   approveCourse: (courseId) => {
     const courses = get().courses.map(c =>
       c.id === courseId ? { ...c, status: 'approved' as const } : c
     )
-    localStorage.setItem('courses', JSON.stringify(courses))
     set({ courses })
+    if (isSupabaseConfigured()) {
+      supabase.from('courses').update({ status: 'approved' }).eq('id', courseId)
+        .then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   rejectCourse: (courseId) => {
     const courses = get().courses.map(c =>
       c.id === courseId ? { ...c, status: 'rejected' as const } : c
     )
-    localStorage.setItem('courses', JSON.stringify(courses))
     set({ courses })
+    if (isSupabaseConfigured()) {
+      supabase.from('courses').update({ status: 'rejected' }).eq('id', courseId)
+        .then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   updateCoursePrice: (courseId, price) => {
@@ -120,85 +171,146 @@ export const useCourseStore = create<CourseState>((set, get) => ({
         ? { ...c, price, status: (c.status === 'approved' ? 'pending' : c.status) as Course['status'] }
         : c
     )
-    localStorage.setItem('courses', JSON.stringify(courses))
     set({ courses })
+    if (isSupabaseConfigured()) {
+      supabase.from('courses').update({
+        price,
+        status: get().courses.find(c => c.id === courseId)?.status === 'approved' ? 'pending' : undefined,
+      }).eq('id', courseId).then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   addModule: (module) => {
     const modules = [...get().modules, module]
-    localStorage.setItem('modules', JSON.stringify(modules))
     set({ modules })
+    if (isSupabaseConfigured()) {
+      supabase.from('modules').insert({
+        id: module.id,
+        course_id: module.courseId,
+        title: module.title,
+        order_index: module.order,
+        teacher_id: module.teacherId,
+      }).then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   addLesson: (lesson) => {
     const lessons = [...get().lessons, lesson]
-    localStorage.setItem('lessons', JSON.stringify(lessons))
     set({ lessons })
+    if (isSupabaseConfigured()) {
+      supabase.from('lessons').insert({
+        id: lesson.id,
+        module_id: lesson.moduleId,
+        title: lesson.title,
+        video_url: lesson.videoUrl,
+        pdf_url: lesson.pdfUrl,
+        order_index: lesson.order,
+      }).then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   deleteCourse: (courseId) => {
-    const courses = get().courses.filter(c => c.id !== courseId)
     const modules = get().modules.filter(m => m.courseId !== courseId)
     const modIds = modules.map(m => m.id)
     const lessons = get().lessons.filter(l => !modIds.includes(l.moduleId))
     const topics = get().topics.filter(t => !modIds.includes(t.moduleId))
-    localStorage.setItem('courses', JSON.stringify(courses))
-    localStorage.setItem('modules', JSON.stringify(modules))
-    localStorage.setItem('lessons', JSON.stringify(lessons))
-    localStorage.setItem('topics', JSON.stringify(topics))
+    const courses = get().courses.filter(c => c.id !== courseId)
     set({ courses, modules, lessons, topics })
+    if (isSupabaseConfigured()) {
+      supabase.from('courses').delete().eq('id', courseId)
+        .then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   deleteModule: (moduleId) => {
     const modules = get().modules.filter(m => m.id !== moduleId)
     const lessons = get().lessons.filter(l => l.moduleId !== moduleId)
     const topics = get().topics.filter(t => t.moduleId !== moduleId)
-    localStorage.setItem('modules', JSON.stringify(modules))
-    localStorage.setItem('lessons', JSON.stringify(lessons))
-    localStorage.setItem('topics', JSON.stringify(topics))
     set({ modules, lessons, topics })
+    if (isSupabaseConfigured()) {
+      supabase.from('modules').delete().eq('id', moduleId)
+        .then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   deleteLesson: (lessonId) => {
     const lessons = get().lessons.filter(l => l.id !== lessonId)
-    localStorage.setItem('lessons', JSON.stringify(lessons))
     set({ lessons })
+    if (isSupabaseConfigured()) {
+      supabase.from('lessons').delete().eq('id', lessonId)
+        .then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   updateModule: (id, data) => {
     const modules = get().modules.map(m => m.id === id ? { ...m, ...data } : m)
-    localStorage.setItem('modules', JSON.stringify(modules))
     set({ modules })
+    if (isSupabaseConfigured()) {
+      const updateData: any = {}
+      if (data.title !== undefined) updateData.title = data.title
+      if (data.order !== undefined) updateData.order_index = data.order
+      supabase.from('modules').update(updateData).eq('id', id)
+        .then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   updateLesson: (id, data) => {
     const lessons = get().lessons.map(l => l.id === id ? { ...l, ...data } : l)
-    localStorage.setItem('lessons', JSON.stringify(lessons))
     set({ lessons })
+    if (isSupabaseConfigured()) {
+      const updateData: any = {}
+      if (data.title !== undefined) updateData.title = data.title
+      if (data.videoUrl !== undefined) updateData.video_url = data.videoUrl
+      if (data.pdfUrl !== undefined) updateData.pdf_url = data.pdfUrl
+      if (data.order !== undefined) updateData.order_index = data.order
+      supabase.from('lessons').update(updateData).eq('id', id)
+        .then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   addTopic: (topic) => {
     const topics = [...get().topics, topic]
-    localStorage.setItem('topics', JSON.stringify(topics))
     set({ topics })
+    if (isSupabaseConfigured()) {
+      supabase.from('topics').insert({
+        id: topic.id,
+        module_id: topic.moduleId,
+        title: topic.title,
+      }).then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   deleteTopic: (topicId) => {
     const topics = get().topics.filter(t => t.id !== topicId)
-    localStorage.setItem('topics', JSON.stringify(topics))
     set({ topics })
+    if (isSupabaseConfigured()) {
+      supabase.from('topics').delete().eq('id', topicId)
+        .then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   updateTopic: (id, data) => {
     const topics = get().topics.map(t => t.id === id ? { ...t, ...data } : t)
-    localStorage.setItem('topics', JSON.stringify(topics))
     set({ topics })
+    if (isSupabaseConfigured()) {
+      supabase.from('topics').update({ title: data.title }).eq('id', id)
+        .then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   enroll: (enrollment) => {
     const enrollments = [...get().enrollments, { ...enrollment, createdAt: enrollment.createdAt || new Date().toISOString() }]
-    localStorage.setItem('enrollments', JSON.stringify(enrollments))
     set({ enrollments })
+    if (isSupabaseConfigured()) {
+      supabase.from('enrollments').insert({
+        id: enrollment.id,
+        user_id: enrollment.userId,
+        course_id: enrollment.courseId,
+        progress: enrollment.progress,
+        completed_lessons: enrollment.completedLessons,
+        created_at: enrollment.createdAt || new Date().toISOString(),
+      }).then(({ error }) => { if (error) console.error('Erro ao salvar matrícula no Supabase:', error) })
+    }
   },
 
   completeLesson: (userId, courseId, lessonId) => {
@@ -206,7 +318,7 @@ export const useCourseStore = create<CourseState>((set, get) => ({
     let enrollment = enrollments.find(e => e.userId === userId && e.courseId === courseId)
 
     if (!enrollment) {
-      enrollment = { id: Date.now().toString(), userId, courseId, progress: 0, completedLessons: [], createdAt: new Date().toISOString() }
+      enrollment = { id: generateId(), userId, courseId, progress: 0, completedLessons: [], createdAt: new Date().toISOString() }
       enrollments.push(enrollment)
     }
 
@@ -219,8 +331,18 @@ export const useCourseStore = create<CourseState>((set, get) => ({
     )
     enrollment.progress = Math.round((enrollment.completedLessons.length / courseLessons.length) * 100)
 
-    localStorage.setItem('enrollments', JSON.stringify(enrollments))
     set({ enrollments: [...enrollments] })
+
+    if (isSupabaseConfigured()) {
+      supabase.from('enrollments').upsert({
+        id: enrollment.id,
+        user_id: userId,
+        course_id: courseId,
+        progress: enrollment.progress,
+        completed_lessons: enrollment.completedLessons,
+        created_at: enrollment.createdAt,
+      }, { onConflict: 'user_id,course_id' }).then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   getEnrollment: (userId, courseId) => {
@@ -229,16 +351,37 @@ export const useCourseStore = create<CourseState>((set, get) => ({
 
   addMessage: (message) => {
     const messages = [...get().messages, message]
-    localStorage.setItem('messages', JSON.stringify(messages))
     set({ messages })
+    if (isSupabaseConfigured()) {
+      supabase.from('messages').insert({
+        id: message.id,
+        course_id: message.courseId,
+        module_id: message.moduleId ?? null,
+        lesson_id: message.lessonId ?? null,
+        from_user_id: message.fromUserId,
+        from_user_name: message.fromUserName,
+        to_teacher_id: message.toTeacherId,
+        text: message.text,
+        type: message.type ?? null,
+        status: message.status ?? 'pending',
+        target_type: message.targetType ?? null,
+        target_name: message.targetName ?? null,
+        created_at: message.createdAt,
+      }).then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   replyMessage: (messageId, reply) => {
     const messages = get().messages.map(m =>
       m.id === messageId ? { ...m, reply, repliedAt: new Date().toISOString() } : m
     )
-    localStorage.setItem('messages', JSON.stringify(messages))
     set({ messages })
+    if (isSupabaseConfigured()) {
+      supabase.from('messages').update({
+        reply,
+        replied_at: new Date().toISOString(),
+      }).eq('id', messageId).then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   getTeacherName: (teacherId) => {
@@ -251,7 +394,7 @@ export const useCourseStore = create<CourseState>((set, get) => ({
     const course = get().courses.find(c => c.id === courseId)
     if (!admin || !course) return
     const message: Message = {
-      id: Date.now().toString(),
+      id: generateId(),
       courseId,
       fromUserId: course.teacherId,
       fromUserName: teacherName,
@@ -261,9 +404,7 @@ export const useCourseStore = create<CourseState>((set, get) => ({
       type: 'price_request',
       status: 'pending',
     }
-    const messages = [...get().messages, message]
-    localStorage.setItem('messages', JSON.stringify(messages))
-    set({ messages })
+    get().addMessage(message)
   },
 
   requestContentDeletion: ({ courseId, moduleId, lessonId, teacherName, targetType, targetName }) => {
@@ -272,7 +413,7 @@ export const useCourseStore = create<CourseState>((set, get) => ({
     if (!admin || !course) return
     const typeLabel = { course: 'curso', module: 'módulo', lesson: 'aula', question: 'questão' }[targetType]
     const message: Message = {
-      id: Date.now().toString(),
+      id: generateId(),
       courseId,
       moduleId,
       lessonId,
@@ -286,9 +427,7 @@ export const useCourseStore = create<CourseState>((set, get) => ({
       targetType,
       targetName,
     }
-    const messages = [...get().messages, message]
-    localStorage.setItem('messages', JSON.stringify(messages))
-    set({ messages })
+    get().addMessage(message)
   },
 
   requestCoursePublish: (courseId, teacherName) => {
@@ -296,7 +435,7 @@ export const useCourseStore = create<CourseState>((set, get) => ({
     const course = get().courses.find(c => c.id === courseId)
     if (!admin || !course) return
     const message: Message = {
-      id: Date.now().toString(),
+      id: generateId(),
       courseId,
       fromUserId: course.teacherId,
       fromUserName: teacherName,
@@ -308,9 +447,7 @@ export const useCourseStore = create<CourseState>((set, get) => ({
       targetType: 'course',
       targetName: course.title,
     }
-    const messages = [...get().messages, message]
-    localStorage.setItem('messages', JSON.stringify(messages))
-    set({ messages })
+    get().addMessage(message)
   },
 
   adminSetCoursePrice: (courseId, price, messageId) => {
@@ -320,9 +457,13 @@ export const useCourseStore = create<CourseState>((set, get) => ({
     const messages = get().messages.map(m =>
       m.id === messageId ? { ...m, status: 'approved' as const, resolvedAt: new Date().toISOString() } : m
     )
-    localStorage.setItem('courses', JSON.stringify(courses))
-    localStorage.setItem('messages', JSON.stringify(messages))
     set({ courses, messages })
+    if (isSupabaseConfigured()) {
+      supabase.from('courses').update({ price, status: 'approved' }).eq('id', courseId)
+        .then(({ error }) => { if (error) console.error(error) })
+      supabase.from('messages').update({ status: 'approved', resolved_at: new Date().toISOString() }).eq('id', messageId)
+        .then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   adminApprovePublish: (messageId, courseId) => {
@@ -332,9 +473,13 @@ export const useCourseStore = create<CourseState>((set, get) => ({
     const messages = get().messages.map(m =>
       m.id === messageId ? { ...m, status: 'approved' as const, resolvedAt: new Date().toISOString() } : m
     )
-    localStorage.setItem('courses', JSON.stringify(courses))
-    localStorage.setItem('messages', JSON.stringify(messages))
     set({ courses, messages })
+    if (isSupabaseConfigured()) {
+      supabase.from('courses').update({ published: true }).eq('id', courseId)
+        .then(({ error }) => { if (error) console.error(error) })
+      supabase.from('messages').update({ status: 'approved', resolved_at: new Date().toISOString() }).eq('id', messageId)
+        .then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   adminApproveDeletion: (messageId) => {
@@ -343,7 +488,6 @@ export const useCourseStore = create<CourseState>((set, get) => ({
     const messages = get().messages.map(m =>
       m.id === messageId ? { ...m, status: 'approved' as const, resolvedAt: new Date().toISOString() } : m
     )
-    localStorage.setItem('messages', JSON.stringify(messages))
     let updates: Partial<ReturnType<typeof get>> = { messages }
 
     if (msg.targetType === 'course') {
@@ -351,32 +495,136 @@ export const useCourseStore = create<CourseState>((set, get) => ({
       const modules = get().modules.filter(m => m.courseId !== msg.courseId)
       const modIds = modules.map(m => m.id)
       const lessons = get().lessons.filter(l => !modIds.includes(l.moduleId))
-      localStorage.setItem('courses', JSON.stringify(courses))
-      localStorage.setItem('modules', JSON.stringify(modules))
-      localStorage.setItem('lessons', JSON.stringify(lessons))
       updates = { ...updates, courses, modules, lessons }
     } else if (msg.targetType === 'module' && msg.moduleId) {
       const modules = get().modules.filter(m => m.id !== msg.moduleId)
       const lessons = get().lessons.filter(l => l.moduleId !== msg.moduleId)
       const topics = get().topics.filter(t => t.moduleId !== msg.moduleId)
-      localStorage.setItem('modules', JSON.stringify(modules))
-      localStorage.setItem('lessons', JSON.stringify(lessons))
-      localStorage.setItem('topics', JSON.stringify(topics))
       updates = { ...updates, modules, lessons, topics }
     } else if (msg.targetType === 'lesson' && msg.lessonId) {
       const lessons = get().lessons.filter(l => l.id !== msg.lessonId)
-      localStorage.setItem('lessons', JSON.stringify(lessons))
       updates = { ...updates, lessons }
     }
 
     set(updates as any)
+
+    if (isSupabaseConfigured()) {
+      supabase.from('messages').update({ status: 'approved', resolved_at: new Date().toISOString() }).eq('id', messageId)
+        .then(({ error }) => { if (error) console.error(error) })
+    }
   },
 
   adminRejectRequest: (messageId) => {
     const messages = get().messages.map(m =>
       m.id === messageId ? { ...m, status: 'rejected' as const, resolvedAt: new Date().toISOString() } : m
     )
-    localStorage.setItem('messages', JSON.stringify(messages))
     set({ messages })
+    if (isSupabaseConfigured()) {
+      supabase.from('messages').update({ status: 'rejected', resolved_at: new Date().toISOString() }).eq('id', messageId)
+        .then(({ error }) => { if (error) console.error(error) })
+    }
   },
-}))
+
+  loadFromSupabase: async () => {
+    if (!isSupabaseConfigured()) return
+
+    const tables = [
+      { key: 'courses', table: 'courses' as const },
+      { key: 'modules', table: 'modules' as const },
+      { key: 'lessons', table: 'lessons' as const },
+      { key: 'topics', table: 'topics' as const },
+      { key: 'enrollments', table: 'enrollments' as const },
+      { key: 'comments', table: 'comments' as const },
+      { key: 'messages', table: 'messages' as const },
+    ] as const
+
+    for (const { key, table } of tables) {
+      const { data } = await supabase.from(table).select('*')
+      if (data && data.length > 0) {
+        const mapped = data.map((r: any) => mapRowToModel(key, r))
+        set({ [key]: mapped } as any)
+      }
+    }
+
+    set({ supabaseReady: true })
+  },
+}
+})
+
+function mapRowToModel(key: string, row: any): any {
+  switch (key) {
+    case 'courses':
+      return {
+        id: row.id,
+        title: row.title,
+        description: row.description ?? '',
+        teacherId: row.teacher_id,
+        price: row.price ?? 0,
+        status: row.status ?? 'pending',
+        createdAt: row.created_at ?? '',
+        published: row.published ?? false,
+      }
+    case 'modules':
+      return {
+        id: row.id,
+        courseId: row.course_id,
+        title: row.title,
+        order: row.order_index,
+        teacherId: row.teacher_id,
+      }
+    case 'lessons':
+      return {
+        id: row.id,
+        moduleId: row.module_id,
+        title: row.title,
+        videoUrl: row.video_url ?? '',
+        pdfUrl: row.pdf_url ?? '',
+        order: row.order_index,
+      }
+    case 'topics':
+      return {
+        id: row.id,
+        moduleId: row.module_id,
+        title: row.title,
+      }
+    case 'enrollments':
+      return {
+        id: row.id,
+        userId: row.user_id,
+        courseId: row.course_id,
+        progress: row.progress ?? 0,
+        completedLessons: row.completed_lessons ?? [],
+        createdAt: row.created_at ?? '',
+      }
+    case 'comments':
+      return {
+        id: row.id,
+        lessonId: row.lesson_id,
+        userId: row.user_id,
+        userName: row.user_name,
+        text: row.text,
+        createdAt: row.created_at ?? '',
+      }
+    case 'messages':
+      return {
+        id: row.id,
+        courseId: row.course_id,
+        moduleId: row.module_id,
+        lessonId: row.lesson_id,
+        fromUserId: row.from_user_id,
+        fromUserName: row.from_user_name,
+        toTeacherId: row.to_teacher_id,
+        text: row.text,
+        reply: row.reply,
+        createdAt: row.created_at ?? '',
+        repliedAt: row.replied_at,
+        type: row.type,
+        status: row.status,
+        resolvedAt: row.resolved_at,
+        targetType: row.target_type,
+        targetName: row.target_name,
+      }
+    default:
+      return row
+  }
+}

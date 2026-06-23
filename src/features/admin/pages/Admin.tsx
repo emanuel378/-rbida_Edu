@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../auth/services/authStore'
 import { useCourseStore } from '../../courses/data/courseStore'
 import { ShieldCheck, Users, BookOpen, CheckCircle, Clock, XCircle, DollarSign, UserCheck, UserX, Ban, Trash2, Globe, Download } from 'lucide-react'
+import { generateId } from '../../../lib/id'
 
 function exportStudentsCSV(users: any[], enrollments: any[], courses: any[]) {
   const alunos = users.filter(u => u.role === 'aluno')
@@ -540,7 +541,7 @@ export default function Admin() {
                           e.stopPropagation()
                           const admin = allUsers.find(u => u.role === 'admin')
                           if (!admin) return
-                          const msgId = Date.now().toString()
+                          const msgId = generateId()
                           useCourseStore.getState().addMessage({
                             id: msgId,
                             courseId: course.id,

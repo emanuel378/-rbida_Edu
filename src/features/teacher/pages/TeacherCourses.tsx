@@ -3,6 +3,7 @@ import { useCourseStore } from '../../courses/data/courseStore'
 import { useAuthStore } from '../../auth/services/authStore'
 import { BookOpen, Plus, Trash2, ArrowLeft, X, Layers, Video, GraduationCap, AlertTriangle, Clock, CheckCircle, XCircle, DollarSign, Send } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { generateId } from '../../../lib/id'
 
 function ConfirmModal({ open, onClose, onConfirm, title, message, confirmText = 'Excluir', confirmColor = 'bg-red-600 hover:bg-red-700' }: {
   open: boolean; onClose: () => void; onConfirm: () => void; title: string; message: string; confirmText?: string; confirmColor?: string
@@ -63,7 +64,7 @@ export default function TeacherCourses() {
 
   const handleCreate = () => {
     if (!user || !title.trim()) return
-    const courseId = Date.now().toString()
+    const courseId = generateId()
     addCourse({
       id: courseId,
       title: title.trim(),

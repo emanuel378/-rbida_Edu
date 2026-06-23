@@ -1,25 +1,11 @@
 import { create } from 'zustand'
-import { subscribeQuestions, addQuestion as addQuestionToFirestore, deleteQuestion as deleteQuestionFromFirestore, updateQuestion as updateQuestionToFirestore, generateQuestionCode } from './questionsService'
+import { fetchQuestions, addQuestion as addQuestionToSupabase, deleteQuestion as deleteQuestionFromSupabase, updateQuestion as updateQuestionToSupabase, generateQuestionCode } from './questionsService'
 import type { Question, Comment, SimuladoResult, QuestionStats, QuestionAnswerRecord } from './mock'
 import { mockQuestions, mockQuestionStats } from './mock'
+import { supabase, isSupabaseConfigured } from '../../../lib/supabase'
 
 const CACHE_KEY = 'questions_cache'
 const STATS_KEY = 'question_stats'
-
-const initData = <T>(key: string, defaultData: T[]): T[] => {
-  const saved = localStorage.getItem(key)
-  if (!saved) return defaultData
-  return JSON.parse(saved)
-}
-
-const ensureCode = (q: Question): Question => {
-  if (!q.code) return { ...q, code: generateQuestionCode() }
-  return q
-}
-
-const cacheQuestions = (questions: Question[]) => {
-  localStorage.setItem(CACHE_KEY, JSON.stringify(questions))
-}
 
 const loadCached = (): Question[] => {
   const saved = localStorage.getItem(CACHE_KEY)
@@ -40,15 +26,16 @@ const loadStats = (): QuestionStats[] => {
   return JSON.parse(saved)
 }
 
-const saveStats = (stats: QuestionStats[]) => {
-  localStorage.setItem(STATS_KEY, JSON.stringify(stats))
+const ensureCode = (q: Question): Question => {
+  if (!q.code) return { ...q, code: generateQuestionCode() }
+  return q
 }
 
 interface QuestionState {
   questions: Question[]
   comments: Comment[]
   results: SimuladoResult[]
-  firestoreReady: boolean
+  supabaseReady: boolean
   questionStats: QuestionStats[]
   addQuestion: (question: Question) => void
   deleteQuestion: (questionId: string) => void
@@ -59,72 +46,68 @@ interface QuestionState {
   getResults: () => SimuladoResult[]
   getQuestionStats: (questionId: string) => QuestionStats | undefined
   recordAnswer: (record: QuestionAnswerRecord) => void
-  syncLocalToFirestore: () => Promise<void>
+  loadFromSupabase: () => Promise<void>
 }
 
 export const useQuestionStore = create<QuestionState>((set, get) => {
-  let firestoreInitialized = false
-  let unsubscribe: (() => void) | null = null
-
-  unsubscribe = subscribeQuestions(
-    (questions) => {
-      const normalized = questions.map(ensureCode)
-      cacheQuestions(normalized)
-      firestoreInitialized = true
-      set({ questions: normalized, firestoreReady: true })
-    },
-    () => {
-      if (!firestoreInitialized) {
-        const cached = loadCached()
-        set({ questions: cached.length > 0 ? cached : [], firestoreReady: true })
-      }
-    }
-  )
-
   const cached = loadCached()
   const initialStats = loadStats()
 
+  if (isSupabaseConfigured()) {
+    fetchQuestions().then((questions) => {
+      if (questions.length > 0) {
+        set({ questions: questions.map(ensureCode), supabaseReady: true })
+      }
+    })
+  }
+
   return {
     questions: cached,
-    comments: initData('comments', []),
-    results: initData('results', []),
+    comments: [],
+    results: [],
     questionStats: initialStats,
-    firestoreReady: false,
+    supabaseReady: false,
 
     addQuestion: (question) => {
       const q = ensureCode(question)
-      addQuestionToFirestore(q).then(() => {
-        console.log('Questão salva no Firestore:', q.id)
-      }).catch((err) => {
-        console.error('Erro ao salvar no Firestore, salvando localmente:', err)
-        const questions = [...get().questions, q]
-        cacheQuestions(questions)
-        set({ questions })
+      const questions = [...get().questions, q]
+      set({ questions })
+      addQuestionToSupabase(q).catch((err) => {
+        console.error('Erro ao salvar questão no Supabase:', JSON.stringify(err, Object.getOwnPropertyNames(err)))
       })
     },
 
     deleteQuestion: (questionId) => {
-      deleteQuestionFromFirestore(questionId).catch(() => {
-        const questions = get().questions.filter(q => q.id !== questionId)
-        cacheQuestions(questions)
-        set({ questions })
+      const questions = get().questions.filter(q => q.id !== questionId)
+      set({ questions })
+      deleteQuestionFromSupabase(questionId).catch((err) => {
+        console.error('Erro ao deletar questão no Supabase:', err)
       })
     },
 
     updateQuestion: (question) => {
       const q = ensureCode(question)
       const questions = get().questions.map(item => item.id === q.id ? q : item)
-      cacheQuestions(questions)
       set({ questions })
-      updateQuestionToFirestore(q).catch((err) => {
-        console.error('Erro ao atualizar questão no Firestore:', err)
+      updateQuestionToSupabase(q).catch((err) => {
+        console.error('Erro ao atualizar questão no Supabase:', err)
       })
     },
 
     addComment: (comment) => {
       const comments = [...get().comments, comment]
-      localStorage.setItem('comments', JSON.stringify(comments))
       set({ comments })
+      if (isSupabaseConfigured()) {
+        supabase.from('comments').insert({
+          lesson_id: comment.lessonId,
+          user_id: comment.userId,
+          user_name: comment.userName,
+          text: comment.text,
+          created_at: comment.createdAt,
+        }).then(({ error }) => {
+          if (error) console.error('Erro ao salvar comentário no Supabase:', error)
+        })
+      }
     },
 
     getComments: (lessonId) => {
@@ -133,8 +116,18 @@ export const useQuestionStore = create<QuestionState>((set, get) => {
 
     addResult: (result) => {
       const results = [...get().results, result]
-      localStorage.setItem('results', JSON.stringify(results))
       set({ results })
+      if (isSupabaseConfigured()) {
+        supabase.from('simulado_results').insert({
+          user_id: result.userId,
+          user_name: result.userName,
+          score: result.score,
+          total: result.total,
+          date: result.date,
+        }).then(({ error }) => {
+          if (error) console.error('Erro ao salvar resultado no Supabase:', error)
+        })
+      }
     },
 
     getResults: () => {
@@ -156,15 +149,56 @@ export const useQuestionStore = create<QuestionState>((set, get) => {
       const prev = qStat.answers[record.selectedAnswer] || 0
       qStat.answers = { ...qStat.answers, [record.selectedAnswer]: prev + 1 }
       if (record.correct) qStat.correct += 1
-      saveStats(stats)
       set({ questionStats: stats })
+
+      if (isSupabaseConfigured()) {
+        supabase.from('question_answers').insert({
+          question_id: record.questionId,
+          selected_answer: record.selectedAnswer,
+          correct: record.correct,
+          user_id: record.userId,
+          timestamp: record.timestamp,
+        }).then(({ error }) => {
+          if (error) console.error('Erro ao salvar resposta no Supabase:', error)
+        })
+
+        supabase.from('question_stats').upsert({
+          question_id: record.questionId,
+          answers: qStat!.answers,
+          total: qStat!.total,
+          correct: qStat!.correct,
+        }, { onConflict: 'question_id' }).then(({ error }) => {
+          if (error) console.error('Erro ao atualizar stats no Supabase:', error)
+        })
+      }
     },
 
-    syncLocalToFirestore: async () => {
-      const local = loadCached()
-      if (local.length === 0) return
-      for (const q of local) {
-        await addQuestionToFirestore(ensureCode(q))
+    loadFromSupabase: async () => {
+      if (!isSupabaseConfigured()) return
+
+      const { data: commentsData } = await supabase.from('comments').select('*').order('created_at', { ascending: false })
+      if (commentsData) {
+        const comments: Comment[] = commentsData.map((r: any) => ({
+          id: r.id,
+          lessonId: r.lesson_id,
+          userId: r.user_id,
+          userName: r.user_name,
+          text: r.text,
+          createdAt: r.created_at,
+        }))
+        set({ comments })
+      }
+
+      const { data: resultsData } = await supabase.from('simulado_results').select('*').order('date', { ascending: false })
+      if (resultsData) {
+        const results: SimuladoResult[] = resultsData.map((r: any) => ({
+          userId: r.user_id,
+          userName: r.user_name,
+          score: r.score,
+          total: r.total,
+          date: r.date,
+        }))
+        set({ results })
       }
     },
   }

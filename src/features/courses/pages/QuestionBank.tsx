@@ -4,6 +4,10 @@ import { useCourseStore } from '../data/courseStore'
 import type { Question } from '../data/mock'
 import { Plus, CheckCircle, Upload, X as XIcon, FileText, Image as ImageIcon } from 'lucide-react'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
+import { isSupabaseConfigured } from '../../../lib/supabase'
+import { uploadQuestionMaterial } from '../../../lib/supabase-storage'
+import { generateId } from '../../../lib/id'
+import { useAuthStore } from '../../auth/services/authStore'
 
 const STANDARD_FIELDS = new Set(['id', 'code', 'question', 'options', 'correctAnswer', 'moduleId', 'topicId', 'assunto'])
 const BLOCKED_FIELDS = new Set(['nivel', 'ano', 'banca', 'disciplina', 'disciplinas', 'assunto', 'gabaritocomentado', 'createdat', 'imageurl', 'aulasrelacionadas', 'materialurl', 'aularelacionada'])
@@ -137,6 +141,7 @@ export default function QuestionBank() {
   const { questions, addQuestion } = useQuestionStore()
   const modules = useCourseStore(s => s.modules)
   const topics = useCourseStore(s => s.topics)
+  const user = useAuthStore(s => s.user)
 
   const asRecord = (q: Question): Record<string, unknown> => q as unknown as Record<string, unknown>
 
@@ -208,11 +213,33 @@ export default function QuestionBank() {
 
   const [showSuccess, setShowSuccess] = useState(false)
 
-  const handleMaterialFile = (file: File) => {
+  const handleMaterialFile = async (file: File) => {
     const isPdf = file.type === 'application/pdf'
     const isImage = file.type.startsWith('image/')
     if (!isPdf && !isImage) return
 
+    if (isSupabaseConfigured() && user) {
+      setMaterialFileName(file.name)
+      setMaterialType(isPdf ? 'pdf' : 'image')
+      if (isImage) {
+        const reader = new FileReader()
+        reader.onload = () => setMaterialPreview(reader.result as string)
+        reader.readAsDataURL(file)
+      }
+      const { url, type, error } = await uploadQuestionMaterial(file, user.id)
+      if (error) {
+        console.error('Erro no upload:', error)
+        fallbackMaterialFile(file, isPdf, isImage)
+        return
+      }
+      setMaterialUrl(url)
+      setMaterialType(type)
+    } else {
+      fallbackMaterialFile(file, isPdf, isImage)
+    }
+  }
+
+  const fallbackMaterialFile = (file: File, isPdf: boolean, isImage: boolean) => {
     const reader = new FileReader()
     reader.onload = () => {
       const result = reader.result as string
@@ -263,13 +290,13 @@ export default function QuestionBank() {
     if (meta[fieldAno]) metaData[fieldAno] = meta[fieldAno]
     if (meta.banca) metaData.banca = meta.banca
     if (gabaritoComentado) metaData.gabaritoComentado = gabaritoComentado
-    if (materialUrl && !materialUrl.startsWith('data:')) {
+    if (materialUrl) {
       metaData.materialUrl = materialUrl
       metaData.materialType = materialType
     }
     if (aulaRelacionada) metaData.aulaRelacionada = aulaRelacionada
 
-    addQuestion({ id: Date.now().toString(), code: '', ...newQ, ...metaData })
+    addQuestion({ id: generateId(), code: '', ...newQ, ...metaData })
     setNewQ({ question: '', options: ['', '', '', ''], correctAnswer: 0, moduleId: '', topicId: '' })
     setMeta({})
     setGabaritoComentado('')

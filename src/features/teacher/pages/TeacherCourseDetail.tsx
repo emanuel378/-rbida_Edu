@@ -9,6 +9,9 @@ import {
   GraduationCap, AlertTriangle, XCircle, PlayCircle, Send, Clock, DollarSign, Globe
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { isSupabaseConfigured } from '../../../lib/supabase'
+import { uploadLessonPdf } from '../../../lib/supabase-storage'
+import { generateId } from '../../../lib/id'
 
 const TOPICOS_POR_DISCIPLINA: Record<string, string[]> = {
   portugues: [
@@ -220,7 +223,7 @@ export default function TeacherCourseDetail() {
   const handleAddModule = () => {
     if (!newModuleTitle.trim() || !user) return
     addModule({
-      id: Date.now().toString(),
+      id: generateId(),
       courseId: course.id,
       title: newModuleTitle.trim(),
       order: myModules.length + 1,
@@ -230,11 +233,21 @@ export default function TeacherCourseDetail() {
     setShowModuleModal(false)
   }
 
-  const handleAddLesson = () => {
+  const handleAddLesson = async () => {
     if (!lessonForm.moduleId || !lessonForm.title.trim() || !lessonForm.videoUrl.trim()) return
-    const pdfUrl = lessonForm.pdfFile ? URL.createObjectURL(lessonForm.pdfFile) : ''
+    let pdfUrl = ''
+    if (lessonForm.pdfFile) {
+      if (isSupabaseConfigured() && user) {
+        const { url, error } = await uploadLessonPdf(lessonForm.pdfFile, user.id)
+        if (error) console.error('Erro ao fazer upload do PDF:', error)
+        pdfUrl = url || ''
+      }
+      if (!pdfUrl) {
+        pdfUrl = URL.createObjectURL(lessonForm.pdfFile)
+      }
+    }
     addLesson({
-      id: Date.now().toString(),
+      id: generateId(),
       moduleId: lessonForm.moduleId,
       title: lessonForm.title.trim(),
       videoUrl: lessonForm.videoUrl.trim(),
@@ -248,7 +261,7 @@ export default function TeacherCourseDetail() {
   const handleAddQuestion = () => {
     if (!questionForm.moduleId || !questionForm.question.trim() || questionForm.options.some(o => !o.trim())) return
     const data: Record<string, any> = {
-      id: Date.now().toString(),
+      id: generateId(),
       code: '',
       moduleId: questionForm.moduleId,
       question: questionForm.question.trim(),
@@ -334,7 +347,7 @@ export default function TeacherCourseDetail() {
     selected.forEach(video => {
       order++
       addLesson({
-        id: Date.now().toString() + Math.random(),
+        id: generateId(),
         moduleId: playlistModuleId,
         title: video.title,
         videoUrl: `https://www.youtube.com/watch?v=${video.videoId}`,
