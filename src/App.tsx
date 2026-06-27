@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { useEffect } from 'react'
 import { ProtectedRoute, AppLayout } from './shared'
 import { Landing } from './features/landing'
 import { Login, Pending } from './features/auth'
@@ -7,8 +8,15 @@ import { Course, Lesson, QuestionBank, CourseMessages } from './features/courses
 import { Simulado } from './features/simulado'
 import { TeacherDashboard, TeacherCourses, TeacherCourseDetail, TeacherSimulados, TeacherMessages } from './features/teacher'
 import { Admin, AdminAnalytics } from './features/admin'
+import { useQuestionStore } from './features/courses/data/questionStore'
 
 export default function App() {
+  const loadQuestions = useQuestionStore(s => s.loadQuestions)
+
+  useEffect(() => {
+    loadQuestions()
+  }, [])
+
   return (
     <BrowserRouter>
       <Routes>

@@ -3,9 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuestionStore } from '../../courses/data/questionStore'
 import { useCourseStore } from '../../courses/data/courseStore'
 import { useAuthStore } from '../../auth/services/authStore'
-import type { Question } from '../../courses/data/mock'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 import { ArrowLeft, CheckCircle, XCircle, Play, FileText, HelpCircle, BarChart3 } from 'lucide-react'
+
+const DISCIPLINAS_MAP: Record<string, string> = {
+  conhecimentos_educacionais: 'Conhecimentos Educacionais',
+  legislacao: 'Legislação',
+  portugues: 'Português',
+}
 
 function DonutChart({ percentage, size = 120 }: { percentage: number; size?: number }) {
   const stroke = 8
@@ -17,31 +22,61 @@ function DonutChart({ percentage, size = 120 }: { percentage: number; size?: num
   return (
     <div className="relative inline-flex items-center justify-center">
       <svg width={size} height={size} className="-rotate-90">
+        <circle cx={center} cy={center} r={radius} fill="none" stroke="#e5e7eb" strokeWidth={stroke} />
         <circle
-          cx={center}
-          cy={center}
-          r={radius}
-          fill="none"
-          stroke="#e5e7eb"
-          strokeWidth={stroke}
-        />
-        <circle
-          cx={center}
-          cy={center}
-          r={radius}
-          fill="none"
+          cx={center} cy={center} r={radius} fill="none"
           stroke={percentage >= 60 ? '#22c55e' : percentage >= 40 ? '#eab308' : '#ef4444'}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
+          strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={circumference} strokeDashoffset={offset}
           className="transition-all duration-700"
         />
       </svg>
-      <span className="absolute text-lg font-bold text-gray-900">
-        {percentage}%
-      </span>
+      <span className="absolute text-lg font-bold text-gray-900">{percentage}%</span>
     </div>
+  )
+}
+
+function MaterialBlock({ url }: { url: string }) {
+  const isImage = /\.(jpg|jpeg|png|gif|webp|svg)($|\?)/i.test(url) || url.startsWith('data:image')
+  const isPdf = /\.pdf($|\?)/i.test(url) || url.startsWith('data:application/pdf')
+
+  if (isImage) {
+    return (
+      <div className="mt-2">
+        <img
+          src={url}
+          alt="Material de apoio"
+          className="max-w-full rounded-xl border border-gray-200 object-contain"
+        />
+      </div>
+    )
+  }
+
+  if (isPdf) {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-3 px-5 py-3 bg-orange-50 border border-orange-200 text-orange-700 rounded-xl hover:bg-orange-100 transition-colors font-medium text-sm"
+      >
+        <FileText className="w-5 h-5" />
+        Resolução em PDF
+      </a>
+    )
+  }
+
+  // URL genérica
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-3 px-5 py-3 bg-gray-50 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-100 transition-colors font-medium text-sm"
+    >
+      <FileText className="w-5 h-5" />
+      Ver Material de Apoio
+    </a>
   )
 }
 
@@ -67,10 +102,7 @@ export default function QuestionDetail() {
         <div className="text-center py-20">
           <HelpCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500 text-lg">Questão não encontrada</p>
-          <button
-            onClick={() => navigate('/dashboard/questions')}
-            className="mt-4 text-blue-600 hover:underline text-sm"
-          >
+          <button onClick={() => navigate('/dashboard/questions')} className="mt-4 text-blue-600 hover:underline text-sm">
             Voltar ao Banco de Questões
           </button>
         </div>
@@ -80,8 +112,12 @@ export default function QuestionDetail() {
 
   const stats = questionStats.find(s => s.questionId === question.id)
   const overallPercentage = stats ? Math.round((stats.correct / stats.total) * 100) : 0
-  const getModuleName = (moduleId?: string) => modules.find(m => m.id === moduleId)?.title
-  const getTopicName = (topicId?: string) => topics.find(t => t.id === topicId)?.title
+
+  const getModuleName = (moduleId?: string) =>
+    DISCIPLINAS_MAP[moduleId ?? ''] ?? modules.find(m => m.id === moduleId)?.title
+
+  const getTopicName = (topicId?: string) =>
+    topicId ?? topics.find(t => t.id === topicId)?.title
 
   const handleAnswer = () => {
     if (selectedAnswer === null) return
@@ -102,7 +138,7 @@ export default function QuestionDetail() {
 
   const moduleName = getModuleName(question.moduleId)
   const topicName = getTopicName(question.topicId)
-  const hasResolution = question.aulaRelacionada || (question.materialUrl && question.materialType === 'pdf')
+  const hasResolution = !!(question.aulaRelacionada || question.materialUrl)
 
   return (
     <div className="p-6 lg:p-8 max-w-4xl mx-auto">
@@ -163,37 +199,36 @@ export default function QuestionDetail() {
             </div>
           )}
 
-          <div className="prose prose-sm max-w-none">
-            <p className="text-gray-900 leading-relaxed whitespace-pre-wrap text-lg">
-              {question.question}
-            </p>
-          </div>
+          <p className="text-gray-900 leading-relaxed whitespace-pre-wrap text-lg">
+            {question.question}
+          </p>
 
+          {/* Imagem de apoio inline (acima das alternativas) */}
+          {question.materialUrl && (
+            /\.(jpg|jpeg|png|gif|webp|svg)($|\?)/i.test(question.materialUrl) ||
+            question.materialUrl.startsWith('data:image')
+          ) && (
+            <img
+              src={question.materialUrl}
+              alt="Material de apoio"
+              className="max-w-full rounded-xl border border-gray-200 object-contain"
+            />
+          )}
+
+          {/* Alternativas */}
           <div className="space-y-3">
             {question.options.map((opt, i) => {
               const isCorrect = i === question.correctAnswer
               const isSelected = i === selectedAnswer
               let border = 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
-              let bg = 'bg-white'
-              let radioBg = 'border-gray-300'
               let ring = ''
 
               if (answered) {
-                if (isCorrect) {
-                  border = 'border-green-300 bg-green-50'
-                  radioBg = 'border-green-500 bg-green-500'
-                  ring = 'ring-2 ring-green-200'
-                } else if (isSelected && !isCorrect) {
-                  border = 'border-red-300 bg-red-50'
-                  radioBg = 'border-red-500 bg-red-500'
-                  ring = 'ring-2 ring-red-200'
-                } else {
-                  border = 'border-gray-200 bg-gray-50 opacity-60'
-                  radioBg = 'border-gray-300'
-                }
+                if (isCorrect) { border = 'border-green-300 bg-green-50'; ring = 'ring-2 ring-green-200' }
+                else if (isSelected && !isCorrect) { border = 'border-red-300 bg-red-50'; ring = 'ring-2 ring-red-200' }
+                else { border = 'border-gray-200 bg-gray-50 opacity-60' }
               } else if (isSelected) {
                 border = 'border-blue-400 bg-blue-50'
-                radioBg = 'border-blue-500 bg-blue-500'
                 ring = 'ring-2 ring-blue-200'
               }
 
@@ -205,34 +240,24 @@ export default function QuestionDetail() {
                   className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all ${border} ${ring}`}
                 >
                   <span className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 transition-all ${
-                    answered && isCorrect
-                      ? 'bg-green-500 text-white'
-                      : answered && isSelected && !isCorrect
-                        ? 'bg-red-500 text-white'
-                        : isSelected
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 text-gray-600'
+                    answered && isCorrect ? 'bg-green-500 text-white'
+                    : answered && isSelected && !isCorrect ? 'bg-red-500 text-white'
+                    : isSelected ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-600'
                   }`}>
-                    {answered && isCorrect ? (
-                      <CheckCircle className="w-5 h-5" />
-                    ) : answered && isSelected && !isCorrect ? (
-                      <XCircle className="w-5 h-5" />
-                    ) : (
-                      LETTERS[i]
-                    )}
+                    {answered && isCorrect ? <CheckCircle className="w-5 h-5" />
+                      : answered && isSelected && !isCorrect ? <XCircle className="w-5 h-5" />
+                      : LETTERS[i]}
                   </span>
                   <span className="text-gray-700 flex-1">{opt}</span>
-                  {answered && isCorrect && (
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                  )}
-                  {answered && isSelected && !isCorrect && (
-                    <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                  )}
+                  {answered && isCorrect && <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />}
+                  {answered && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />}
                 </button>
               )
             })}
           </div>
 
+          {/* Resultado */}
           {answered && (
             <div className={`flex items-center gap-3 p-4 rounded-xl border ${
               selectedAnswer === question.correctAnswer
@@ -247,6 +272,7 @@ export default function QuestionDetail() {
             </div>
           )}
 
+          {/* Gabarito comentado */}
           {answered && question.gabaritoComentado && (
             <div className="p-5 bg-blue-50 border border-blue-200 rounded-xl">
               <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Gabarito Comentado</p>
@@ -254,6 +280,7 @@ export default function QuestionDetail() {
             </div>
           )}
 
+          {/* Botões */}
           <div className="flex items-center gap-3 pt-2">
             {!answered ? (
               <button
@@ -287,42 +314,30 @@ export default function QuestionDetail() {
         </div>
       </div>
 
-      {/* Resolution Area */}
+      {/* Resolução (vídeo + PDF) */}
       {hasResolution && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
           <div className="px-6 py-4 border-b border-gray-100">
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Resolução</h2>
           </div>
-          <div className="p-6">
-            <div className="flex flex-wrap items-center gap-4">
-              {question.aulaRelacionada && (
-                <a
-                  href={question.aulaRelacionada}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 px-5 py-3 bg-red-50 border border-red-200 text-red-700 rounded-xl hover:bg-red-100 transition-colors font-medium text-sm"
-                >
-                  <Play className="w-5 h-5" />
-                  Resolução em Vídeo
-                </a>
-              )}
-              {question.materialUrl && question.materialType === 'pdf' && (
-                <a
-                  href={question.materialUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 px-5 py-3 bg-orange-50 border border-orange-200 text-orange-700 rounded-xl hover:bg-orange-100 transition-colors font-medium text-sm"
-                >
-                  <FileText className="w-5 h-5" />
-                  Resolução em PDF
-                </a>
-              )}
-            </div>
+          <div className="p-6 space-y-4">
+            {question.aulaRelacionada && (
+              <a
+                href={question.aulaRelacionada}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-5 py-3 bg-red-50 border border-red-200 text-red-700 rounded-xl hover:bg-red-100 transition-colors font-medium text-sm"
+              >
+                <Play className="w-5 h-5" />
+                Resolução em Vídeo
+              </a>
+            )}
+            {question.materialUrl && <MaterialBlock url={question.materialUrl} />}
           </div>
         </div>
       )}
 
-      {/* Statistics */}
+      {/* Estatísticas */}
       {answered && showStats && stats && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
           <div className="px-6 py-4 border-b border-gray-100">
@@ -330,16 +345,11 @@ export default function QuestionDetail() {
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Donut Chart - Performace geral */}
               <div className="flex flex-col items-center justify-center">
                 <p className="text-sm font-medium text-gray-600 mb-4">Percentual de Acertos</p>
                 <DonutChart percentage={overallPercentage} size={140} />
-                <p className="text-sm text-gray-500 mt-3">
-                  {stats.correct} de {stats.total} alunos acertaram
-                </p>
+                <p className="text-sm text-gray-500 mt-3">{stats.correct} de {stats.total} alunos acertaram</p>
               </div>
-
-              {/* Distribution Table */}
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-4">Distribuição de Respostas</p>
                 <div className="space-y-3">
@@ -357,19 +367,14 @@ export default function QuestionDetail() {
                               {LETTERS[i]}
                             </span>
                             <span className={`text-sm ${isCorrect ? 'text-green-700 font-medium' : 'text-gray-600'}`}>
-                              {opt}
-                              {isCorrect && <span className="ml-1 text-green-500">✓</span>}
+                              {opt}{isCorrect && <span className="ml-1 text-green-500">✓</span>}
                             </span>
                           </div>
-                          <span className={`text-sm font-semibold ${isCorrect ? 'text-green-700' : 'text-gray-700'}`}>
-                            {pct}%
-                          </span>
+                          <span className={`text-sm font-semibold ${isCorrect ? 'text-green-700' : 'text-gray-700'}`}>{pct}%</span>
                         </div>
                         <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all duration-500 ${
-                              isCorrect ? 'bg-green-500' : 'bg-blue-400'
-                            }`}
+                            className={`h-full rounded-full transition-all duration-500 ${isCorrect ? 'bg-green-500' : 'bg-blue-400'}`}
                             style={{ width: `${Math.max(parseFloat(pct), 1)}%` }}
                           />
                         </div>

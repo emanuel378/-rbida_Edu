@@ -65,6 +65,33 @@ const TOPICOS_POR_DISCIPLINA: Record<string, string[]> = {
 
 const normalizeKey = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
+const BANCAS_PREDEFINIDAS = [
+  'Cebraspe', 'Fundação Getúlio Vargas - FGV', 'Fundação Carlos Chagas - FCC', 'Fundação Cesgranrio',
+  'Instituto AOCP', 'IDECAN', 'IBFC', 'Quadrix', 'Consulplan', 'Consulpam', 'FUNDEP', 'VUNESP',
+  'IADES', 'FUNCAB', 'FUNRIO', 'Fundação CEFETMINAS', 'IFPI', 'Objetiva Concursos', 'FAURGS',
+  'COPEVE-UFAL', 'Fundatec', 'FAU', 'COPESE/COPED', 'UFRN', 'UFSM', 'UFPE', 'UFAL', 'UFAM',
+  'IFSertãoPE', 'IFMG', 'IFSP', 'IF Goiano', 'IFPR', 'IFAC', 'IFAL', 'IFAM', 'IFAP', 'IF Baiano',
+  'IFBA', 'IFB', 'IFCE', 'IFES', 'IF Fluminense', 'IFG', 'IFMA', 'IFMT', 'IFMS', 'IFNMG', 'IFPA',
+  'IFPB', 'IFPE', 'IFRN', 'IFRO', 'IFRR', 'IFRS', 'IFSul', 'IF Sudeste MG', 'IFS', 'IFTO', 'IFC',
+  'IF Farroupilha',
+]
+
+const getUniqueBancas = (questions: any[]): string[] => {
+  const bancas = new Set<string>()
+  questions.forEach(q => {
+    if (q.banca && q.banca.trim()) bancas.add(q.banca.trim())
+  })
+  return Array.from(bancas).sort()
+}
+
+const getUniqueAnos = (questions: any[]): string[] => {
+  const anos = new Set<string>()
+  questions.forEach(q => {
+    if (q.ano && q.ano.trim()) anos.add(q.ano.trim())
+  })
+  return Array.from(anos).sort((a, b) => parseInt(b) - parseInt(a))
+}
+
 function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   useEffect(() => {
     if (open) document.body.style.overflow = 'hidden'
@@ -175,7 +202,8 @@ export default function TeacherCourseDetail() {
 
   const [showQuestionModal, setShowQuestionModal] = useState(false)
   const [questionForm, setQuestionForm] = useState({
-    moduleId: '', assunto: '', question: '', options: ['', '', '', '', ''], correctAnswer: 0
+    moduleId: '', assunto: '', question: '', options: ['', '', '', '', ''], correctAnswer: 0,
+    banca: '', ano: '', bancaCustom: '', anoCustom: ''
   })
   const [questionGabaritoTexto, setQuestionGabaritoTexto] = useState('')
   const [questionAulasRelacionadas, setQuestionAulasRelacionadas] = useState<string[]>([])
@@ -259,12 +287,14 @@ export default function TeacherCourseDetail() {
       data.topicId = questionForm.assunto
       data.assunto = questionForm.assunto
     }
+    if (questionForm.banca) data.banca = questionForm.banca
+    if (questionForm.ano) data.ano = questionForm.ano
     if (questionGabaritoTexto) data.gabaritoComentado = questionGabaritoTexto
     if (questionAulasRelacionadas.length > 0) {
       data.aulasRelacionadas = questionAulasRelacionadas
     }
     addQuestion(data as any)
-    setQuestionForm({ moduleId: '', assunto: '', question: '', options: ['', '', '', ''], correctAnswer: 0 })
+    setQuestionForm({ moduleId: '', assunto: '', question: '', options: ['', '', '', ''], correctAnswer: 0, banca: '', ano: '', bancaCustom: '', anoCustom: '' })
     setQuestionGabaritoTexto('')
     setQuestionAulasRelacionadas([])
     setNovaAulaRelacionada('')
@@ -733,6 +763,73 @@ export default function TeacherCourseDetail() {
                 return topicos.map(t => <option key={t} value={t}>{t}</option>)
               })()}
             </select>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">BANCA</label>
+              <div className="space-y-2">
+                <select
+                  value={questionForm.banca}
+                  onChange={e => {
+                    const val = e.target.value
+                    setQuestionForm(prev => ({
+                      ...prev,
+                      banca: val === 'CUSTOM' ? prev.bancaCustom : val,
+                      bancaCustom: val === 'CUSTOM' ? '' : prev.bancaCustom
+                    }))
+                  }}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                >
+                  <option value="">Selecione a banca...</option>
+                  {BANCAS_PREDEFINIDAS.map(v => <option key={v} value={v}>{v}</option>)}
+                  {getUniqueBancas(questions).filter(v => !BANCAS_PREDEFINIDAS.includes(v)).map(v => (
+                    <option key={v} value={v}>{v} (salva)</option>
+                  ))}
+                  <option value="CUSTOM">Outra banca...</option>
+                </select>
+                {questionForm.banca === 'CUSTOM' && (
+                  <input
+                    value={questionForm.bancaCustom}
+                    onChange={e => setQuestionForm(prev => ({ ...prev, bancaCustom: e.target.value, banca: e.target.value }))}
+                    placeholder="Digite o nome da banca"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                    autoFocus
+                  />
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">ANO</label>
+              <div className="space-y-2">
+                <select
+                  value={questionForm.ano}
+                  onChange={e => {
+                    const val = e.target.value
+                    setQuestionForm(prev => ({
+                      ...prev,
+                      ano: val === 'CUSTOM' ? prev.anoCustom : val,
+                      anoCustom: val === 'CUSTOM' ? '' : prev.anoCustom
+                    }))
+                  }}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                >
+                  <option value="">Selecione o ano...</option>
+                  {[...new Set([...Array.from({ length: 2026 - 2009 + 1 }, (_, i) => String(2009 + i)), ...getUniqueAnos(questions)])].map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                  <option value="CUSTOM">Outro ano...</option>
+                </select>
+                {questionForm.ano === 'CUSTOM' && (
+                  <input
+                    value={questionForm.anoCustom}
+                    onChange={e => setQuestionForm(prev => ({ ...prev, anoCustom: e.target.value, ano: e.target.value }))}
+                    placeholder="Digite o ano (ex: 2027)"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                    autoFocus
+                  />
+                )}
+              </div>
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Enunciado</label>

@@ -1,65 +1,82 @@
-import { db } from '../../../lib/firebase'
-import { collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore'
 import type { Question } from './mock'
+import { supabase } from '../../../lib/supabase'
 
-const COLLECTION = 'BancoQuest'
+export const generateQuestionCode = () =>
+  'Q' + Date.now().toString(36).toUpperCase()
 
-const CODE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+const toRow = (q: Question) => ({
+  id: q.id,
+  code: q.code ?? '',
+  question: q.question,
+  options: q.options,
+  correct_answer: q.correctAnswer,
+  module_id: q.moduleId ?? '',
+  topic_id: q.topicId ?? '',
+  assunto: q.assunto ?? '',
+  banca: q.banca ?? '',
+  ano: q.ano ?? '',
+  nivel: q.nivel ?? '',
+  gabarito_comentado: q.gabaritoComentado ?? '',
+  image_url: q.materialUrl ?? '',
+  aulas_relacionadas: q.aulaRelacionada ? [q.aulaRelacionada] : [],
+  disciplina: q.moduleId ?? '',
+})
 
-export function generateQuestionCode(): string {
-  let result = 'QST-'
-  for (let i = 0; i < 4; i++) {
-    result += CODE_CHARS.charAt(Math.floor(Math.random() * CODE_CHARS.length))
+const fromRow = (row: Record<string, unknown>): Question => ({
+  id: row.id as string,
+  code: row.code as string,
+  question: row.question as string,
+  options: row.options as string[],
+  correctAnswer: row.correct_answer as number,
+  moduleId: row.module_id as string,
+  topicId: row.topic_id as string,
+  assunto: row.assunto as string,
+  banca: row.banca as string,
+  ano: row.ano as string,
+  nivel: row.nivel as string,
+  gabaritoComentado: row.gabarito_comentado as string,
+  materialUrl: (row.image_url ?? '') as string,
+  materialType: '',
+  aulaRelacionada: Array.isArray(row.aulas_relacionadas)
+    ? (row.aulas_relacionadas[0] ?? '')
+    : ((row.aulas_relacionadas as string) ?? ''),
+})
+
+export const fetchQuestions = async (): Promise<Question[]> => {
+  const { data, error } = await supabase
+    .from('questions')
+    .select('*')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map(fromRow)
+}
+
+export const addQuestion = async (question: Question): Promise<void> => {
+  const row = toRow(question)
+  console.log('INSERT →', row)
+  const { error } = await supabase.from('questions').insert([row])
+  if (error) {
+    console.error('Supabase error:', error)
+    throw new Error(error.message)
   }
-  return result
 }
 
-export function subscribeQuestions(
-  callback: (questions: Question[]) => void,
-  onError?: (error: Error) => void
-): () => void {
-  const ref = collection(db, COLLECTION)
-
-  return onSnapshot(
-    ref,
-    (snapshot) => {
-      const questions = snapshot.docs.map(d => ({
-        id: d.id,
-        ...d.data(),
-      })) as Question[]
-
-      callback(questions)
-    },
-    (error) => {
-      console.error('Erro na inscrição do Firestore:', error)
-      onError?.(error)
-    }
-  )
-}
-
-export async function addQuestion(question: Question): Promise<void> {
-  try {
-    await setDoc(doc(db, COLLECTION, question.id), question)
-  } catch (error) {
-    console.error('Erro ao adicionar questão no Firestore:', error)
-    throw error
+export const updateQuestion = async (question: Question): Promise<void> => {
+  const row = toRow(question)
+  const { error } = await supabase
+    .from('questions')
+    .update(row)
+    .eq('id', question.id)
+  if (error) {
+    console.error('Supabase error:', error)
+    throw new Error(error.message)
   }
 }
 
-export async function deleteQuestion(questionId: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, COLLECTION, questionId))
-  } catch (error) {
-    console.error('Erro ao deletar questão no Firestore:', error)
-    throw error
-  }
-}
-
-export async function updateQuestion(question: Question): Promise<void> {
-  try {
-    await setDoc(doc(db, COLLECTION, question.id), question, { merge: true })
-  } catch (error) {
-    console.error('Erro ao atualizar questão no Firestore:', error)
-    throw error
+export const deleteQuestion = async (id: string): Promise<void> => {
+  const { error } = await supabase.from('questions').delete().eq('id', id)
+  if (error) {
+    console.error('Supabase error:', error)
+    throw new Error(error.message)
   }
 }
