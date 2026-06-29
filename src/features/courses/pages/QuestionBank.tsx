@@ -228,7 +228,7 @@ export default function QuestionBank() {
       ano: question.ano || '',
       gabaritoComentado: question.gabaritoComentado || '',
       materialUrl: question.materialUrl || '',
-      materialType: question.materialType || '',
+      materialType: question.materialType || ''|| undefined,
       aulaRelacionada: question.aulaRelacionada || '',
     })
     setEditMaterialPreview(question.materialType === 'image' ? question.materialUrl || '' : '')
