@@ -148,11 +148,11 @@ export default function QuestionBank() {
   const handleMaterialUrlChange = (value: string, isEdit = false) => {
     const type: 'image' | 'pdf' | '' = /\.pdf($|\?)/i.test(value) ? 'pdf' : value ? 'image' : ''
     if (isEdit) {
-      setEditForm(prev => ({ ...prev, materialUrl: value, materialType: type }))
+      setEditForm(prev => ({ ...prev, materialUrl: value, materialType: undefined }))
       setEditMaterialPreview(type === 'image' ? value : '')
       setEditMaterialFileName('')
     } else {
-      setForm(prev => ({ ...prev, materialUrl: value, materialType: type }))
+      setForm(prev => ({ ...prev, materialUrl: value, materialType: undefined }))
       setMaterialPreview(type === 'image' ? value : '')
       setMaterialFileName('')
     }
@@ -160,11 +160,11 @@ export default function QuestionBank() {
 
   const handleRemoveMaterial = (isEdit = false) => {
     if (isEdit) {
-      setEditForm(prev => ({ ...prev, materialUrl: '', materialType: '' }))
+      setEditForm(prev => ({ ...prev, materialUrl: '', materialType:undefined }))
       setEditMaterialPreview('')
       setEditMaterialFileName('')
     } else {
-      setForm(prev => ({ ...prev, materialUrl: '', materialType: '' }))
+      setForm(prev => ({ ...prev, materialUrl: '', materialType: undefined }))
       setMaterialPreview('')
       setMaterialFileName('')
     }
