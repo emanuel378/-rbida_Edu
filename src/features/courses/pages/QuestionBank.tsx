@@ -73,7 +73,7 @@ const EMPTY_FORM = {
   ano: '',
   gabaritoComentado: '',
   materialUrl: '',
-  materialType: '' as 'image' | 'pdf' | '',
+  materialType: undefined as 'image' | 'pdf' | undefined,
   aulaRelacionada: '',
 }
 

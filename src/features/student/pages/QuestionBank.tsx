@@ -12,15 +12,11 @@ const BLOCKED_FIELDS = new Set(['nivel', 'ano', 'banca', 'disciplina', 'discipli
 
 export default function QuestionBank() {
   const navigate = useNavigate()
-  const { questions, loading, loadQuestions, error } = useQuestionStore()
+const { questions, loading, loadQuestions } = useQuestionStore()
   const { modules, topics } = useCourseStore()
   const [localError, setLocalError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (error) {
-      setLocalError(error)
-    }
-  }, [error])
+ 
 
   const [filterValues, setFilterValues] = useState({
     moduleId: '',
