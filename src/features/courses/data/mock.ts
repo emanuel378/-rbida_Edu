@@ -57,7 +57,7 @@ export interface Question {
   gabaritoComentado?: string
   aulasRelacionadas?: string[]
   materialUrl?: string
-  materialType?: 'image' | 'pdf'
+  materialType?: 'image' | 'pdf' | ''
   aulaRelacionada?: string
 }
 
