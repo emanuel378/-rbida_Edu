@@ -36,7 +36,7 @@ const fromRow = (row: Record<string, unknown>): Question => ({
   nivel: row.nivel as string,
   gabaritoComentado: row.gabarito_comentado as string,
   materialUrl: (row.image_url ?? '') as string,
-  materialType: '',
+  materialType: undefined,
   aulaRelacionada: Array.isArray(row.aulas_relacionadas)
     ? (row.aulas_relacionadas[0] ?? '')
     : ((row.aulas_relacionadas as string) ?? ''),
