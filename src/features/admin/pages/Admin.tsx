@@ -166,7 +166,6 @@ export default function Admin() {
           <div className="divide-y divide-gray-100">
             {deleteRequests.map(msg => {
               const course = courses.find(c => c.id === msg.courseId)
-              if (!course) return null
               const typeLabel = { course: 'Curso', module: 'Módulo', lesson: 'Aula', question: 'Questão' }[msg.targetType || 'course']
               const typeColors: Record<string, string> = {
                 course: 'bg-red-100 text-red-700',
@@ -186,9 +185,15 @@ export default function Admin() {
                         <div>
                           <div className="flex items-center gap-2">
                             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${colorClass}`}>{typeLabel}</span>
-                            <p className="font-medium text-gray-900">{msg.targetName || course.title}</p>
+                            <p className="font-medium text-gray-900">{msg.targetName || ''}</p>
                           </div>
-                          <p className="text-sm text-gray-500">Curso: {course.title} · Professor: {getTeacherName(course.teacherId)}</p>
+                          {msg.targetType === 'question' ? (
+                            <p className="text-sm text-gray-500">Professor: {msg.fromUserName}</p>
+                          ) : (
+                            <p className="text-sm text-gray-500">
+                              {course ? `Curso: ${course.title} · Professor: ${getTeacherName(course.teacherId)}` : ''}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <p className="text-sm text-gray-600 ml-13">{msg.text}</p>

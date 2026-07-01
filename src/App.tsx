@@ -4,7 +4,7 @@ import { ProtectedRoute, AppLayout } from './shared'
 import { Landing } from './features/landing'
 import { Login, Pending } from './features/auth'
 import { DashboardHome, MeusCursos, Cronograma, Desempenho, Configuracoes, StudentQuestionBank, QuestionDetail } from './features/student'
-import { Course, Lesson, QuestionBank, CourseMessages } from './features/courses'
+import { Course, Lesson, QuestionBank, QuestionBrowser, CourseMessages } from './features/courses'
 import { Simulado } from './features/simulado'
 import { TeacherDashboard, TeacherCourses, TeacherCourseDetail, TeacherSimulados, TeacherMessages } from './features/teacher'
 import { Admin, AdminAnalytics } from './features/admin'
@@ -53,6 +53,7 @@ export default function App() {
           <Route path="courses" element={<TeacherCourses />} />
           <Route path="course/:id" element={<TeacherCourseDetail />} />
           <Route path="questions" element={<QuestionBank />} />
+          <Route path="question-bank" element={<QuestionBrowser />} />
           <Route path="messages" element={<TeacherMessages />} />
           <Route path="simulados" element={<TeacherSimulados />} />
           <Route path="configuracoes" element={<Configuracoes />} />
@@ -67,6 +68,7 @@ export default function App() {
           <Route index element={<Admin />} />
           <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="questions" element={<QuestionBank />} />
+          <Route path="question-bank" element={<QuestionBrowser />} />
           <Route path="configuracoes" element={<Configuracoes />} />
         </Route>
 

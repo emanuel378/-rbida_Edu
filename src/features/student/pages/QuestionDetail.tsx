@@ -203,6 +203,15 @@ export default function QuestionDetail() {
             {question.question}
           </p>
 
+          {/* Imagem do enunciado */}
+          {question.questionImageUrl && (
+            <img
+              src={question.questionImageUrl}
+              alt="Imagem do enunciado"
+              className="max-w-full max-h-64 rounded-xl border border-gray-200 object-contain"
+            />
+          )}
+
           {/* Imagem de apoio inline (acima das alternativas) */}
           {question.materialUrl && (
             /\.(jpg|jpeg|png|gif|webp|svg)($|\?)/i.test(question.materialUrl) ||
@@ -249,7 +258,22 @@ export default function QuestionDetail() {
                       : answered && isSelected && !isCorrect ? <XCircle className="w-5 h-5" />
                       : LETTERS[i]}
                   </span>
-                  <span className="text-gray-700 flex-1">{opt}</span>
+                  <span className="text-gray-700 flex-1">
+                    {question.optionImages?.[i] && !opt?.trim()
+                      ? <img
+                          src={question.optionImages[i]!}
+                          alt={`Imagem da opção ${LETTERS[i]}`}
+                          className="max-w-full max-h-20 rounded-lg border border-gray-200 object-contain"
+                        />
+                      : <>{opt}{question.optionImages?.[i] && opt?.trim() && (
+                          <img
+                            src={question.optionImages[i]!}
+                            alt={`Imagem da opção ${LETTERS[i]}`}
+                            className="mt-1 max-w-full max-h-20 rounded-lg border border-gray-200 object-contain"
+                          />
+                        )}</>
+                    }
+                  </span>
                   {answered && isCorrect && <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />}
                   {answered && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />}
                 </button>

@@ -1,6 +1,7 @@
 export { default as Course } from './pages/Course'
 export { default as Lesson } from './pages/Lesson'
 export { default as QuestionBank } from './pages/QuestionBank'
+export { default as QuestionBrowser } from './pages/QuestionBrowser'
 export { default as CourseMessages } from './pages/CourseMessages'
 export { useCourseStore } from './data/courseStore'
 export { useQuestionStore } from './data/questionStore'

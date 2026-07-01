@@ -59,6 +59,8 @@ export interface Question {
   materialUrl?: string
   materialType?: 'image' | 'pdf' | ''
   aulaRelacionada?: string
+  questionImageUrl?: string
+  optionImages?: (string | undefined)[]
 }
 
 export interface QuestionAnswerRecord {

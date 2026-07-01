@@ -4,7 +4,6 @@ import { useAuthStore } from '../../features/auth/services/authStore'
 import {
   LayoutDashboard,
   BookOpen,
-  ClipboardList,
   Calendar,
   BarChart2,
   Settings,
@@ -17,6 +16,8 @@ import {
   ShieldCheck,
   TrendingUp,
   Users,
+  PlusCircle,
+  Database,
 } from 'lucide-react'
 
 interface NavItem {
@@ -29,7 +30,6 @@ interface NavItem {
 const studentNavItems: NavItem[] = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/dashboard/cursos', icon: BookOpen, label: 'Meus Cursos', end: false },
-  { to: '/dashboard/simulados', icon: ClipboardList, label: 'Simulados', end: false },
   { to: '/dashboard/cronograma', icon: Calendar, label: 'Cronograma', end: false },
   { to: '/dashboard/desempenho', icon: BarChart2, label: 'Desempenho', end: false },
   { to: '/dashboard/questions', icon: HelpCircle, label: 'Banco de Questões', end: false },
@@ -38,14 +38,17 @@ const studentNavItems: NavItem[] = [
 const teacherNavItems: NavItem[] = [
   { to: '/teacher', icon: GraduationCap, label: 'Painel', end: true },
   { to: '/teacher/courses', icon: BookOpen, label: 'Meus Cursos', end: false },
-  { to: '/teacher/questions', icon: HelpCircle, label: 'Banco de Questões', end: false },
-  { to: '/teacher/simulados', icon: ClipboardList, label: 'Simulados', end: false },
+  { to: '/teacher/questions', icon: PlusCircle, label: 'Criar Questões', end: false },
+  { to: '/teacher/question-bank', icon: Database, label: 'Banco de Questões', end: false },
+  { to: '/dashboard/questions', icon: HelpCircle, label: 'Responder Questões', end: false },
   { to: '/teacher/messages', icon: MessageCircle, label: 'Mensagens', end: false },
 ]
 
 const adminNavItems: NavItem[] = [
   { to: '/admin', icon: ShieldCheck, label: 'Painel', end: true },
-  { to: '/admin/questions', icon: HelpCircle, label: 'Banco de Questões', end: false },
+  { to: '/admin/questions', icon: PlusCircle, label: 'Criar Questões', end: false },
+  { to: '/admin/question-bank', icon: Database, label: 'Banco de Questões', end: false },
+  { to: '/dashboard/questions', icon: HelpCircle, label: 'Responder Questões', end: false },
   { to: '/admin/analytics', icon: TrendingUp, label: 'Analytics & Financeiro', end: false },
 ]
 

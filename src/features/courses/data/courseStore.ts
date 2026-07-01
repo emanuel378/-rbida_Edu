@@ -3,6 +3,7 @@ import { mockCourses, mockModules, mockLessons, mockTopics, mockUsers } from './
 import type { Course, Module, Lesson, Topic, Enrollment, Comment, Message, User } from './mock'
 import { supabase, isSupabaseConfigured } from '../../../lib/supabase'
 import { generateId } from '../../../lib/id'
+import { useQuestionStore } from './questionStore'
 
 const initData = <T>(key: string, mockData: T[]): T[] => {
   if (key === 'modules') {
@@ -489,6 +490,14 @@ export const useCourseStore = create<CourseState>((set, get) => {
       m.id === messageId ? { ...m, status: 'approved' as const, resolvedAt: new Date().toISOString() } : m
     )
     let updates: Partial<ReturnType<typeof get>> = { messages }
+
+    if (msg.targetType === 'question') {
+      const { questions, approveQuestionDeletion } = useQuestionStore.getState()
+      const q = questions.find(q => q.code === msg.targetName?.replace('Questão #', '') || q.id === msg.targetName?.replace('Questão #', ''))
+      approveQuestionDeletion(q?.id || '', messageId).catch(console.error)
+      set({ messages })
+      return
+    }
 
     if (msg.targetType === 'course') {
       const courses = get().courses.filter(c => c.id !== msg.courseId)

@@ -4,23 +4,30 @@ import { supabase } from '../../../lib/supabase'
 export const generateQuestionCode = () =>
   'Q' + Date.now().toString(36).toUpperCase()
 
-const toRow = (q: Question) => ({
-  id: q.id,
-  code: q.code ?? '',
-  question: q.question,
-  options: q.options,
-  correct_answer: q.correctAnswer,
-  module_id: q.moduleId ?? '',
-  topic_id: q.topicId ?? '',
-  assunto: q.assunto ?? '',
-  banca: q.banca ?? '',
-  ano: q.ano ?? '',
-  nivel: q.nivel ?? '',
-  gabarito_comentado: q.gabaritoComentado ?? '',
-  image_url: q.materialUrl ?? '',
-  aulas_relacionadas: q.aulaRelacionada ? [q.aulaRelacionada] : [],
-  disciplina: q.moduleId ?? '',
-})
+const toRow = (q: Question) => {
+  const matUrl = q.materialUrl ?? ''
+  return {
+    id: q.id,
+    code: q.code ?? '',
+    question: q.question,
+    options: q.options,
+    correct_answer: q.correctAnswer,
+    module_id: q.moduleId ?? '',
+    topic_id: q.topicId ?? '',
+    assunto: q.assunto ?? '',
+    banca: q.banca ?? '',
+    ano: q.ano ?? '',
+    nivel: q.nivel ?? '',
+    gabarito_comentado: q.gabaritoComentado ?? '',
+    image_url: matUrl,
+    material_url: matUrl,
+    material_type: q.materialType ?? null,
+    aulas_relacionadas: q.aulaRelacionada ? [q.aulaRelacionada] : [],
+    disciplina: q.moduleId ?? '',
+    question_image_url: q.questionImageUrl ?? null,
+    option_images: q.optionImages ?? [],
+  }
+}
 
 const fromRow = (row: Record<string, unknown>): Question => ({
   id: row.id as string,
@@ -35,11 +42,13 @@ const fromRow = (row: Record<string, unknown>): Question => ({
   ano: row.ano as string,
   nivel: row.nivel as string,
   gabaritoComentado: row.gabarito_comentado as string,
-  materialUrl: (row.image_url ?? '') as string,
-  materialType: undefined,
+  materialUrl: ((row.material_url as string) || (row.image_url as string) || '') as string,
+  materialType: (row.material_type as 'image' | 'pdf') || undefined,
   aulaRelacionada: Array.isArray(row.aulas_relacionadas)
     ? (row.aulas_relacionadas[0] ?? '')
     : ((row.aulas_relacionadas as string) ?? ''),
+  questionImageUrl: (row.question_image_url as string) || undefined,
+  optionImages: Array.isArray(row.option_images) ? (row.option_images as (string | undefined)[]) : [],
 })
 
 export const fetchQuestions = async (): Promise<Question[]> => {
