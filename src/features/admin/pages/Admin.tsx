@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../auth/services/authStore'
 import { useCourseStore } from '../../courses/data/courseStore'
-import { ShieldCheck, Users, BookOpen, CheckCircle, Clock, XCircle, DollarSign, UserCheck, UserX, Ban, Trash2, Globe, Download } from 'lucide-react'
+import { ShieldCheck, Users, BookOpen, CheckCircle, Clock, XCircle, DollarSign, UserCheck, UserX, Ban, Trash2, Globe, Download, Flag } from 'lucide-react'
 import { generateId } from '../../../lib/id'
 
 function exportStudentsCSV(users: any[], enrollments: any[], courses: any[]) {
@@ -25,7 +25,7 @@ function exportStudentsCSV(users: any[], enrollments: any[], courses: any[]) {
 export default function Admin() {
   const navigate = useNavigate()
   const { users, approveTeacher } = useAuthStore()
-  const { courses, messages, enrollments, approveCourse, rejectCourse, getTeacherName, adminSetCoursePrice, adminApprovePublish, adminApproveDeletion, adminRejectRequest } = useCourseStore()
+  const { courses, messages, enrollments, approveCourse, rejectCourse, getTeacherName, adminSetCoursePrice, adminApprovePublish, adminApproveDeletion, adminRejectRequest, adminResolveReport } = useCourseStore()
   const [priceInputs, setPriceInputs] = useState<Record<string, string>>({})
 
   const pendingCourses = courses.filter(c => c.status === 'pending')
@@ -40,6 +40,7 @@ export default function Admin() {
   const priceRequests = messages.filter(m => m.type === 'price_request' && m.status === 'pending')
   const deleteRequests = messages.filter(m => m.type === 'delete_request' && m.status === 'pending')
   const publishRequests = messages.filter(m => m.type === 'publish_request' && m.status === 'pending')
+  const questionReports = messages.filter(m => m.type === 'question_report' && m.status === 'pending')
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -218,6 +219,48 @@ export default function Admin() {
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Question Error Reports */}
+      {questionReports.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-8 overflow-hidden">
+          <div className="p-6 border-b border-gray-100">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <Flag className="w-5 h-5 text-red-600" />
+              Relatos de Erro em Questões
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">Alunos reportaram possíveis erros em questões do banco.</p>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {questionReports.map(msg => (
+              <div key={msg.id} className="p-6 hover:bg-gray-50 transition-colors">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 bg-red-100 text-red-700 rounded-xl flex items-center justify-center font-bold text-xs">
+                        <Flag className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{msg.targetName || 'Questão'}</p>
+                        <p className="text-sm text-gray-500">Relatado por: {msg.fromUserName}</p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600 ml-13">{msg.text}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => adminResolveReport(msg.id)}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors text-sm font-medium"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Marcar como resolvido
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

@@ -46,6 +46,7 @@ export interface Question {
   code: string
   moduleId?: string
   topicId?: string
+  lessonId?: string
   question: string
   options: string[]
   correctAnswer: number
@@ -80,7 +81,8 @@ export interface QuestionStats {
 
 export interface Comment {
   id: string
-  lessonId: string
+  lessonId?: string
+  questionId?: string
   userId: string
   userName: string
   text: string
@@ -99,7 +101,7 @@ export interface Message {
   reply?: string
   createdAt: string
   repliedAt?: string
-  type?: 'question' | 'price_request' | 'delete_request' | 'publish_request'
+  type?: 'question' | 'price_request' | 'delete_request' | 'publish_request' | 'question_report'
   status?: 'pending' | 'approved' | 'rejected'
   resolvedAt?: string
   targetType?: 'course' | 'module' | 'lesson' | 'question'

@@ -12,61 +12,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { isSupabaseConfigured } from '../../../lib/supabase'
 import { uploadLessonPdf } from '../../../lib/supabase-storage'
 import { generateId } from '../../../lib/id'
-
-const TOPICOS_POR_DISCIPLINA: Record<string, string[]> = {
-  portugues: [
-    'Interpretação e Compreensão de Texto',
-    'Tipologia e Gêneros Textuais',
-    'Coesão e Coerência Textual',
-    'Sintaxe da Norma Padrão',
-    'Morfologia',
-    'Semântica e Léxico',
-    'Sintaxe do Período',
-    'Variação Linguística',
-    'Estilística e Figuras de Linguagem',
-    'Fonética e Fonologia',
-    'Redação Oficial',
-    'Análise do Discurso',
-  ],
-  legislacao: [
-    'Constituição Federal de 1988',
-    'Regime Jurídico Único da União – Lei nº 8.112/1990',
-    'Código de Ética Profissional - Decreto nº 1.171/1994',
-    'Lei de Acesso à Informação (LAI) - Lei nº 12.527/2011',
-    'Lei Geral de Proteção de Dados (LGPD) - Lei nº 13.709/2018',
-    'Processo Administrativo Federal - LEI nº 9.784/1999',
-    'Licitações e Contratos Administrativos - Lei nº 14.133/2021',
-    'Lei de Improbidade Administrativa - Lei nº 8.429/1992',
-    'Criação dos Institutos Federais - Lei nº 11.892/2008',
-    'Estrutura do Plano de Carreira dos Técnico-Administrativos - Lei nº 11.091/2005',
-    'Plano de carreiras e cargos docentes - Lei nº 12.772/2012',
-    'Lei de Diretrizes e Bases da Educação (LDB) - Lei nº 9.394/1996',
-    'Decreto nº 5.154/2004',
-    'Decreto nº 5.840/2006',
-    'Diretrizes Gerais para EPT - Resolução CNE/CP nº 1/2021',
-    'Estatuto da Criança e do Adolescente (ECA) - Lei nº 8.069/1990',
-    'Inclusão e Acessibilidade',
-    'Diretrizes e Planos Educacionais',
-    'Normas específicas de cada instituição',
-  ],
-  conhecimentos_educacionais: [
-    'Didática Geral e Formação Docente',
-    'Tendências Pedagógicas',
-    'Planejamento Escolar e Pedagógico',
-    'Avaliação no Processo de Ensino-Aprendizagem',
-    'Psicologia da Aprendizagem e do Desenvolvimento',
-    'Educação de Jovens e Adultos',
-    'Tecnologias de Informação e Comunicação (TICs) na Educação',
-    'Metodologias Ativas de Aprendizagem',
-    'Inclusão na Educação Escolar',
-    'Gestão Escolar',
-    'Base Nacional Comum Curricular',
-    'Conhecimentos sobre Educação Profissional e Tecnológica',
-    'Outros Temas Educacionais',
-  ],
-}
-
-const normalizeKey = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+import { DISCIPLINAS, TOPICOS_POR_DISCIPLINA } from '../../courses/data/taxonomy'
+import type { Question } from '../../courses/data/mock'
 
 const BANCAS_PREDEFINIDAS = [
   'Cebraspe', 'Fundação Getúlio Vargas - FGV', 'Fundação Carlos Chagas - FCC', 'Fundação Cesgranrio',
@@ -187,7 +134,7 @@ export default function TeacherCourseDetail() {
 
   const myModules = modules.filter(m => m.courseId === id).sort((a, b) => a.order - b.order)
   const myLessons = lessons.filter(l => myModules.some(m => m.id === l.moduleId))
-  const myQuestions = questions.filter(q => myModules.some(m => m.id === q.moduleId))
+  const myQuestions = questions.filter(q => q.lessonId && myLessons.some(l => l.id === q.lessonId))
   const enrolledCount = enrollments.filter(e => e.courseId === id).length
 
   const [expandedModule, setExpandedModule] = useState<string | null>(null)
@@ -204,10 +151,13 @@ export default function TeacherCourseDetail() {
   const [lessonForm, setLessonForm] = useState({ moduleId: '', title: '', videoUrl: '', pdfFile: null as File | null })
 
   const [showQuestionModal, setShowQuestionModal] = useState(false)
-  const [questionForm, setQuestionForm] = useState({
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null)
+  const [questionSaveError, setQuestionSaveError] = useState('')
+  const EMPTY_QUESTION_FORM = {
     moduleId: '', assunto: '', question: '', options: ['', '', '', '', ''], correctAnswer: 0,
-    banca: '', ano: '', bancaCustom: '', anoCustom: ''
-  })
+    banca: '', ano: '', bancaCustom: '', anoCustom: '', lessonId: ''
+  }
+  const [questionForm, setQuestionForm] = useState({ ...EMPTY_QUESTION_FORM })
   const [questionGabaritoTexto, setQuestionGabaritoTexto] = useState('')
   const [questionAulasRelacionadas, setQuestionAulasRelacionadas] = useState<string[]>([])
   const [novaAulaRelacionada, setNovaAulaRelacionada] = useState('')
@@ -216,7 +166,7 @@ export default function TeacherCourseDetail() {
   const [successMsg, setSuccessMsg] = useState('')
 
   const [showLinkModal, setShowLinkModal] = useState(false)
-  const [linkModuleId, setLinkModuleId] = useState('')
+  const [linkLessonId, setLinkLessonId] = useState('')
   const [selectedBankQuestions, setSelectedBankQuestions] = useState<string[]>([])
 
   useEffect(() => {
@@ -286,15 +236,50 @@ export default function TeacherCourseDetail() {
     setShowLessonModal(false)
   }
 
-  const handleAddQuestion = () => {
+  const resetQuestionForm = () => {
+    setQuestionForm({ ...EMPTY_QUESTION_FORM })
+    setQuestionGabaritoTexto('')
+    setQuestionAulasRelacionadas([])
+    setNovaAulaRelacionada('')
+    setEditingQuestionId(null)
+    setQuestionSaveError('')
+  }
+
+  const openNewQuestionModal = (presetLessonId?: string) => {
+    resetQuestionForm()
+    if (presetLessonId) setQuestionForm(prev => ({ ...prev, lessonId: presetLessonId }))
+    setShowQuestionModal(true)
+  }
+
+  const openEditQuestionModal = (q: Question) => {
+    setEditingQuestionId(q.id)
+    setQuestionForm({
+      moduleId: q.moduleId || '',
+      assunto: q.topicId || '',
+      question: q.question || '',
+      options: q.options?.length === 5 ? q.options : [...(q.options ?? []), '', '', '', '', ''].slice(0, 5),
+      correctAnswer: q.correctAnswer || 0,
+      banca: q.banca || '',
+      ano: q.ano || '',
+      bancaCustom: '',
+      anoCustom: '',
+      lessonId: q.lessonId || '',
+    })
+    setQuestionGabaritoTexto(q.gabaritoComentado || '')
+    setQuestionAulasRelacionadas(q.aulaRelacionada ? [q.aulaRelacionada] : [])
+    setShowQuestionModal(true)
+  }
+
+  const handleSaveQuestion = async () => {
     if (!questionForm.moduleId || !questionForm.question.trim() || questionForm.options.some(o => !o.trim())) return
     const data: Record<string, any> = {
-      id: generateId(),
+      id: editingQuestionId || generateId(),
       code: '',
       moduleId: questionForm.moduleId,
       question: questionForm.question.trim(),
       options: questionForm.options.map(o => o.trim()),
       correctAnswer: questionForm.correctAnswer,
+      lessonId: questionForm.lessonId || undefined,
     }
     if (questionForm.assunto) {
       data.topicId = questionForm.assunto
@@ -304,27 +289,64 @@ export default function TeacherCourseDetail() {
     if (questionForm.ano) data.ano = questionForm.ano
     if (questionGabaritoTexto) data.gabaritoComentado = questionGabaritoTexto
     if (questionAulasRelacionadas.length > 0) {
-      data.aulasRelacionadas = questionAulasRelacionadas
+      data.aulaRelacionada = questionAulasRelacionadas[0]
     }
-    addQuestion(data as any)
-    setQuestionForm({ moduleId: '', assunto: '', question: '', options: ['', '', '', ''], correctAnswer: 0, banca: '', ano: '', bancaCustom: '', anoCustom: '' })
-    setQuestionGabaritoTexto('')
-    setQuestionAulasRelacionadas([])
-    setNovaAulaRelacionada('')
-    setShowQuestionModal(false)
+    setQuestionSaveError('')
+    try {
+      if (editingQuestionId) {
+        await updateQuestion(data as Question)
+        setSuccessMsg('Questão atualizada com sucesso!')
+      } else {
+        await addQuestion(data as Question)
+        setSuccessMsg('Questão criada com sucesso!')
+      }
+      resetQuestionForm()
+      setShowQuestionModal(false)
+    } catch (err) {
+      setQuestionSaveError(err instanceof Error ? err.message : 'Erro ao salvar questão')
+    }
   }
 
-  const handleLinkQuestions = () => {
-    if (!linkModuleId || selectedBankQuestions.length === 0) return
-    selectedBankQuestions.forEach(qId => {
-      const q = questions.find(item => item.id === qId)
-      if (q) {
-        updateQuestion({ ...q, moduleId: linkModuleId })
+  const handleUnlinkQuestion = async (q: Question) => {
+    try {
+      await updateQuestion({ ...q, lessonId: undefined })
+      setSuccessMsg('Questão removida desta aula (continua disponível no banco de questões).')
+    } catch (err) {
+      setSuccessMsg('')
+      alert(err instanceof Error ? err.message : 'Erro ao remover questão da aula')
+    }
+  }
+
+  const handleMoveQuestion = async (q: Question, newLessonId: string) => {
+    try {
+      await updateQuestion({ ...q, lessonId: newLessonId || undefined })
+      setSuccessMsg(newLessonId ? 'Questão movida para outra aula.' : 'Questão desvinculada desta aula.')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erro ao mover questão')
+    }
+  }
+
+  const handleLinkQuestions = async () => {
+    if (!linkLessonId) return
+    let changed = 0
+    try {
+      for (const q of questions) {
+        const shouldBeLinked = selectedBankQuestions.includes(q.id)
+        const isLinkedHere = q.lessonId === linkLessonId
+        if (shouldBeLinked && !isLinkedHere) {
+          await updateQuestion({ ...q, lessonId: linkLessonId })
+          changed++
+        } else if (!shouldBeLinked && isLinkedHere) {
+          await updateQuestion({ ...q, lessonId: undefined })
+          changed++
+        }
       }
-    })
-    setSelectedBankQuestions([])
-    setShowLinkModal(false)
-    setSuccessMsg(`${selectedBankQuestions.length} questão(ões) vinculada(s) com sucesso!`)
+      setSelectedBankQuestions([])
+      setShowLinkModal(false)
+      setSuccessMsg(changed > 0 ? `${changed} questão(ões) atualizada(s) com sucesso!` : 'Nenhuma alteração.')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erro ao vincular questões')
+    }
   }
 
   const startEditingModule = (mod: typeof myModules[0]) => {
@@ -436,7 +458,7 @@ export default function TeacherCourseDetail() {
           className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-all font-medium text-sm shadow-sm shadow-purple-200">
           <Plus className="w-4 h-4" /> Aula
         </button>
-        <button onClick={() => { setLinkModuleId(''); setSelectedBankQuestions([]); setShowLinkModal(true) }}
+        <button onClick={() => openNewQuestionModal()}
           className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-all font-medium text-sm shadow-sm shadow-orange-200">
           <Plus className="w-4 h-4" /> Questão
         </button>
@@ -498,7 +520,7 @@ export default function TeacherCourseDetail() {
           <div className="p-4 space-y-3">
             {myModules.map((mod, idx) => {
               const modLessons = lessons.filter(l => l.moduleId === mod.id).sort((a, b) => a.order - b.order)
-              const modQuestions = questions.filter(q => q.moduleId === mod.id)
+              const modQuestions = questions.filter(q => q.lessonId && modLessons.some(l => l.id === q.lessonId))
               const isExpanded = expandedModule === mod.id
               return (
                 <div key={mod.id} className="border border-gray-100 rounded-xl overflow-hidden transition-all duration-200 hover:border-gray-200">
@@ -543,62 +565,97 @@ export default function TeacherCourseDetail() {
                         </div>
                       ) : (
                         <div className="divide-y divide-gray-50">
-                          {modLessons.map(lesson => (
-                            <div key={lesson.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors group">
-                              <div className="w-7 h-7 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <Video className="w-3.5 h-3.5" />
-                              </div>
-                              {editingLessonId === lesson.id ? (
-                                <div className="flex-1 flex items-center gap-2">
-                                  <input ref={lessonEditRef} value={editingLessonTitle} onChange={e => setEditingLessonTitle(e.target.value)}
-                                    onKeyDown={e => { if (e.key === 'Enter') saveEditingLesson(); if (e.key === 'Escape') setEditingLessonId(null) }}
-                                    className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
-                                  <button onClick={saveEditingLesson} className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"><Check className="w-3.5 h-3.5" /></button>
-                                  <button onClick={() => setEditingLessonId(null)} className="p-1 text-gray-400 hover:bg-gray-100 rounded transition-colors"><X className="w-3.5 h-3.5" /></button>
+                          {modLessons.map(lesson => {
+                            const lessonQuestions = questions.filter(q => q.lessonId === lesson.id)
+                            return (
+                            <div key={lesson.id}>
+                              <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors group">
+                                <div className="w-7 h-7 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                  <Video className="w-3.5 h-3.5" />
                                 </div>
-                              ) : (
-                                <>
-                                  <span className="flex-1 text-sm text-gray-700 truncate">{lesson.title}</span>
-                                  <div className="flex items-center gap-2">
-                                    <a href={lesson.videoUrl} target="_blank" rel="noopener noreferrer"
-                                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Abrir vídeo">
-                                      <PlayCircle className="w-3.5 h-3.5" />
-                                    </a>
-                                    {lesson.pdfUrl && (
-                                      <a href={lesson.pdfUrl} target="_blank" rel="noopener noreferrer"
-                                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Abrir PDF">
-                                        <FileText className="w-3.5 h-3.5" />
-                                      </a>
-                                    )}
-                                    <button onClick={() => startEditingLesson(lesson)}
-                                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100" title="Editar título">
-                                      <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button onClick={() => setDeleteTarget({ type: 'lesson', id: lesson.id, name: lesson.title })}
-                                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir">
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
+                                {editingLessonId === lesson.id ? (
+                                  <div className="flex-1 flex items-center gap-2">
+                                    <input ref={lessonEditRef} value={editingLessonTitle} onChange={e => setEditingLessonTitle(e.target.value)}
+                                      onKeyDown={e => { if (e.key === 'Enter') saveEditingLesson(); if (e.key === 'Escape') setEditingLessonId(null) }}
+                                      className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
+                                    <button onClick={saveEditingLesson} className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"><Check className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => setEditingLessonId(null)} className="p-1 text-gray-400 hover:bg-gray-100 rounded transition-colors"><X className="w-3.5 h-3.5" /></button>
                                   </div>
-                                </>
-                              )}
-                            </div>
-                          ))}
-                          {modQuestions.map(q => (
-                            <div key={q.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors group">
-                              <div className="w-7 h-7 bg-orange-100 text-orange-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <HelpCircle className="w-3.5 h-3.5" />
+                                ) : (
+                                  <>
+                                    <span className="flex-1 text-sm text-gray-700 truncate">{lesson.title}</span>
+                                    {lessonQuestions.length > 0 && (
+                                      <span className="text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full flex-shrink-0">{lessonQuestions.length} questões</span>
+                                    )}
+                                    <div className="flex items-center gap-2">
+                                      <a href={lesson.videoUrl} target="_blank" rel="noopener noreferrer"
+                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Abrir vídeo">
+                                        <PlayCircle className="w-3.5 h-3.5" />
+                                      </a>
+                                      {lesson.pdfUrl && (
+                                        <a href={lesson.pdfUrl} target="_blank" rel="noopener noreferrer"
+                                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Abrir PDF">
+                                          <FileText className="w-3.5 h-3.5" />
+                                        </a>
+                                      )}
+                                      <button onClick={() => startEditingLesson(lesson)}
+                                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100" title="Editar título">
+                                        <Edit2 className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button onClick={() => setDeleteTarget({ type: 'lesson', id: lesson.id, name: lesson.title })}
+                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir">
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
                               </div>
-                              <span className="flex-1 text-sm text-gray-700 truncate">{q.question}</span>
-                              <button onClick={() => setDeleteTarget({ type: 'question', id: q.id, name: q.question, moduleId: q.moduleId })}
-                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100" title="Excluir questão">
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              {lessonQuestions.map(q => (
+                                <div key={q.id} className="flex items-center gap-2 pl-12 pr-4 py-2 hover:bg-gray-50 transition-colors group">
+                                  <HelpCircle className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+                                  <span className="flex-1 text-sm text-gray-600 truncate">{q.question}</span>
+                                  <select
+                                    value={q.lessonId || ''}
+                                    onChange={e => handleMoveQuestion(q, e.target.value)}
+                                    title="Mover para outra aula ou tirar desta aula"
+                                    className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500 max-w-[160px]"
+                                  >
+                                    <option value="">Tirar desta aula</option>
+                                    {myModules.map(m => (
+                                      <optgroup key={m.id} label={m.title}>
+                                        {lessons.filter(l => l.moduleId === m.id).map(l => (
+                                          <option key={l.id} value={l.id}>{l.title}</option>
+                                        ))}
+                                      </optgroup>
+                                    ))}
+                                  </select>
+                                  <button onClick={() => openEditQuestionModal(q)}
+                                    className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100" title="Editar questão">
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button onClick={() => setDeleteTarget({ type: 'question', id: q.id, name: q.question, moduleId: q.moduleId })}
+                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100" title="Excluir do banco permanentemente">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ))}
+                              <div className="pl-12 pr-4 py-1.5 flex items-center gap-4">
+                                <button onClick={() => { setLinkLessonId(lesson.id); setSelectedBankQuestions(questions.filter(q => q.lessonId === lesson.id).map(q => q.id)); setShowLinkModal(true) }}
+                                  className="flex items-center gap-1.5 px-2 py-1 text-xs text-orange-600 hover:bg-orange-50 rounded-lg transition-colors font-medium">
+                                  <Plus className="w-3.5 h-3.5" /> Vincular do banco
+                                </button>
+                                <button onClick={() => openNewQuestionModal(lesson.id)}
+                                  className="flex items-center gap-1.5 px-2 py-1 text-xs text-orange-600 hover:bg-orange-50 rounded-lg transition-colors font-medium">
+                                  <Plus className="w-3.5 h-3.5" /> Nova questão
+                                </button>
+                              </div>
                             </div>
-                          ))}
+                            )
+                          })}
                           <div className="px-4 py-2">
-                            <button onClick={() => { setLinkModuleId(mod.id); setSelectedBankQuestions([]); setShowLinkModal(true) }}
+                            <button onClick={() => openNewQuestionModal()}
                               className="flex items-center gap-2 px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition-colors font-medium">
-                              <Plus className="w-4 h-4" /> Vincular Questão do Banco
+                              <Plus className="w-4 h-4" /> Nova questão sem aula vinculada
                             </button>
                           </div>
                         </div>
@@ -747,15 +804,15 @@ export default function TeacherCourseDetail() {
         </div>
       </Modal>
 
-      {/* Modal: Nova Questão */}
-      <Modal open={showQuestionModal} onClose={() => setShowQuestionModal(false)} title="Nova Questão">
+      {/* Modal: Nova/Editar Questão */}
+      <Modal open={showQuestionModal} onClose={() => { setShowQuestionModal(false); resetQuestionForm() }} title={editingQuestionId ? 'Editar Questão' : 'Nova Questão'}>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Módulo</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Disciplina</label>
             <select value={questionForm.moduleId} onChange={e => setQuestionForm({ ...questionForm, moduleId: e.target.value, assunto: '' })}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white">
-              <option value="">Selecione o módulo</option>
-              {myModules.map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
+              <option value="">Selecione a disciplina</option>
+              {DISCIPLINAS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
             </select>
           </div>
           <div>
@@ -763,19 +820,24 @@ export default function TeacherCourseDetail() {
             <select value={questionForm.assunto} onChange={e => setQuestionForm({ ...questionForm, assunto: e.target.value })}
               disabled={!questionForm.moduleId}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60">
-              <option value="">{questionForm.moduleId ? 'Selecione o assunto...' : 'Primeiro selecione o módulo'}</option>
-              {(() => {
-                const mod = modules.find(m => m.id === questionForm.moduleId)
-                const title = mod ? mod.title : questionForm.moduleId
-                if (!title) return null
-                const key = normalizeKey(title)
-                let topicos: string[] = []
-                if (key.includes('portugues')) topicos = TOPICOS_POR_DISCIPLINA.portugues
-                else if (key.includes('legislacao')) topicos = TOPICOS_POR_DISCIPLINA.legislacao
-                else if (key.includes('educacional') || key.includes('pedagogia') || key.includes('conhecimento')) topicos = TOPICOS_POR_DISCIPLINA.conhecimentos_educacionais
-                return topicos.map(t => <option key={t} value={t}>{t}</option>)
-              })()}
+              <option value="">{questionForm.moduleId ? 'Selecione o assunto...' : 'Primeiro selecione a disciplina'}</option>
+              {(TOPICOS_POR_DISCIPLINA[questionForm.moduleId] ?? []).map(t => <option key={t} value={t}>{t}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Vincular a uma aula (opcional)</label>
+            <select value={questionForm.lessonId} onChange={e => setQuestionForm({ ...questionForm, lessonId: e.target.value })}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white">
+              <option value="">Nenhuma — fica só no banco de questões</option>
+              {myModules.map(m => (
+                <optgroup key={m.id} label={m.title}>
+                  {lessons.filter(l => l.moduleId === m.id).map(l => (
+                    <option key={l.id} value={l.id}>{l.title}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">Você pode mudar isso depois a qualquer momento, sem apagar a questão.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -903,11 +965,14 @@ export default function TeacherCourseDetail() {
               </ul>
             )}
           </div>
+          {questionSaveError && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">{questionSaveError}</p>
+          )}
           <div className="flex gap-3 justify-end pt-2">
-            <button onClick={() => setShowQuestionModal(false)} className="px-4 py-2.5 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors font-medium text-sm">Cancelar</button>
-            <button onClick={handleAddQuestion} disabled={!questionForm.moduleId || !questionForm.question.trim() || questionForm.options.some(o => !o.trim())}
+            <button onClick={() => { setShowQuestionModal(false); resetQuestionForm() }} className="px-4 py-2.5 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors font-medium text-sm">Cancelar</button>
+            <button onClick={handleSaveQuestion} disabled={!questionForm.moduleId || !questionForm.question.trim() || questionForm.options.some(o => !o.trim())}
               className="px-5 py-2.5 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors disabled:opacity-50 font-medium text-sm">
-              Criar Questão
+              {editingQuestionId ? 'Salvar Alterações' : 'Criar Questão'}
             </button>
           </div>
         </div>
@@ -916,32 +981,17 @@ export default function TeacherCourseDetail() {
       {/* Modal: Vincular Questões do Banco */}
       <Modal open={showLinkModal} onClose={() => { setShowLinkModal(false); setSelectedBankQuestions([]) }} title="Questões do Banco">
         <div className="space-y-4">
-          {!linkModuleId && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Vincular ao módulo</label>
-              <select value={linkModuleId} onChange={e => setLinkModuleId(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white">
-                <option value="">Selecione o módulo...</option>
-                {myModules.map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
-              </select>
-            </div>
-          )}
-          {linkModuleId && (
-            <p className="text-sm text-gray-600">
-              Selecione as questões para vincular ao módulo <strong>{myModules.find(m => m.id === linkModuleId)?.title}</strong>.
-            </p>
-          )}
+          <p className="text-sm text-gray-600">
+            Selecione as questões vinculadas à aula <strong>{lessons.find(l => l.id === linkLessonId)?.title}</strong>. Marque para vincular, desmarque para tirar — questões já vinculadas em outra aula são movidas para cá.
+          </p>
           {(() => {
-            const bankQuestions = questions.filter(q => {
-              if (!q.moduleId) return true
-              return !myModules.some(m => m.id === q.moduleId)
-            })
+            const bankQuestions = questions
             if (bankQuestions.length === 0) {
               return (
                 <div className="text-center py-8">
                   <HelpCircle className="w-10 h-10 text-gray-300 mx-auto mb-3" />
                   <p className="text-sm text-gray-500">Nenhuma questão disponível no banco.</p>
-                  <button onClick={() => { setShowLinkModal(false); setShowQuestionModal(true) }}
+                  <button onClick={() => { setShowLinkModal(false); openNewQuestionModal(linkLessonId) }}
                     className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors text-sm font-medium">
                     <Plus className="w-4 h-4" /> Criar nova questão
                   </button>
@@ -950,7 +1000,11 @@ export default function TeacherCourseDetail() {
             }
             return (
               <div className="max-h-64 overflow-y-auto space-y-2 border border-gray-200 rounded-xl p-2">
-                {bankQuestions.map(q => (
+                {bankQuestions.map(q => {
+                  const linkedElsewhere = q.lessonId && q.lessonId !== linkLessonId
+                    ? lessons.find(l => l.id === q.lessonId)?.title
+                    : null
+                  return (
                   <label key={q.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-orange-50 cursor-pointer transition-colors">
                     <input type="checkbox"
                       checked={selectedBankQuestions.includes(q.id)}
@@ -963,14 +1017,16 @@ export default function TeacherCourseDetail() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-800 line-clamp-2">{q.question}</p>
                       {q.assunto && <p className="text-xs text-gray-500 mt-1">{q.assunto}</p>}
+                      {linkedElsewhere && <p className="text-xs text-orange-500 mt-1">Vinculada em "{linkedElsewhere}" — marcar move para cá</p>}
                     </div>
                   </label>
-                ))}
+                  )
+                })}
               </div>
             )
           })()}
           <div className="flex items-center justify-between pt-2">
-            <button onClick={() => { setShowLinkModal(false); setShowQuestionModal(true) }}
+            <button onClick={() => { setShowLinkModal(false); openNewQuestionModal(linkLessonId) }}
               className="flex items-center gap-2 px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition-colors font-medium">
               <Plus className="w-4 h-4" /> Criar nova questão
             </button>
@@ -980,9 +1036,9 @@ export default function TeacherCourseDetail() {
                 Cancelar
               </button>
               <button onClick={handleLinkQuestions}
-                disabled={!linkModuleId || selectedBankQuestions.length === 0}
+                disabled={!linkLessonId}
                 className="px-5 py-2.5 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors disabled:opacity-50 font-medium text-sm">
-                Vincular {selectedBankQuestions.length > 0 ? `(${selectedBankQuestions.length})` : ''}
+                Salvar vínculos
               </button>
             </div>
           </div>

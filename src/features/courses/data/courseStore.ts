@@ -84,6 +84,7 @@ interface CourseState {
   adminApprovePublish: (messageId: string, courseId: string) => void
   adminApproveDeletion: (messageId: string) => void
   adminRejectRequest: (messageId: string) => void
+  adminResolveReport: (messageId: string) => void
   loadFromSupabase: () => Promise<void>
 }
 
@@ -530,6 +531,17 @@ export const useCourseStore = create<CourseState>((set, get) => {
     set({ messages })
     if (isSupabaseConfigured()) {
       supabase.from('messages').update({ status: 'rejected', resolved_at: new Date().toISOString() }).eq('id', messageId)
+        .then(({ error }) => { if (error) console.error(error) })
+    }
+  },
+
+  adminResolveReport: (messageId) => {
+    const messages = get().messages.map(m =>
+      m.id === messageId ? { ...m, status: 'approved' as const, resolvedAt: new Date().toISOString() } : m
+    )
+    set({ messages })
+    if (isSupabaseConfigured()) {
+      supabase.from('messages').update({ status: 'approved', resolved_at: new Date().toISOString() }).eq('id', messageId)
         .then(({ error }) => { if (error) console.error(error) })
     }
   },

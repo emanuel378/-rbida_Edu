@@ -47,6 +47,8 @@ interface QuestionState {
   loadQuestions: () => Promise<void>
   addComment: (comment: Comment) => void
   getComments: (lessonId: string) => Comment[]
+  getQuestionComments: (questionId: string) => Comment[]
+  reportQuestionError: (questionId: string, userId: string, userName: string, reason: string) => void
   addResult: (result: SimuladoResult) => void
   getResults: () => SimuladoResult[]
   getQuestionStats: (questionId: string) => QuestionStats | undefined
@@ -106,6 +108,50 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
 
   getComments: (lessonId) =>
     get().comments.filter(c => c.lessonId === lessonId),
+
+  getQuestionComments: (questionId) =>
+    get().comments.filter(c => c.questionId === questionId),
+
+  reportQuestionError: (questionId, userId, userName, reason) => {
+    const question = get().questions.find(q => q.id === questionId)
+    if (!question) return
+
+    const admin = JSON.parse(localStorage.getItem('users') ?? '[]').find((u: any) => u.role === 'admin')
+
+    const msg: Message = {
+      id: generateId(),
+      courseId: 'questions_bank',
+      fromUserId: userId,
+      fromUserName: userName,
+      toTeacherId: admin?.id || 'admin',
+      text: reason,
+      createdAt: new Date().toISOString(),
+      type: 'question_report',
+      status: 'pending',
+      targetType: 'question',
+      targetName: `Questão #${question.code || question.id}`,
+    }
+
+    const messages = JSON.parse(localStorage.getItem('messages') ?? '[]')
+    messages.push(msg)
+    localStorage.setItem('messages', JSON.stringify(messages))
+
+    if (isSupabaseConfigured()) {
+      supabase.from('messages').insert({
+        id: msg.id,
+        course_id: msg.courseId,
+        from_user_id: msg.fromUserId,
+        from_user_name: msg.fromUserName,
+        to_teacher_id: msg.toTeacherId,
+        text: msg.text,
+        created_at: msg.createdAt,
+        type: msg.type,
+        status: msg.status,
+        target_type: msg.targetType,
+        target_name: msg.targetName,
+      }).then(({ error }) => { if (error) console.error('Erro ao enviar relato:', error) })
+    }
+  },
 
   addResult: (result) => {
     const results = [...get().results, result]

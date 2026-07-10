@@ -3,6 +3,28 @@
 -- O app usa IDs mockados como "1", "2", "3", "c1" (não UUIDs)
 -- ============================================================
 
+-- Remove QUALQUER foreign key nessas tabelas, seja qual for o nome real
+-- (os DROP CONSTRAINT abaixo assumem nomes padrão, que podem não bater
+-- com os nomes reais no banco — por isso fazemos isso de forma dinâmica
+-- primeiro, como rede de segurança).
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT conname, conrelid::regclass::text AS tbl
+    FROM pg_constraint
+    WHERE contype = 'f'
+      AND conrelid::regclass::text IN (
+        'profiles','courses','modules','lessons','topics','questions',
+        'question_stats','question_answers','enrollments','comments',
+        'messages','simulado_results','teacher_simulados'
+      )
+  LOOP
+    EXECUTE format('ALTER TABLE %s DROP CONSTRAINT %I', r.tbl, r.conname);
+  END LOOP;
+END $$;
+
 -- Remove todas as políticas de RLS primeiro (bloqueiam ALTER TYPE)
 DROP POLICY IF EXISTS "profiles_select_own" ON profiles;
 DROP POLICY IF EXISTS "profiles_insert_own" ON profiles;
