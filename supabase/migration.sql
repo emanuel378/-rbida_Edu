@@ -85,13 +85,15 @@ CREATE TABLE question_stats (
 );
 
 -- 8. RESPOSTAS INDIVIDUAIS DOS ALUNOS
+-- NOTA: não guardamos qual alternativa foi marcada, apenas se o aluno
+-- acertou ou errou a questão (um registro por aluno/questão).
 CREATE TABLE question_answers (
   id TEXT PRIMARY KEY,
   question_id TEXT NOT NULL,
-  selected_answer INTEGER NOT NULL,
   correct BOOLEAN NOT NULL,
   user_id TEXT NOT NULL,
-  timestamp TIMESTAMPTZ DEFAULT now()
+  timestamp TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(question_id, user_id)
 );
 
 -- 9. MATRÍCULAS

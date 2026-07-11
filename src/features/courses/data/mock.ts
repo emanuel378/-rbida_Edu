@@ -66,7 +66,6 @@ export interface Question {
 
 export interface QuestionAnswerRecord {
   questionId: string
-  selectedAnswer: number
   correct: boolean
   userId: string
   timestamp: string

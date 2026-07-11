@@ -104,8 +104,9 @@ export default function QuestionCard({ question, index }: Props) {
 
   const previousAnswer = answerHistory.find(r => r.questionId === question.id && r.userId === user?.id)
 
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(previousAnswer ? previousAnswer.selectedAnswer : null)
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
   const [answered, setAnswered] = useState(!!previousAnswer)
+  const [answeredCorrectlyState, setAnsweredCorrectlyState] = useState(previousAnswer?.correct ?? false)
   const [showStats, setShowStats] = useState(false)
   const [showComments, setShowComments] = useState(false)
   const [showReport, setShowReport] = useState(false)
@@ -123,14 +124,15 @@ export default function QuestionCard({ question, index }: Props) {
 
   const handleAnswer = () => {
     if (selectedAnswer === null || !user) return
+    const correct = selectedAnswer === question.correctAnswer
     setAnswered(true)
+    setAnsweredCorrectlyState(correct)
     recordAnswer({
       questionId: question.id,
-      selectedAnswer,
-      correct: selectedAnswer === question.correctAnswer,
+      correct,
       userId: user.id,
       timestamp: new Date().toISOString(),
-    })
+    }, selectedAnswer)
   }
 
   const handleRetry = () => {
@@ -159,7 +161,7 @@ export default function QuestionCard({ question, index }: Props) {
     setTimeout(() => { setReportSent(false); setShowReport(false) }, 2000)
   }
 
-  const answeredCorrectly = answered && selectedAnswer === question.correctAnswer
+  const answeredCorrectly = answered && (selectedAnswer !== null ? selectedAnswer === question.correctAnswer : answeredCorrectlyState)
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -235,14 +237,13 @@ export default function QuestionCard({ question, index }: Props) {
         {/* Alternativas */}
         <div className="space-y-3">
           {question.options.map((opt, i) => {
-            const isCorrect = i === question.correctAnswer
             const isSelected = i === selectedAnswer
             let border = 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
             let ring = ''
 
             if (answered) {
-              if (isCorrect) { border = 'border-green-300 bg-green-50'; ring = 'ring-2 ring-green-200' }
-              else if (isSelected && !isCorrect) { border = 'border-red-300 bg-red-50'; ring = 'ring-2 ring-red-200' }
+              if (isSelected && answeredCorrectly) { border = 'border-green-300 bg-green-50'; ring = 'ring-2 ring-green-200' }
+              else if (isSelected && !answeredCorrectly) { border = 'border-red-300 bg-red-50'; ring = 'ring-2 ring-red-200' }
               else { border = 'border-gray-200 bg-gray-50 opacity-60' }
             } else if (isSelected) {
               border = 'border-blue-400 bg-blue-50'
@@ -257,13 +258,13 @@ export default function QuestionCard({ question, index }: Props) {
                 className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all ${border} ${ring}`}
               >
                 <span className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 transition-all ${
-                  answered && isCorrect ? 'bg-green-500 text-white'
-                  : answered && isSelected && !isCorrect ? 'bg-red-500 text-white'
+                  answered && isSelected && answeredCorrectly ? 'bg-green-500 text-white'
+                  : answered && isSelected && !answeredCorrectly ? 'bg-red-500 text-white'
                   : isSelected ? 'bg-blue-500 text-white'
                   : 'bg-gray-100 text-gray-600'
                 }`}>
-                  {answered && isCorrect ? <CheckCircle className="w-5 h-5" />
-                    : answered && isSelected && !isCorrect ? <XCircle className="w-5 h-5" />
+                  {answered && isSelected && answeredCorrectly ? <CheckCircle className="w-5 h-5" />
+                    : answered && isSelected && !answeredCorrectly ? <XCircle className="w-5 h-5" />
                     : LETTERS[i]}
                 </span>
                 <span className="text-gray-700 flex-1">
@@ -286,27 +287,12 @@ export default function QuestionCard({ question, index }: Props) {
                       )}</>
                   }
                 </span>
-                {answered && isCorrect && <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />}
-                {answered && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />}
+                {answered && isSelected && answeredCorrectly && <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />}
+                {answered && isSelected && !answeredCorrectly && <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />}
               </button>
             )
           })}
         </div>
-
-        {/* Resultado */}
-        {answered && (
-          <div className={`flex items-center gap-3 p-4 rounded-xl border ${
-            selectedAnswer === question.correctAnswer
-              ? 'bg-green-50 border-green-200 text-green-700'
-              : 'bg-red-50 border-red-200 text-red-700'
-          }`}>
-            {selectedAnswer === question.correctAnswer ? (
-              <><CheckCircle className="w-6 h-6 flex-shrink-0" /><div><p className="font-semibold">Resposta Correta!</p><p className="text-sm opacity-80">Você acertou esta questão.</p></div></>
-            ) : (
-              <><XCircle className="w-6 h-6 flex-shrink-0" /><div><p className="font-semibold">Resposta Incorreta</p><p className="text-sm opacity-80">A alternativa correta é a <strong>{LETTERS[question.correctAnswer]}</strong>.</p></div></>
-            )}
-          </div>
-        )}
 
         {answered && question.gabaritoComentado && (
           <div className="p-5 bg-blue-50 border border-blue-200 rounded-xl">

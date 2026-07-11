@@ -6,6 +6,12 @@ import {
   deleteQuestion as deleteFromSupabase,
   generateQuestionCode,
 } from './questionsService'
+import {
+  fetchAnswerHistory,
+  saveAnswerRecord,
+  fetchQuestionStats,
+  saveQuestionStats,
+} from './answersService'
 import type { Question, Comment, SimuladoResult, QuestionStats, QuestionAnswerRecord, Message } from './mock'
 import { mockQuestionStats } from './mock'
 import { supabase, isSupabaseConfigured } from '../../../lib/supabase'
@@ -52,7 +58,8 @@ interface QuestionState {
   addResult: (result: SimuladoResult) => void
   getResults: () => SimuladoResult[]
   getQuestionStats: (questionId: string) => QuestionStats | undefined
-  recordAnswer: (record: QuestionAnswerRecord) => void
+  recordAnswer: (record: QuestionAnswerRecord, selectedAnswer: number) => void
+  loadAnswerHistory: () => Promise<void>
   getAnswerHistory: (userId?: string) => QuestionAnswerRecord[]
   requestQuestionDeletion: (questionId: string, userId: string, userName: string) => void
   approveQuestionDeletion: (questionId: string, messageId: string) => Promise<void>
@@ -165,7 +172,7 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
   getQuestionStats: (questionId) =>
     get().questionStats.find(s => s.questionId === questionId),
 
-  recordAnswer: (record) => {
+  recordAnswer: (record, selectedAnswer) => {
     const history = get().answerHistory
     const prev = history.find(r => r.questionId === record.questionId && r.userId === record.userId)
 
@@ -177,10 +184,6 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
     }
 
     if (prev) {
-      qStat.answers = {
-        ...qStat.answers,
-        [prev.selectedAnswer]: Math.max(0, (qStat.answers[prev.selectedAnswer] || 1) - 1),
-      }
       if (prev.correct) qStat.correct -= 1
     } else {
       qStat.total += 1
@@ -188,17 +191,35 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
 
     qStat.answers = {
       ...qStat.answers,
-      [record.selectedAnswer]: (qStat.answers[record.selectedAnswer] || 0) + 1,
+      [selectedAnswer]: (qStat.answers[selectedAnswer] || 0) + 1,
     }
     if (record.correct) qStat.correct += 1
     saveStats(stats)
     set({ questionStats: stats })
+    if (isSupabaseConfigured()) {
+      saveQuestionStats(qStat).catch(err => console.error('Erro ao salvar estatísticas:', err))
+    }
 
     const updatedHistory = prev
       ? history.map(r => r.questionId === record.questionId && r.userId === record.userId ? record : r)
       : [...history, record]
     localStorage.setItem(HISTORY_KEY, JSON.stringify(updatedHistory))
     set({ answerHistory: updatedHistory })
+    if (isSupabaseConfigured()) {
+      saveAnswerRecord(record).catch(err => console.error('Erro ao salvar resposta:', err))
+    }
+  },
+
+  loadAnswerHistory: async () => {
+    if (!isSupabaseConfigured()) return
+    try {
+      const [history, stats] = await Promise.all([fetchAnswerHistory(), fetchQuestionStats()])
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
+      saveStats(stats)
+      set({ answerHistory: history, questionStats: stats })
+    } catch (err) {
+      console.error('Erro ao carregar respostas do Supabase:', err)
+    }
   },
 
   getAnswerHistory: (userId) => {
