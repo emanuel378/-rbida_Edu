@@ -105,8 +105,8 @@ export default function QuestionCard({ question, index }: Props) {
   const previousAnswer = answerHistory.find(r => r.questionId === question.id && r.userId === user?.id)
 
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
-  const [answered, setAnswered] = useState(!!previousAnswer)
-  const [answeredCorrectlyState, setAnsweredCorrectlyState] = useState(previousAnswer?.correct ?? false)
+  const [justAnswered, setJustAnswered] = useState(false)
+  const [liveCorrect, setLiveCorrect] = useState(false)
   const [showStats, setShowStats] = useState(false)
   const [showComments, setShowComments] = useState(false)
   const [showReport, setShowReport] = useState(false)
@@ -122,22 +122,23 @@ export default function QuestionCard({ question, index }: Props) {
   const disciplinaLabel = getDisciplinaLabel(question.moduleId)
   const hasResolution = !!(question.aulaRelacionada || question.materialUrl)
 
-  const handleAnswer = () => {
-    if (selectedAnswer === null || !user) return
-    const correct = selectedAnswer === question.correctAnswer
-    setAnswered(true)
-    setAnsweredCorrectlyState(correct)
+  const submitAnswer = (answer: number) => {
+    if (!user) return
+    const correct = answer === question.correctAnswer
+    setSelectedAnswer(answer)
+    setJustAnswered(true)
+    setLiveCorrect(correct)
     recordAnswer({
       questionId: question.id,
       correct,
       userId: user.id,
       timestamp: new Date().toISOString(),
-    }, selectedAnswer)
+    }, answer)
   }
 
-  const handleRetry = () => {
-    setSelectedAnswer(null)
-    setAnswered(false)
+  const handleAnswer = () => {
+    if (selectedAnswer === null) return
+    submitAnswer(selectedAnswer)
   }
 
   const handleComment = () => {
@@ -161,7 +162,11 @@ export default function QuestionCard({ question, index }: Props) {
     setTimeout(() => { setReportSent(false); setShowReport(false) }, 2000)
   }
 
-  const answeredCorrectly = answered && (selectedAnswer !== null ? selectedAnswer === question.correctAnswer : answeredCorrectlyState)
+  // "revealState" só é true quando o aluno acabou de responder nesta sessão;
+  // ao recarregar a página a questão volta ao normal, mantendo só o selo do resultado.
+  const revealState = justAnswered
+  const answeredCorrectly = justAnswered ? liveCorrect : (previousAnswer?.correct ?? false)
+  const showBadge = justAnswered || !!previousAnswer
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -190,7 +195,7 @@ export default function QuestionCard({ question, index }: Props) {
               </span>
             )}
           </div>
-          {answered && (
+          {showBadge && (
             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold ${
               answeredCorrectly ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
             }`}>
@@ -241,7 +246,9 @@ export default function QuestionCard({ question, index }: Props) {
             let border = 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
             let ring = ''
 
-            if (answered) {
+            const locked = revealState && answeredCorrectly
+
+            if (revealState) {
               if (isSelected && answeredCorrectly) { border = 'border-green-300 bg-green-50'; ring = 'ring-2 ring-green-200' }
               else if (isSelected && !answeredCorrectly) { border = 'border-red-300 bg-red-50'; ring = 'ring-2 ring-red-200' }
               else { border = 'border-gray-200 bg-gray-50 opacity-60' }
@@ -253,18 +260,18 @@ export default function QuestionCard({ question, index }: Props) {
             return (
               <button
                 key={i}
-                disabled={answered}
-                onClick={() => setSelectedAnswer(i)}
+                disabled={locked}
+                onClick={() => (revealState ? submitAnswer(i) : setSelectedAnswer(i))}
                 className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all ${border} ${ring}`}
               >
                 <span className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 transition-all ${
-                  answered && isSelected && answeredCorrectly ? 'bg-green-500 text-white'
-                  : answered && isSelected && !answeredCorrectly ? 'bg-red-500 text-white'
+                  revealState && isSelected && answeredCorrectly ? 'bg-green-500 text-white'
+                  : revealState && isSelected && !answeredCorrectly ? 'bg-red-500 text-white'
                   : isSelected ? 'bg-blue-500 text-white'
                   : 'bg-gray-100 text-gray-600'
                 }`}>
-                  {answered && isSelected && answeredCorrectly ? <CheckCircle className="w-5 h-5" />
-                    : answered && isSelected && !answeredCorrectly ? <XCircle className="w-5 h-5" />
+                  {revealState && isSelected && answeredCorrectly ? <CheckCircle className="w-5 h-5" />
+                    : revealState && isSelected && !answeredCorrectly ? <XCircle className="w-5 h-5" />
                     : LETTERS[i]}
                 </span>
                 <span className="text-gray-700 flex-1">
@@ -287,14 +294,14 @@ export default function QuestionCard({ question, index }: Props) {
                       )}</>
                   }
                 </span>
-                {answered && isSelected && answeredCorrectly && <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />}
-                {answered && isSelected && !answeredCorrectly && <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />}
+                {revealState && isSelected && answeredCorrectly && <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />}
+                {revealState && isSelected && !answeredCorrectly && <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />}
               </button>
             )
           })}
         </div>
 
-        {answered && question.gabaritoComentado && (
+        {revealState && question.gabaritoComentado && (
           <div className="p-5 bg-blue-50 border border-blue-200 rounded-xl">
             <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Gabarito Comentado</p>
             <p className="text-sm text-blue-800 leading-relaxed whitespace-pre-wrap">{question.gabaritoComentado}</p>
@@ -302,8 +309,8 @@ export default function QuestionCard({ question, index }: Props) {
         )}
 
         {/* Botões principais */}
-        <div className="flex items-center gap-3 pt-1">
-          {!answered ? (
+        {!revealState && (
+          <div className="flex items-center gap-3 pt-1">
             <button
               onClick={handleAnswer}
               disabled={selectedAnswer === null}
@@ -312,15 +319,11 @@ export default function QuestionCard({ question, index }: Props) {
               <CheckCircle className="w-5 h-5" />
               Confirmar Resposta
             </button>
-          ) : (
-            <button
-              onClick={handleRetry}
-              className="flex items-center gap-2 px-6 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium text-sm"
-            >
-              Responder Novamente
-            </button>
-          )}
-        </div>
+          </div>
+        )}
+        {revealState && !answeredCorrectly && (
+          <p className="text-sm text-gray-500 pt-1">Clique em outra alternativa para tentar novamente.</p>
+        )}
 
         {/* Resolução */}
         {hasResolution && (
