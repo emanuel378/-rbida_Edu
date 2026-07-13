@@ -24,11 +24,17 @@ export default function QuestionBank() {
   })
   const [appliedFilters, setAppliedFilters] = useState(filterValues)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [justAnsweredIds, setJustAnsweredIds] = useState<Set<string>>(new Set())
 
   const handleRefresh = async () => {
     setLocalError(null)
     await loadQuestions()
     setRefreshKey(k => k + 1)
+    setJustAnsweredIds(new Set())
+  }
+
+  const markJustAnswered = (questionId: string) => {
+    setJustAnsweredIds(prev => (prev.has(questionId) ? prev : new Set(prev).add(questionId)))
   }
 
   const assuntoOptions = TOPICOS_POR_DISCIPLINA[filterValues.moduleId] ?? []
@@ -77,17 +83,19 @@ export default function QuestionBank() {
       if (appliedFilters.banca && q.banca !== appliedFilters.banca) return false
       if (appliedFilters.nivel && q.nivel !== appliedFilters.nivel) return false
       if (appliedFilters.ano && q.ano !== appliedFilters.ano) return false
-      if (appliedFilters.situacao === 'resolvidas' && !resolvedQuestionIds.has(q.id)) return false
-      if (appliedFilters.situacao === 'nao_resolvidas' && resolvedQuestionIds.has(q.id)) return false
-      if (appliedFilters.situacao === 'acertei' && !correctQuestionIds.has(q.id)) return false
-      if (appliedFilters.situacao === 'errei' && !incorrectQuestionIds.has(q.id)) return false
+      if (!justAnsweredIds.has(q.id)) {
+        if (appliedFilters.situacao === 'resolvidas' && !resolvedQuestionIds.has(q.id)) return false
+        if (appliedFilters.situacao === 'nao_resolvidas' && resolvedQuestionIds.has(q.id)) return false
+        if (appliedFilters.situacao === 'acertei' && !correctQuestionIds.has(q.id)) return false
+        if (appliedFilters.situacao === 'errei' && !incorrectQuestionIds.has(q.id)) return false
+      }
       if (keyword) {
         const haystack = [q.question, q.code, q.assunto, q.banca].filter(Boolean).join(' ').toLowerCase()
         if (!haystack.includes(keyword)) return false
       }
       return true
     })
-  }, [questions, appliedFilters, resolvedQuestionIds, correctQuestionIds, incorrectQuestionIds])
+  }, [questions, appliedFilters, resolvedQuestionIds, correctQuestionIds, incorrectQuestionIds, justAnsweredIds])
 
   const applyFilters = () => setAppliedFilters(filterValues)
 
@@ -343,7 +351,12 @@ export default function QuestionBank() {
           ) : (
             <div className="space-y-5">
               {filteredQuestions.map((q, idx) => (
-                <QuestionCard key={`${q.id}-${refreshKey}`} question={q} index={idx + 1} />
+                <QuestionCard
+                  key={`${q.id}-${refreshKey}`}
+                  question={q}
+                  index={idx + 1}
+                  onAnswered={() => markJustAnswered(q.id)}
+                />
               ))}
             </div>
           )}

@@ -96,9 +96,10 @@ function MaterialBlock({ url, onZoom }: { url: string; onZoom: (src: string) => 
 interface Props {
   question: Question
   index?: number
+  onAnswered?: () => void
 }
 
-export default function QuestionCard({ question, index }: Props) {
+export default function QuestionCard({ question, index, onAnswered }: Props) {
   const { user } = useAuthStore()
   const { questionStats, answerHistory, recordAnswer, getQuestionComments, addComment, reportQuestionError } = useQuestionStore()
 
@@ -128,6 +129,7 @@ export default function QuestionCard({ question, index }: Props) {
     setSelectedAnswer(answer)
     setJustAnswered(true)
     setLiveCorrect(correct)
+    onAnswered?.()
     recordAnswer({
       questionId: question.id,
       correct,
