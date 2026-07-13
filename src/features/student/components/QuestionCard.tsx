@@ -245,6 +245,7 @@ export default function QuestionCard({ question, index, onAnswered }: Props) {
         <div className="space-y-3">
           {question.options.map((opt, i) => {
             const isSelected = i === selectedAnswer
+            const isCorrectOption = i === question.correctAnswer
             let border = 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
             let ring = ''
 
@@ -253,11 +254,15 @@ export default function QuestionCard({ question, index, onAnswered }: Props) {
             if (revealState) {
               if (isSelected && answeredCorrectly) { border = 'border-green-300 bg-green-50'; ring = 'ring-2 ring-green-200' }
               else if (isSelected && !answeredCorrectly) { border = 'border-red-300 bg-red-50'; ring = 'ring-2 ring-red-200' }
+              else if (isCorrectOption) { border = 'border-green-300 bg-green-50'; ring = 'ring-2 ring-green-200' }
               else { border = 'border-gray-200 bg-gray-50 opacity-60' }
             } else if (isSelected) {
               border = 'border-blue-400 bg-blue-50'
               ring = 'ring-2 ring-blue-200'
             }
+
+            const showAsCorrect = revealState && (isCorrectOption || (isSelected && answeredCorrectly))
+            const showAsWrong = revealState && isSelected && !answeredCorrectly
 
             return (
               <button
@@ -267,13 +272,13 @@ export default function QuestionCard({ question, index, onAnswered }: Props) {
                 className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all ${border} ${ring}`}
               >
                 <span className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 transition-all ${
-                  revealState && isSelected && answeredCorrectly ? 'bg-green-500 text-white'
-                  : revealState && isSelected && !answeredCorrectly ? 'bg-red-500 text-white'
+                  showAsCorrect ? 'bg-green-500 text-white'
+                  : showAsWrong ? 'bg-red-500 text-white'
                   : isSelected ? 'bg-blue-500 text-white'
                   : 'bg-gray-100 text-gray-600'
                 }`}>
-                  {revealState && isSelected && answeredCorrectly ? <CheckCircle className="w-5 h-5" />
-                    : revealState && isSelected && !answeredCorrectly ? <XCircle className="w-5 h-5" />
+                  {showAsCorrect ? <CheckCircle className="w-5 h-5" />
+                    : showAsWrong ? <XCircle className="w-5 h-5" />
                     : LETTERS[i]}
                 </span>
                 <span className="text-gray-700 flex-1">
@@ -296,8 +301,8 @@ export default function QuestionCard({ question, index, onAnswered }: Props) {
                       )}</>
                   }
                 </span>
-                {revealState && isSelected && answeredCorrectly && <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />}
-                {revealState && isSelected && !answeredCorrectly && <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />}
+                {showAsCorrect && <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />}
+                {showAsWrong && <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />}
               </button>
             )
           })}
