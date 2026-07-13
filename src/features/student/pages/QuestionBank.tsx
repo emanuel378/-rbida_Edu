@@ -6,7 +6,7 @@ import QuestionCard from '../components/QuestionCard'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 import { Search, X, HelpCircle, RefreshCw, AlertCircle, Loader2 } from 'lucide-react'
 
-type Situacao = '' | 'resolvidas' | 'nao_resolvidas'
+type Situacao = '' | 'resolvidas' | 'nao_resolvidas' | 'acertei' | 'errei'
 
 export default function QuestionBank() {
   const { questions, loading, loadQuestions, answerHistory } = useQuestionStore()
@@ -20,6 +20,7 @@ export default function QuestionBank() {
     nivel: '',
     ano: '',
     situacao: '' as Situacao,
+    palavraChave: '',
   })
   const [appliedFilters, setAppliedFilters] = useState(filterValues)
 
@@ -54,7 +55,20 @@ export default function QuestionBank() {
     return set
   }, [answerHistory, user?.id])
 
+  const correctQuestionIds = useMemo(() => {
+    const set = new Set<string>()
+    answerHistory.forEach(r => { if (r.userId === user?.id && r.correct) set.add(r.questionId) })
+    return set
+  }, [answerHistory, user?.id])
+
+  const incorrectQuestionIds = useMemo(() => {
+    const set = new Set<string>()
+    answerHistory.forEach(r => { if (r.userId === user?.id && !r.correct) set.add(r.questionId) })
+    return set
+  }, [answerHistory, user?.id])
+
   const filteredQuestions = useMemo(() => {
+    const keyword = appliedFilters.palavraChave.trim().toLowerCase()
     return questions.filter(q => {
       if (appliedFilters.moduleId && q.moduleId !== appliedFilters.moduleId) return false
       if (appliedFilters.topicId && q.topicId !== appliedFilters.topicId) return false
@@ -63,14 +77,20 @@ export default function QuestionBank() {
       if (appliedFilters.ano && q.ano !== appliedFilters.ano) return false
       if (appliedFilters.situacao === 'resolvidas' && !resolvedQuestionIds.has(q.id)) return false
       if (appliedFilters.situacao === 'nao_resolvidas' && resolvedQuestionIds.has(q.id)) return false
+      if (appliedFilters.situacao === 'acertei' && !correctQuestionIds.has(q.id)) return false
+      if (appliedFilters.situacao === 'errei' && !incorrectQuestionIds.has(q.id)) return false
+      if (keyword) {
+        const haystack = [q.question, q.code, q.assunto, q.banca].filter(Boolean).join(' ').toLowerCase()
+        if (!haystack.includes(keyword)) return false
+      }
       return true
     })
-  }, [questions, appliedFilters, resolvedQuestionIds])
+  }, [questions, appliedFilters, resolvedQuestionIds, correctQuestionIds, incorrectQuestionIds])
 
   const applyFilters = () => setAppliedFilters(filterValues)
 
   const clearFilters = () => {
-    const empty: typeof filterValues = { moduleId: '', topicId: '', banca: '', nivel: '', ano: '', situacao: '' }
+    const empty: typeof filterValues = { moduleId: '', topicId: '', banca: '', nivel: '', ano: '', situacao: '', palavraChave: '' }
     setFilterValues(empty)
     setAppliedFilters(empty)
   }
@@ -89,7 +109,12 @@ export default function QuestionBank() {
       case 'banca': return `Banca: ${value}`
       case 'nivel': return `Nível: ${value}`
       case 'ano': return `Ano: ${value}`
-      case 'situacao': return value === 'resolvidas' ? 'Já resolvi' : 'Não resolvi'
+      case 'palavraChave': return `Palavra-chave: ${value}`
+      case 'situacao':
+        if (value === 'resolvidas') return 'Já resolvi'
+        if (value === 'nao_resolvidas') return 'Não resolvi'
+        if (value === 'acertei') return 'Acertei'
+        return 'Errei'
       default: return `${key}: ${value}`
     }
   }
@@ -146,6 +171,22 @@ export default function QuestionBank() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
             <div className="p-6 space-y-5">
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Filtros</h2>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">PALAVRA-CHAVE</label>
+                <div className="relative">
+                  <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={filterValues.palavraChave}
+                    onChange={e => setFilterValues({ ...filterValues, palavraChave: e.target.value })}
+                    onKeyDown={e => e.key === 'Enter' && applyFilters()}
+                    placeholder="Buscar por palavras no enunciado, código, assunto ou banca..."
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
                 <div>
@@ -231,6 +272,8 @@ export default function QuestionBank() {
                     <option value="">Todas</option>
                     <option value="resolvidas">Já resolvi</option>
                     <option value="nao_resolvidas">Não resolvi</option>
+                    <option value="acertei">Acertei</option>
+                    <option value="errei">Errei</option>
                   </select>
                 </div>
 
