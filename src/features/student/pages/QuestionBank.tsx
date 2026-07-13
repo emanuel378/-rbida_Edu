@@ -23,10 +23,12 @@ export default function QuestionBank() {
     palavraChave: '',
   })
   const [appliedFilters, setAppliedFilters] = useState(filterValues)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const handleRefresh = async () => {
     setLocalError(null)
     await loadQuestions()
+    setRefreshKey(k => k + 1)
   }
 
   const assuntoOptions = TOPICOS_POR_DISCIPLINA[filterValues.moduleId] ?? []
@@ -341,7 +343,7 @@ export default function QuestionBank() {
           ) : (
             <div className="space-y-5">
               {filteredQuestions.map((q, idx) => (
-                <QuestionCard key={q.id} question={q} index={idx + 1} />
+                <QuestionCard key={`${q.id}-${refreshKey}`} question={q} index={idx + 1} />
               ))}
             </div>
           )}
