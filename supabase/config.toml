@@ -1,0 +1,10 @@
+project_id = "dxkzktkeagpddmpcyooe"
+
+[functions.bunny-create-upload]
+verify_jwt = false
+
+[functions.bunny-video-status]
+verify_jwt = false
+
+[functions.bunny-delete-video]
+verify_jwt = false

@@ -26,6 +26,9 @@ export interface Module {
   teacherId: string
 }
 
+export type VideoProvider = 'youtube' | 'bunny'
+export type BunnyVideoStatus = 'uploading' | 'processing' | 'ready' | 'error'
+
 export interface Lesson {
   id: string
   moduleId: string
@@ -33,6 +36,9 @@ export interface Lesson {
   videoUrl: string
   pdfUrl: string
   order: number
+  videoProvider: VideoProvider
+  bunnyVideoId: string
+  videoStatus: BunnyVideoStatus
 }
 
 export interface Topic {
@@ -155,9 +161,9 @@ export const mockTopics: Topic[] = [
 ]
 
 export const mockLessons: Lesson[] = [
-  { id: 'l1', moduleId: 'd1', title: 'Álgebra Básica', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', pdfUrl: '#', order: 1 },
-  { id: 'l2', moduleId: 'd1', title: 'Geometria Plana', videoUrl: 'https://www.youtube.com/watch?v=9bZkp7q19f0', pdfUrl: '#', order: 2 },
-  { id: 'l3', moduleId: 'd2', title: 'Interpretação de Texto', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', pdfUrl: '#', order: 1 },
+  { id: 'l1', moduleId: 'd1', title: 'Álgebra Básica', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', pdfUrl: '#', order: 1, videoProvider: 'youtube', bunnyVideoId: '', videoStatus: 'ready' },
+  { id: 'l2', moduleId: 'd1', title: 'Geometria Plana', videoUrl: 'https://www.youtube.com/watch?v=9bZkp7q19f0', pdfUrl: '#', order: 2, videoProvider: 'youtube', bunnyVideoId: '', videoStatus: 'ready' },
+  { id: 'l3', moduleId: 'd2', title: 'Interpretação de Texto', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', pdfUrl: '#', order: 1, videoProvider: 'youtube', bunnyVideoId: '', videoStatus: 'ready' },
 ]
 
 export const mockQuestions: Question[] = [

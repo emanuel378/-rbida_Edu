@@ -3,13 +3,15 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../auth/services/authStore'
 import { useCourseStore } from '../data/courseStore'
 import { useQuestionStore } from '../data/questionStore'
-import { ArrowLeft, FileDown, CheckCircle, Send, MessageCircle, Play, Menu, X, BookOpen } from 'lucide-react'
+import { ArrowLeft, FileDown, CheckCircle, Send, MessageCircle, Play, Menu, X, BookOpen, Loader2 } from 'lucide-react'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
+import { getBunnyEmbedUrl } from '../../../lib/bunny'
+import { fetchBunnyVideoStatus } from '../../../lib/bunny-status'
 
 export default function Lesson() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { lessons, completeLesson, modules, courses, enrollments } = useCourseStore()
+  const { lessons, completeLesson, modules, courses, enrollments, updateLesson } = useCourseStore()
   const { comments, addComment, getComments } = useQuestionStore()
   const user = useAuthStore(s => s.user)
 
@@ -17,6 +19,22 @@ export default function Lesson() {
   const [commentText, setCommentText] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const lessonComments = getComments(id || '')
+
+  useEffect(() => {
+    if (!lesson || lesson.videoProvider !== 'bunny' || !lesson.bunnyVideoId) return
+    if (lesson.videoStatus === 'ready') return
+
+    let cancelled = false
+    const poll = async () => {
+      const status = await fetchBunnyVideoStatus(lesson.bunnyVideoId)
+      if (!cancelled && status !== lesson.videoStatus) {
+        updateLesson(lesson.id, { videoStatus: status })
+      }
+    }
+    poll()
+    const interval = setInterval(poll, 8000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [lesson?.id, lesson?.videoProvider, lesson?.bunnyVideoId, lesson?.videoStatus])
 
   const module = modules.find(m => m.id === lesson?.moduleId)
   const course = module ? courses.find(c => c.id === module.courseId) : null
@@ -161,12 +179,31 @@ export default function Lesson() {
 
         <div className="bg-gray-900 rounded-2xl overflow-hidden shadow-2xl mb-6">
           <div className="aspect-video">
-            <iframe
-              src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`}
-              className="w-full h-full"
-              allowFullScreen
-              title={lesson.title}
-            />
+            {lesson.videoProvider === 'bunny' ? (
+              lesson.videoStatus === 'ready' ? (
+                <iframe
+                  src={getBunnyEmbedUrl(lesson.bunnyVideoId)}
+                  className="w-full h-full"
+                  allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                  title={lesson.title}
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-gray-400">
+                  <Loader2 className="w-8 h-8 animate-spin" />
+                  <p className="text-sm">
+                    {lesson.videoStatus === 'error' ? 'Falha ao processar o vídeo. Avise o professor.' : 'Vídeo em processamento, tente novamente em instantes...'}
+                  </p>
+                </div>
+              )
+            ) : (
+              <iframe
+                src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`}
+                className="w-full h-full"
+                allowFullScreen
+                title={lesson.title}
+              />
+            )}
           </div>
         </div>
 

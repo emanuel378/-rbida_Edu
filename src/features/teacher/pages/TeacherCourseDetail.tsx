@@ -11,6 +11,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom'
 import { isSupabaseConfigured } from '../../../lib/supabase'
 import { uploadLessonPdf } from '../../../lib/supabase-storage'
+import { uploadVideoToBunny } from '../../../lib/bunny-upload'
 import { generateId } from '../../../lib/id'
 import { DISCIPLINAS, TOPICOS_POR_DISCIPLINA } from '../../courses/data/taxonomy'
 import type { Question } from '../../courses/data/mock'
@@ -149,6 +150,14 @@ export default function TeacherCourseDetail() {
 
   const [showLessonModal, setShowLessonModal] = useState(false)
   const [lessonForm, setLessonForm] = useState({ moduleId: '', title: '', videoUrl: '', pdfFile: null as File | null })
+  const [lessonVideoTab, setLessonVideoTab] = useState<'bunny' | 'youtube'>('bunny')
+  const [bunnyUploadState, setBunnyUploadState] = useState<{
+    status: 'idle' | 'uploading' | 'done' | 'error'
+    progress: number
+    videoId: string
+    error: string
+  }>({ status: 'idle', progress: 0, videoId: '', error: '' })
+  const [lessonSaveError, setLessonSaveError] = useState('')
 
   const [showQuestionModal, setShowQuestionModal] = useState(false)
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null)
@@ -211,8 +220,35 @@ export default function TeacherCourseDetail() {
     setShowModuleModal(false)
   }
 
+  const resetLessonVideoState = () => {
+    setLessonVideoTab('bunny')
+    setBunnyUploadState({ status: 'idle', progress: 0, videoId: '', error: '' })
+    setLessonSaveError('')
+  }
+
+  const handleVideoFileSelect = async (file: File) => {
+    if (!user) return
+    setBunnyUploadState({ status: 'uploading', progress: 0, videoId: '', error: '' })
+    try {
+      const title = lessonForm.title.trim() || file.name
+      const { videoId } = await uploadVideoToBunny(file, user.id, title, (percent) => {
+        setBunnyUploadState(s => ({ ...s, progress: percent }))
+      })
+      setBunnyUploadState({ status: 'done', progress: 100, videoId, error: '' })
+    } catch (err) {
+      setBunnyUploadState({
+        status: 'error', progress: 0, videoId: '',
+        error: err instanceof Error ? err.message : 'Erro ao enviar vídeo',
+      })
+    }
+  }
+
   const handleAddLesson = async () => {
-    if (!lessonForm.moduleId || !lessonForm.title.trim() || !lessonForm.videoUrl.trim()) return
+    if (!lessonForm.moduleId || !lessonForm.title.trim() || !user) return
+    if (lessonVideoTab === 'youtube' && !lessonForm.videoUrl.trim()) return
+    if (lessonVideoTab === 'bunny' && bunnyUploadState.status !== 'done') return
+
+    setLessonSaveError('')
     let pdfUrl = ''
     if (lessonForm.pdfFile) {
       if (isSupabaseConfigured() && user) {
@@ -224,15 +260,29 @@ export default function TeacherCourseDetail() {
         pdfUrl = URL.createObjectURL(lessonForm.pdfFile)
       }
     }
-    addLesson({
+
+    const saveError = await addLesson({
       id: generateId(),
       moduleId: lessonForm.moduleId,
       title: lessonForm.title.trim(),
-      videoUrl: lessonForm.videoUrl.trim(),
+      videoUrl: lessonVideoTab === 'youtube' ? lessonForm.videoUrl.trim() : '',
       pdfUrl,
       order: lessons.filter(l => l.moduleId === lessonForm.moduleId).length + 1,
+      videoProvider: lessonVideoTab,
+      bunnyVideoId: lessonVideoTab === 'bunny' ? bunnyUploadState.videoId : '',
+      videoStatus: lessonVideoTab === 'bunny' ? 'processing' : 'ready',
     })
+
+    if (saveError) {
+      setLessonSaveError(
+        `Não foi possível salvar a aula: ${saveError}` +
+        (lessonVideoTab === 'bunny' ? ' O vídeo já foi enviado ao Bunny — tente salvar novamente antes de reenviar o arquivo.' : '')
+      )
+      return
+    }
+
     setLessonForm({ moduleId: '', title: '', videoUrl: '', pdfFile: null })
+    resetLessonVideoState()
     setShowLessonModal(false)
   }
 
@@ -405,6 +455,9 @@ export default function TeacherCourseDetail() {
         videoUrl: `https://www.youtube.com/watch?v=${video.videoId}`,
         pdfUrl: '',
         order,
+        videoProvider: 'youtube',
+        bunnyVideoId: '',
+        videoStatus: 'ready',
       })
     })
     setVideoUrls('')
@@ -690,7 +743,7 @@ export default function TeacherCourseDetail() {
       </Modal>
 
       {/* Modal: Nova Aula */}
-      <Modal open={showLessonModal} onClose={() => { setShowLessonModal(false); setShowPlaylist(false) }} title="Nova Aula">
+      <Modal open={showLessonModal} onClose={() => { setShowLessonModal(false); setShowPlaylist(false); resetLessonVideoState() }} title="Nova Aula">
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Módulo</label>
@@ -707,22 +760,75 @@ export default function TeacherCourseDetail() {
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">URL do Vídeo (YouTube)</label>
-            <input value={lessonForm.videoUrl} onChange={e => setLessonForm({ ...lessonForm, videoUrl: e.target.value })}
-              placeholder="https://www.youtube.com/watch?v=..."
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500" />
-            {videoId && (
-              <div className="mt-3 rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-                <div className="aspect-video bg-black">
-                  <iframe src={`https://www.youtube.com/embed/${videoId}`} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-                </div>
-                <div className="px-3 py-2 flex items-center gap-2 text-xs text-gray-500">
-                  <PlayCircle className="w-3.5 h-3.5 text-red-500" />
-                  Prévia do vídeo
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Vídeo da aula</label>
+            <div className="flex gap-2 mb-3">
+              <button type="button" onClick={() => setLessonVideoTab('bunny')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${lessonVideoTab === 'bunny' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                Enviar vídeo
+              </button>
+              <button type="button" onClick={() => setLessonVideoTab('youtube')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${lessonVideoTab === 'youtube' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                Link do YouTube
+              </button>
+            </div>
+
+            {lessonVideoTab === 'bunny' ? (
+              <div className="relative">
+                {bunnyUploadState.status !== 'uploading' && (
+                  <input type="file" accept="video/mp4,video/webm,video/quicktime"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleVideoFileSelect(f) }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                )}
+                <div className="flex items-center gap-3 px-4 py-3 border-2 border-dashed border-gray-200 rounded-xl hover:border-purple-300 transition-colors bg-gray-50">
+                  <Upload className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    {bunnyUploadState.status === 'idle' && (
+                      <>
+                        <p className="text-sm text-gray-600">Clique para selecionar o vídeo da aula</p>
+                        <p className="text-xs text-gray-400">MP4, WebM ou MOV</p>
+                      </>
+                    )}
+                    {bunnyUploadState.status === 'uploading' && (
+                      <>
+                        <p className="text-sm text-gray-600">Enviando vídeo... {bunnyUploadState.progress}%</p>
+                        <div className="mt-1.5 w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-purple-500 transition-all duration-300" style={{ width: `${bunnyUploadState.progress}%` }} />
+                        </div>
+                      </>
+                    )}
+                    {bunnyUploadState.status === 'done' && (
+                      <p className="text-sm text-green-600 flex items-center gap-1.5">
+                        <CheckCircle className="w-4 h-4" /> Vídeo enviado, aguardando processamento
+                      </p>
+                    )}
+                    {bunnyUploadState.status === 'error' && (
+                      <p className="text-sm text-red-600">Falha no envio: {bunnyUploadState.error}</p>
+                    )}
+                  </div>
                 </div>
               </div>
+            ) : (
+              <>
+                <input value={lessonForm.videoUrl} onChange={e => setLessonForm({ ...lessonForm, videoUrl: e.target.value })}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                {videoId && (
+                  <div className="mt-3 rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                    <div className="aspect-video bg-black">
+                      <iframe src={`https://www.youtube.com/embed/${videoId}`} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                    </div>
+                    <div className="px-3 py-2 flex items-center gap-2 text-xs text-gray-500">
+                      <PlayCircle className="w-3.5 h-3.5 text-red-500" />
+                      Prévia do vídeo
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
+          {lessonSaveError && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">{lessonSaveError}</p>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Material de apoio (PDF, opcional)</label>
             <div className="relative">
@@ -744,8 +850,11 @@ export default function TeacherCourseDetail() {
             </div>
           </div>
           <div className="flex gap-3 justify-end pt-2">
-            <button onClick={() => setShowLessonModal(false)} className="px-4 py-2.5 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors font-medium text-sm">Cancelar</button>
-            <button onClick={handleAddLesson} disabled={!lessonForm.moduleId || !lessonForm.title.trim() || !lessonForm.videoUrl.trim()}
+            <button onClick={() => { setShowLessonModal(false); resetLessonVideoState() }} className="px-4 py-2.5 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors font-medium text-sm">Cancelar</button>
+            <button onClick={handleAddLesson} disabled={
+              !lessonForm.moduleId || !lessonForm.title.trim() ||
+              (lessonVideoTab === 'youtube' ? !lessonForm.videoUrl.trim() : bunnyUploadState.status !== 'done')
+            }
               className="px-5 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors disabled:opacity-50 font-medium text-sm">
               Criar Aula
             </button>

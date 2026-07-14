@@ -62,7 +62,7 @@ interface CourseState {
   rejectCourse: (courseId: string) => void
   updateCoursePrice: (courseId: string, price: number) => void
   addModule: (module: Module) => void
-  addLesson: (lesson: Lesson) => void
+  addLesson: (lesson: Lesson) => Promise<string | null>
   deleteCourse: (courseId: string) => void
   deleteModule: (moduleId: string) => void
   deleteLesson: (lessonId: string) => void
@@ -196,19 +196,27 @@ export const useCourseStore = create<CourseState>((set, get) => {
     }
   },
 
-  addLesson: (lesson) => {
+  addLesson: async (lesson) => {
     const lessons = [...get().lessons, lesson]
     set({ lessons })
     if (isSupabaseConfigured()) {
-      supabase.from('lessons').insert({
+      const { error } = await supabase.from('lessons').insert({
         id: lesson.id,
         module_id: lesson.moduleId,
         title: lesson.title,
         video_url: lesson.videoUrl,
         pdf_url: lesson.pdfUrl,
         order_index: lesson.order,
-      }).then(({ error }) => { if (error) console.error(error) })
+        video_provider: lesson.videoProvider,
+        bunny_video_id: lesson.bunnyVideoId,
+        video_status: lesson.videoStatus,
+      })
+      if (error) {
+        console.error(error)
+        return error.message
+      }
     }
+    return null
   },
 
   deleteCourse: (courseId) => {
@@ -236,11 +244,16 @@ export const useCourseStore = create<CourseState>((set, get) => {
   },
 
   deleteLesson: (lessonId) => {
+    const lesson = get().lessons.find(l => l.id === lessonId)
     const lessons = get().lessons.filter(l => l.id !== lessonId)
     set({ lessons })
     if (isSupabaseConfigured()) {
       supabase.from('lessons').delete().eq('id', lessonId)
         .then(({ error }) => { if (error) console.error(error) })
+      if (lesson?.videoProvider === 'bunny' && lesson.bunnyVideoId) {
+        supabase.functions.invoke('bunny-delete-video', { body: { videoId: lesson.bunnyVideoId } })
+          .catch(err => console.error('Erro ao apagar vídeo no Bunny:', err))
+      }
     }
   },
 
@@ -265,6 +278,9 @@ export const useCourseStore = create<CourseState>((set, get) => {
       if (data.videoUrl !== undefined) updateData.video_url = data.videoUrl
       if (data.pdfUrl !== undefined) updateData.pdf_url = data.pdfUrl
       if (data.order !== undefined) updateData.order_index = data.order
+      if (data.videoProvider !== undefined) updateData.video_provider = data.videoProvider
+      if (data.bunnyVideoId !== undefined) updateData.bunny_video_id = data.bunnyVideoId
+      if (data.videoStatus !== undefined) updateData.video_status = data.videoStatus
       supabase.from('lessons').update(updateData).eq('id', id)
         .then(({ error }) => { if (error) console.error(error) })
     }
@@ -601,6 +617,9 @@ function mapRowToModel(key: string, row: any): any {
         videoUrl: row.video_url ?? '',
         pdfUrl: row.pdf_url ?? '',
         order: row.order_index,
+        videoProvider: row.video_provider ?? 'youtube',
+        bunnyVideoId: row.bunny_video_id ?? '',
+        videoStatus: row.video_status ?? 'ready',
       }
     case 'topics':
       return {
