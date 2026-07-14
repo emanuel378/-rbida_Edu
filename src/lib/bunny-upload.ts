@@ -15,8 +15,19 @@ export async function uploadVideoToBunny(
     body: { userId, title },
   })
 
-  if (error || !data?.videoId) {
-    throw new Error(data?.error || error?.message || 'Falha ao iniciar upload no Bunny')
+  if (error) {
+    let message = error.message as string
+    try {
+      const body = await error.context?.json()
+      if (body?.error) message = body.error
+    } catch {
+      // resposta não era JSON, mantém a mensagem genérica
+    }
+    throw new Error(message)
+  }
+
+  if (!data?.videoId) {
+    throw new Error(data?.error || 'Falha ao iniciar upload no Bunny')
   }
 
   const { videoId, libraryId, signature, expiration } = data as {

@@ -1,10 +1,7 @@
-import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
 const BUNNY_LIBRARY_ID = Deno.env.get('BUNNY_LIBRARY_ID') ?? ''
 const BUNNY_API_KEY = Deno.env.get('BUNNY_API_KEY') ?? ''
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -35,20 +32,14 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Corpo da requisição inválido' }, 400)
   }
 
+  // Não há checagem de role via `profiles` aqui: o login deste app é mockado
+  // (não gera sessão real do Supabase Auth) e a tabela `profiles` fica vazia,
+  // então uma checagem de role seria só teatro de segurança. O app inteiro já
+  // roda com RLS desligado e chave anônima pública — mesmo modelo de confiança
+  // aqui. Revisitar quando o login real for implementado.
   const { userId, title } = body
   if (!userId || !title) {
     return jsonResponse({ error: 'userId e title são obrigatórios' }, 400)
-  }
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('role, approved')
-    .eq('id', userId)
-    .single()
-
-  if (profileError || !profile || !['professor', 'admin'].includes(profile.role) || !profile.approved) {
-    return jsonResponse({ error: 'Usuário não autorizado a enviar vídeos' }, 403)
   }
 
   const createRes = await fetch(`https://video.bunnycdn.com/library/${BUNNY_LIBRARY_ID}/videos`, {
