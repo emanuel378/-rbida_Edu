@@ -15,6 +15,7 @@ interface AuthState {
   login: (user: User) => void
   logout: () => void
   approveTeacher: (userId: string) => void
+  rejectTeacher: (userId: string) => Promise<{ error: string | null }>
   loadUsers: () => void
   loginWithEmail: (email: string, password: string) => Promise<{ error: string | null }>
   signUp: (name: string, email: string, password: string, role: 'aluno' | 'professor') => Promise<{ error: string | null }>
@@ -49,6 +50,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  // Rejeita um professor pendente apagando o profile (a conta do
+  // Supabase Auth em si continua existindo, só não tem mais profile
+  // pra logar no app). Requer a policy "profiles_delete_admin".
+  rejectTeacher: async (userId) => {
+    if (!isSupabaseConfigured()) return { error: 'Supabase não configurado.' }
+    const { error } = await supabase.from('profiles').delete().eq('id', userId)
+    if (error) return { error: error.message }
+    const users = get().users.filter((u: User) => u.id !== userId)
+    set({ users })
+    return { error: null }
+  },
+
   loadUsers: () => {
     const users = JSON.parse(localStorage.getItem('users') || '[]')
     set({ users })
@@ -62,11 +75,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (error) return { error: error.message }
 
     if (data.user) {
-      const { data: profile } = await supabase
+      let { data: profile } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', data.user.id)
-        .single()
+        .maybeSingle()
+
+      // Se o cadastro exigiu confirmação de e-mail, o perfil ainda não foi
+      // criado no signUp (não havia sessão real naquele momento). Cria aqui,
+      // no primeiro login com sessão de verdade, usando os metadados salvos.
+      if (!profile) {
+        const meta = data.user.user_metadata as { name?: string; role?: 'aluno' | 'professor' } | null
+        const role = meta?.role ?? 'aluno'
+        const approved = role === 'aluno'
+        const { data: created, error: profileError } = await supabase
+          .from('profiles')
+          .insert({ id: data.user.id, name: meta?.name ?? email, email, role, approved })
+          .select('*')
+          .single()
+        if (profileError) return { error: profileError.message }
+        profile = created
+      }
 
       if (profile) {
         const user: User = {
@@ -96,16 +125,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (error) return { error: error.message }
 
     if (data.user) {
+      const approved = role === 'aluno'
+
+      // Só dá pra criar o perfil aqui se o signUp já retornou uma sessão
+      // (confirmação de e-mail desativada no projeto). Caso contrário, o
+      // perfil é criado no primeiro loginWithEmail, após a confirmação.
+      if (data.session) {
+        const { error: profileError } = await supabase.from('profiles').insert({
+          id: data.user.id,
+          name,
+          email,
+          role,
+          approved,
+        })
+        if (profileError) return { error: profileError.message }
+      }
+
       const user: User = {
         id: data.user.id,
         name,
         email,
         role,
-        approved: role === 'aluno' ? true : false,
+        approved,
         lastLogin: new Date().toISOString(),
       }
-      localStorage.setItem('user', JSON.stringify(user))
-      set({ user })
+      if (data.session) {
+        localStorage.setItem('user', JSON.stringify(user))
+        set({ user })
+      }
     }
     return { error: null }
   },

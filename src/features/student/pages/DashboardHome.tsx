@@ -1,15 +1,19 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCourseStore } from '../../courses/data/courseStore'
 import { useAuthStore } from '../../auth/services/authStore'
 import { Card, CardHeader, CardContent, Badge } from '../../../shared/components/Card'
 import ProgressBar from '../../../shared/components/ProgressBar'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
-import { BookOpen, ArrowRight, Clock, AlertCircle } from 'lucide-react'
+import CheckoutModal from '../../courses/components/CheckoutModal'
+import type { Course } from '../../courses/data/mock'
+import { BookOpen, ArrowRight, Clock, AlertCircle, ShoppingCart } from 'lucide-react'
 
 export default function DashboardHome() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const { courses, enrollments, modules, lessons, getEnrollment } = useCourseStore()
+  const { courses, enrollments, modules, lessons, getEnrollment, loadFromSupabase } = useCourseStore()
+  const [checkoutCourse, setCheckoutCourse] = useState<Course | null>(null)
 
   const firstName = user?.name.split(' ')[0] || 'Aluno'
 
@@ -102,19 +106,32 @@ export default function DashboardHome() {
                 <CardContent>
                   <h3 className="text-lg font-bold text-gray-900 mb-1">{course.title}</h3>
                   <p className="text-gray-600 text-sm mb-4">{course.description}</p>
-                  <button
-                    onClick={() => useCourseStore.getState().enroll({
-                      id: Date.now().toString(),
-                      userId: user?.id || '',
-                      courseId: course.id,
-                      progress: 0,
-                      completedLessons: [],
-                      createdAt: new Date().toISOString(),
-                    })}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl transition-colors text-sm font-medium"
-                  >
-                    Matricular-se
-                  </button>
+                  <p className="text-sm font-medium text-gray-700 mb-4">
+                    {course.price > 0 ? `R$ ${course.price.toFixed(2)}` : 'Gratuito'}
+                  </p>
+                  {course.price > 0 ? (
+                    <button
+                      onClick={() => setCheckoutCourse(course)}
+                      className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl transition-colors text-sm font-medium"
+                    >
+                      <ShoppingCart className="w-4 h-4" />
+                      Comprar
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => useCourseStore.getState().enroll({
+                        id: Date.now().toString(),
+                        userId: user?.id || '',
+                        courseId: course.id,
+                        progress: 0,
+                        completedLessons: [],
+                        createdAt: new Date().toISOString(),
+                      })}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl transition-colors text-sm font-medium"
+                    >
+                      Matricular-se
+                    </button>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -130,6 +147,15 @@ export default function DashboardHome() {
           <h3 className="text-lg font-semibold text-gray-900 mb-1">Nenhum curso disponível</h3>
           <p className="text-gray-500 text-sm">Entre em contato com o administrador para acessar os cursos.</p>
         </div>
+      )}
+
+      {checkoutCourse && user && (
+        <CheckoutModal
+          course={checkoutCourse}
+          user={user}
+          onClose={() => setCheckoutCourse(null)}
+          onPaid={() => loadFromSupabase()}
+        />
       )}
     </div>
   )

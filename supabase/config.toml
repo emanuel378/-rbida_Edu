@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.bunny-delete-video]
 verify_jwt = false
+
+[functions.create-payment]
+verify_jwt = false
+
+[functions.asaas-webhook]
+verify_jwt = false

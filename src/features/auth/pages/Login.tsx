@@ -1,43 +1,63 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../services/authStore'
-import { mockUsers } from '../../courses/data/mock'
-import { LogIn, User, ShieldCheck, BookOpen } from 'lucide-react'
+import { LogIn, Loader2, AlertCircle, Mail } from 'lucide-react'
 
 export default function Login() {
-  const [selectedUserId, setSelectedUserId] = useState('')
-  const login = useAuthStore(s => s.login)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [signUpName, setSignUpName] = useState('')
+  const [signUpRole, setSignUpRole] = useState<'aluno' | 'professor'>('aluno')
+  const [isSigningUp, setIsSigningUp] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [realError, setRealError] = useState<string | null>(null)
+  const [pendingConfirmation, setPendingConfirmation] = useState(false)
+
+  const loginWithEmail = useAuthStore(s => s.loginWithEmail)
+  const signUp = useAuthStore(s => s.signUp)
   const navigate = useNavigate()
 
-  const handleLogin = () => {
-    const user = mockUsers.find(u => u.id === selectedUserId)
-    if (user) {
-      login(user)
-      if (user.role === 'admin') {
-        navigate('/admin')
-      } else if (user.role === 'professor' && !user.approved) {
-        navigate('/pending')
-      } else if (user.role === 'professor') {
-        navigate('/teacher')
+  const goToRoleHome = (user: { role: 'aluno' | 'professor' | 'admin'; approved?: boolean }) => {
+    if (user.role === 'admin') {
+      navigate('/admin')
+    } else if (user.role === 'professor' && !user.approved) {
+      navigate('/pending')
+    } else if (user.role === 'professor') {
+      navigate('/teacher')
+    } else {
+      navigate('/dashboard')
+    }
+  }
+
+  const handleRealSubmit = async () => {
+    setRealError(null)
+    setPendingConfirmation(false)
+    setLoading(true)
+    try {
+      if (isSigningUp) {
+        const { error } = await signUp(signUpName, email, password, signUpRole)
+        if (error) {
+          setRealError(error)
+          return
+        }
+        const user = useAuthStore.getState().user
+        if (!user) {
+          setPendingConfirmation(true)
+          return
+        }
+        goToRoleHome(user)
       } else {
-        navigate('/dashboard')
+        const { error } = await loginWithEmail(email, password)
+        if (error) {
+          setRealError(error)
+          return
+        }
+        const user = useAuthStore.getState().user
+        if (user) goToRoleHome(user)
+        else setRealError('Não foi possível carregar o perfil desta conta.')
       }
-    }
-  }
-
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'admin': return <ShieldCheck className="w-4 h-4" />
-      case 'professor': return <BookOpen className="w-4 h-4" />
-      default: return <User className="w-4 h-4" />
-    }
-  }
-
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'admin': return 'text-purple-600 bg-purple-50'
-      case 'professor': return 'text-blue-600 bg-blue-50'
-      default: return 'text-green-600 bg-green-50'
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -54,48 +74,101 @@ export default function Login() {
             <h2 className="text-xl font-bold text-gray-900">Acesso ao Sistema</h2>
           </div>
 
-          <div className="space-y-3 mb-6">
-            <p className="text-sm font-medium text-gray-700 mb-2">Selecione seu usuário:</p>
-            {mockUsers.map(u => (
+          {pendingConfirmation ? (
+            <div className="text-center py-4 space-y-4">
+              <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto">
+                <Mail className="w-7 h-7" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">Conta criada!</h3>
+                <p className="text-sm text-gray-600">
+                  Verifique seu e-mail (incluindo a caixa de spam) e clique no link de
+                  confirmação antes de fazer login.
+                </p>
+              </div>
               <button
-                key={u.id}
-                onClick={() => setSelectedUserId(u.id)}
-                className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all duration-200 ${
-                  selectedUserId === u.id
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}
+                onClick={() => { setPendingConfirmation(false); setIsSigningUp(false); setPassword('') }}
+                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
               >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  selectedUserId === u.id ? 'bg-blue-100' : 'bg-gray-100'
-                }`}>
-                  {getRoleIcon(u.role)}
-                </div>
-                <div className="flex-1 text-left">
-                  <p className={`font-medium ${
-                    selectedUserId === u.id ? 'text-blue-900' : 'text-gray-900'
-                  }`}>{u.name}</p>
-                  <p className="text-xs text-gray-500">{u.email}</p>
-                </div>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(u.role)}`}>
-                  {u.role}
-                </span>
+                Voltar para o login
               </button>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {isSigningUp && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Nome</label>
+                  <input
+                    value={signUpName}
+                    onChange={e => setSignUpName(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              )}
 
-          <button
-            onClick={handleLogin}
-            disabled={!selectedUserId}
-            className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
-          >
-            <LogIn className="w-5 h-5" />
-            Entrar
-          </button>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
 
-          <p className="text-center text-xs text-gray-500 mt-4">
-            Este é um ambiente de simulação. Selecione um usuário para entrar.
-          </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Senha</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {isSigningUp && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Sou</label>
+                  <div className="flex gap-2">
+                    {(['aluno', 'professor'] as const).map(r => (
+                      <button
+                        key={r}
+                        onClick={() => setSignUpRole(r)}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-colors ${
+                          signUpRole === r ? 'border-blue-500 bg-blue-50 text-blue-900' : 'border-gray-200 text-gray-600'
+                        }`}
+                      >
+                        {r === 'aluno' ? 'Aluno' : 'Professor'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {realError && (
+                <div className="flex items-start gap-2 p-3 bg-red-50 text-red-700 rounded-xl text-sm">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>{realError}</span>
+                </div>
+              )}
+
+              <button
+                onClick={handleRealSubmit}
+                disabled={loading || !email || !password || (isSigningUp && !signUpName)}
+                className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+              >
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
+                {isSigningUp ? 'Criar conta' : 'Entrar'}
+              </button>
+
+              <button
+                onClick={() => { setIsSigningUp(v => !v); setRealError(null); setPendingConfirmation(false) }}
+                className="w-full text-center text-sm text-blue-600 hover:text-blue-700"
+              >
+                {isSigningUp ? 'Já tenho conta, entrar' : 'Criar uma conta nova'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -17,6 +17,7 @@ ALTER TABLE comments DISABLE ROW LEVEL SECURITY;
 ALTER TABLE messages DISABLE ROW LEVEL SECURITY;
 ALTER TABLE simulado_results DISABLE ROW LEVEL SECURITY;
 ALTER TABLE teacher_simulados DISABLE ROW LEVEL SECURITY;
+ALTER TABLE orders DISABLE ROW LEVEL SECURITY;
 
 -- Garante que o bucket education-files existe
 INSERT INTO storage.buckets (id, name, public) VALUES ('education-files', 'education-files', true)

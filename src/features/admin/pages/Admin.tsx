@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../auth/services/authStore'
 import { useCourseStore } from '../../courses/data/courseStore'
@@ -24,9 +24,21 @@ function exportStudentsCSV(users: any[], enrollments: any[], courses: any[]) {
 
 export default function Admin() {
   const navigate = useNavigate()
-  const { users, approveTeacher } = useAuthStore()
+  const { users, approveTeacher, rejectTeacher, loadFromSupabase } = useAuthStore()
   const { courses, messages, enrollments, approveCourse, rejectCourse, getTeacherName, adminSetCoursePrice, adminApprovePublish, adminApproveDeletion, adminRejectRequest, adminResolveReport } = useCourseStore()
   const [priceInputs, setPriceInputs] = useState<Record<string, string>>({})
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadFromSupabase()
+  }, [loadFromSupabase])
+
+  const handleRejectTeacher = async (userId: string) => {
+    setRejectingId(userId)
+    const { error } = await rejectTeacher(userId)
+    if (error) alert(`Não foi possível rejeitar: ${error}`)
+    setRejectingId(null)
+  }
 
   const pendingCourses = courses.filter(c => c.status === 'pending')
   const approvedCourses = courses.filter(c => c.status === 'approved')
@@ -404,13 +416,23 @@ export default function Admin() {
                     <p className="text-sm text-gray-500">{u.email}</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => approveTeacher(u.id)}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors text-sm font-medium"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  Aprovar
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => approveTeacher(u.id)}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors text-sm font-medium"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Aprovar
+                  </button>
+                  <button
+                    onClick={() => handleRejectTeacher(u.id)}
+                    disabled={rejectingId === u.id}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors text-sm font-medium disabled:opacity-50"
+                  >
+                    <UserX className="w-4 h-4" />
+                    Rejeitar
+                  </button>
+                </div>
               </div>
             ))}
           </div>
