@@ -18,6 +18,7 @@ import {
   Users,
   PlusCircle,
   Database,
+  Sparkles,
 } from 'lucide-react'
 
 interface NavItem {
@@ -40,6 +41,7 @@ const teacherNavItems: NavItem[] = [
   { to: '/teacher/courses', icon: BookOpen, label: 'Meus Cursos', end: false },
   { to: '/teacher/questions', icon: PlusCircle, label: 'Criar Questões', end: false },
   { to: '/teacher/question-bank', icon: Database, label: 'Banco de Questões', end: false },
+  { to: '/teacher/question-generator', icon: Sparkles, label: 'Gerador IA de Questões', end: false },
   { to: '/dashboard/questions', icon: HelpCircle, label: 'Responder Questões', end: false },
   { to: '/teacher/messages', icon: MessageCircle, label: 'Mensagens', end: false },
 ]
@@ -48,6 +50,7 @@ const adminNavItems: NavItem[] = [
   { to: '/admin', icon: ShieldCheck, label: 'Painel', end: true },
   { to: '/admin/questions', icon: PlusCircle, label: 'Criar Questões', end: false },
   { to: '/admin/question-bank', icon: Database, label: 'Banco de Questões', end: false },
+  { to: '/admin/question-generator', icon: Sparkles, label: 'Gerador IA de Questões', end: false },
   { to: '/dashboard/questions', icon: HelpCircle, label: 'Responder Questões', end: false },
   { to: '/admin/analytics', icon: TrendingUp, label: 'Analytics & Financeiro', end: false },
 ]
