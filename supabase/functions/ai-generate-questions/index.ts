@@ -62,11 +62,16 @@ Para cada questão, identifique:
 const NO_ANSWER_KEY_NOTE = `Se o material já tiver gabarito ou comentários, use-os como base para o gabarito comentado.
 Se não conseguir identificar com confiança a alternativa correta de alguma questão, ainda assim inclua a questão com sua melhor estimativa.`
 
-const WITH_ANSWER_KEY_NOTE = `Um segundo arquivo foi anexado contendo o GABARITO OFICIAL das questões. Use esse
+const WITH_ANSWER_KEY_NOTE = `Um ou mais arquivos foram anexados contendo o GABARITO OFICIAL das questões. Use esse
 gabarito como fonte de verdade para determinar o índice da alternativa correta de cada
 questão — não adivinhe se o gabarito já informa a resposta certa. O gabarito pode estar
 em qualquer formato (imagem, PDF, planilha ou texto simples); associe cada resposta à
 questão correspondente pelo número/ordem em que aparecem.`
+
+const MULTI_FILE_NOTE = `As questões podem estar divididas em várias páginas/arquivos (por exemplo, várias fotos
+de páginas diferentes de uma mesma prova). Trate todos os arquivos de questões anexados
+como um único documento contínuo, na ordem em que foram enviados, e não duplique uma
+mesma questão que apareça repetida por engano em mais de um arquivo.`
 
 type ContentBlock =
   | { type: 'document'; source: { type: 'base64'; media_type: 'application/pdf'; data: string } }
@@ -142,10 +147,8 @@ Deno.serve(async (req) => {
   }
 
   let body: {
-    materialUrl?: string
-    mimeType?: string
-    answerKeyUrl?: string
-    answerKeyMimeType?: string
+    materials?: { url: string; mimeType: string }[]
+    answerKeys?: { url: string; mimeType: string }[]
     customInstructions?: string
   }
   try {
@@ -154,17 +157,21 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Corpo da requisição inválido' }, 400)
   }
 
-  const { materialUrl, mimeType, answerKeyUrl, answerKeyMimeType, customInstructions } = body
-  if (!materialUrl || !mimeType) {
-    return jsonResponse({ error: 'materialUrl e mimeType são obrigatórios' }, 400)
+  const { materials, answerKeys, customInstructions } = body
+  if (!Array.isArray(materials) || materials.length === 0) {
+    return jsonResponse({ error: 'Envie pelo menos um arquivo de questões' }, 400)
   }
 
-  let materialBlock: ContentBlock
-  let answerKeyBlock: ContentBlock | null = null
+  let materialBlocks: ContentBlock[]
+  let answerKeyBlocks: ContentBlock[] = []
   try {
-    materialBlock = await buildContentBlock(materialUrl, mimeType, 'questões')
-    if (answerKeyUrl && answerKeyMimeType) {
-      answerKeyBlock = await buildContentBlock(answerKeyUrl, answerKeyMimeType, 'gabarito')
+    materialBlocks = await Promise.all(
+      materials.map((m, i) => buildContentBlock(m.url, m.mimeType, materials.length > 1 ? `Questões (arquivo ${i + 1}/${materials.length})` : 'Questões'))
+    )
+    if (Array.isArray(answerKeys) && answerKeys.length > 0) {
+      answerKeyBlocks = await Promise.all(
+        answerKeys.map((a, i) => buildContentBlock(a.url, a.mimeType, answerKeys.length > 1 ? `Gabarito (arquivo ${i + 1}/${answerKeys.length})` : 'Gabarito'))
+      )
     }
   } catch (err) {
     return jsonResponse({ error: err instanceof Error ? err.message : 'Falha ao processar arquivo enviado' }, 400)
@@ -172,15 +179,14 @@ Deno.serve(async (req) => {
 
   const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY })
 
-  const promptParts = [BASE_PROMPT, answerKeyBlock ? WITH_ANSWER_KEY_NOTE : NO_ANSWER_KEY_NOTE]
+  const promptParts = [BASE_PROMPT, answerKeyBlocks.length > 0 ? WITH_ANSWER_KEY_NOTE : NO_ANSWER_KEY_NOTE]
+  if (materials.length > 1) promptParts.push(MULTI_FILE_NOTE)
   if (customInstructions?.trim()) {
     promptParts.push(`Instruções adicionais do professor (siga-as com prioridade):\n${customInstructions.trim()}`)
   }
   const finalPrompt = promptParts.join('\n\n')
 
-  const content: ContentBlock[] = [materialBlock]
-  if (answerKeyBlock) content.push(answerKeyBlock)
-  content.push({ type: 'text', text: finalPrompt })
+  const content: ContentBlock[] = [...materialBlocks, ...answerKeyBlocks, { type: 'text', text: finalPrompt }]
 
   try {
     const stream = client.messages.stream({

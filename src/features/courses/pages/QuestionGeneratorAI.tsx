@@ -66,8 +66,8 @@ export default function QuestionGeneratorAI() {
 
   const [defaultModuleId, setDefaultModuleId] = useState('')
   const [customInstructions, setCustomInstructions] = useState('')
-  const [mainFile, setMainFile] = useState<File | null>(null)
-  const [answerKeyFile, setAnswerKeyFile] = useState<File | null>(null)
+  const [mainFiles, setMainFiles] = useState<File[]>([])
+  const [answerKeyFiles, setAnswerKeyFiles] = useState<File[]>([])
   const [isDraggingMain, setIsDraggingMain] = useState(false)
   const [isDraggingKey, setIsDraggingKey] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -78,45 +78,50 @@ export default function QuestionGeneratorAI() {
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
 
-  const selectMainFile = (file: File) => {
-    if (!isSupportedQuestionFile(file)) {
+  const addMainFiles = (files: FileList | File[]) => {
+    const list = Array.from(files)
+    const invalid = list.find(f => !isSupportedQuestionFile(f))
+    if (invalid) {
       setGenerateError('O arquivo das questões precisa ser PDF, JPG ou PNG.')
       return
     }
     setGenerateError(null)
-    setMainFile(file)
+    setMainFiles(prev => [...prev, ...list])
   }
 
-  const selectAnswerKeyFile = (file: File) => {
-    if (!isSupportedAnswerKeyFile(file)) {
+  const addAnswerKeyFiles = (files: FileList | File[]) => {
+    const list = Array.from(files)
+    const invalid = list.find(f => !isSupportedAnswerKeyFile(f))
+    if (invalid) {
       setGenerateError('O gabarito precisa ser PDF, JPG, PNG, CSV ou planilha (XLSX/XLS).')
       return
     }
     setGenerateError(null)
-    setAnswerKeyFile(file)
+    setAnswerKeyFiles(prev => [...prev, ...list])
   }
 
+  const removeMainFile = (index: number) => setMainFiles(prev => prev.filter((_, i) => i !== index))
+  const removeAnswerKeyFile = (index: number) => setAnswerKeyFiles(prev => prev.filter((_, i) => i !== index))
+
   const handleGenerate = async () => {
-    if (!mainFile || !user) return
+    if (mainFiles.length === 0 || !user) return
 
     setIsGenerating(true)
     setGenerateError(null)
     try {
-      const upload = await uploadQuestionMaterial(mainFile, user.id)
-      if (upload.error) throw new Error(upload.error)
+      const materials = await Promise.all(mainFiles.map(async file => {
+        const upload = await uploadQuestionMaterial(file, user.id)
+        if (upload.error) throw new Error(upload.error)
+        return { url: upload.url, mimeType: file.type }
+      }))
 
-      let answerKeyUrl: string | undefined
-      let answerKeyMimeType: string | undefined
-      if (answerKeyFile) {
-        const keyUpload = await uploadQuestionMaterial(answerKeyFile, user.id)
-        if (keyUpload.error) throw new Error(keyUpload.error)
-        answerKeyUrl = keyUpload.url
-        answerKeyMimeType = answerKeyFile.type
-      }
+      const answerKeys = await Promise.all(answerKeyFiles.map(async file => {
+        const upload = await uploadQuestionMaterial(file, user.id)
+        if (upload.error) throw new Error(upload.error)
+        return { url: upload.url, mimeType: file.type }
+      }))
 
-      const generated = await generateQuestionsFromMaterial(
-        upload.url, mainFile.type, customInstructions, answerKeyUrl, answerKeyMimeType
-      )
+      const generated = await generateQuestionsFromMaterial(materials, answerKeys, customInstructions)
       if (generated.length === 0) {
         setGenerateError('A IA não encontrou nenhuma questão de múltipla escolha neste material.')
         return
@@ -142,8 +147,8 @@ export default function QuestionGeneratorAI() {
         }
       })
       setReviewList(prev => [...prev, ...items])
-      setMainFile(null)
-      setAnswerKeyFile(null)
+      setMainFiles([])
+      setAnswerKeyFiles([])
     } catch (err) {
       setGenerateError(err instanceof Error ? err.message : 'Erro ao gerar questões com IA')
     } finally {
@@ -154,15 +159,13 @@ export default function QuestionGeneratorAI() {
   const handleMainDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDraggingMain(false)
-    const file = e.dataTransfer.files?.[0]
-    if (file) selectMainFile(file)
+    if (e.dataTransfer.files?.length) addMainFiles(e.dataTransfer.files)
   }
 
   const handleAnswerKeyDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDraggingKey(false)
-    const file = e.dataTransfer.files?.[0]
-    if (file) selectAnswerKeyFile(file)
+    if (e.dataTransfer.files?.length) addAnswerKeyFiles(e.dataTransfer.files)
   }
 
   const openEdit = (item: ReviewItem) => {
@@ -275,33 +278,35 @@ export default function QuestionGeneratorAI() {
             <input
               ref={mainFileInputRef}
               type="file"
+              multiple
               accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
               className="hidden"
-              onChange={e => { const f = e.target.files?.[0]; if (f) selectMainFile(f) }}
+              onChange={e => { if (e.target.files?.length) addMainFiles(e.target.files); e.target.value = '' }}
             />
             <div className="flex flex-col items-center gap-2">
               <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center">
                 <Wand2 className="w-6 h-6 text-purple-600" />
               </div>
               <p className="text-sm font-semibold text-gray-700">Questões</p>
-              {mainFile ? (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 rounded-lg text-xs text-purple-700 max-w-full">
-                  <FileText className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span className="truncate">{mainFile.name}</span>
-                  <button onClick={() => setMainFile(null)} className="flex-shrink-0"><XIcon className="w-3.5 h-3.5" /></button>
+              <p className="text-xs text-gray-400">Arraste ou clique — PDF, JPG ou PNG (pode enviar várias páginas)</p>
+              {mainFiles.length > 0 && (
+                <div className="w-full space-y-1.5">
+                  {mainFiles.map((f, i) => (
+                    <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 rounded-lg text-xs text-purple-700">
+                      <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate flex-1 text-left">{f.name}</span>
+                      <button onClick={() => removeMainFile(i)} className="flex-shrink-0"><XIcon className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
                 </div>
-              ) : (
-                <>
-                  <p className="text-xs text-gray-400">Arraste ou clique — PDF, JPG ou PNG</p>
-                  <button
-                    onClick={() => mainFileInputRef.current?.click()}
-                    className="mt-1 flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors font-medium text-xs"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    Selecionar
-                  </button>
-                </>
               )}
+              <button
+                onClick={() => mainFileInputRef.current?.click()}
+                className="mt-1 flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors font-medium text-xs"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                {mainFiles.length > 0 ? 'Adicionar mais' : 'Selecionar'}
+              </button>
             </div>
           </div>
 
@@ -317,33 +322,35 @@ export default function QuestionGeneratorAI() {
             <input
               ref={answerKeyInputRef}
               type="file"
+              multiple
               accept={ANSWER_KEY_ACCEPT}
               className="hidden"
-              onChange={e => { const f = e.target.files?.[0]; if (f) selectAnswerKeyFile(f) }}
+              onChange={e => { if (e.target.files?.length) addAnswerKeyFiles(e.target.files); e.target.value = '' }}
             />
             <div className="flex flex-col items-center gap-2">
               <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center">
                 <CheckCircle className="w-6 h-6 text-green-600" />
               </div>
               <p className="text-sm font-semibold text-gray-700">Gabarito (opcional)</p>
-              {answerKeyFile ? (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg text-xs text-green-700 max-w-full">
-                  <FileText className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span className="truncate">{answerKeyFile.name}</span>
-                  <button onClick={() => setAnswerKeyFile(null)} className="flex-shrink-0"><XIcon className="w-3.5 h-3.5" /></button>
+              <p className="text-xs text-gray-400">PDF, foto, CSV ou planilha (pode enviar vários)</p>
+              {answerKeyFiles.length > 0 && (
+                <div className="w-full space-y-1.5">
+                  {answerKeyFiles.map((f, i) => (
+                    <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg text-xs text-green-700">
+                      <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate flex-1 text-left">{f.name}</span>
+                      <button onClick={() => removeAnswerKeyFile(i)} className="flex-shrink-0"><XIcon className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
                 </div>
-              ) : (
-                <>
-                  <p className="text-xs text-gray-400">PDF, foto, CSV ou planilha (XLSX)</p>
-                  <button
-                    onClick={() => answerKeyInputRef.current?.click()}
-                    className="mt-1 flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-medium text-xs"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    Selecionar
-                  </button>
-                </>
               )}
+              <button
+                onClick={() => answerKeyInputRef.current?.click()}
+                className="mt-1 flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-medium text-xs"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                {answerKeyFiles.length > 0 ? 'Adicionar mais' : 'Selecionar'}
+              </button>
             </div>
           </div>
         </div>
@@ -352,7 +359,7 @@ export default function QuestionGeneratorAI() {
       {!isGenerating && (
         <button
           onClick={handleGenerate}
-          disabled={!mainFile}
+          disabled={mainFiles.length === 0}
           className="mt-4 w-full flex items-center justify-center gap-2 px-5 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Sparkles className="w-5 h-5" />

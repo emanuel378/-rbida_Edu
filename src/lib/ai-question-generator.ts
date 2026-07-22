@@ -11,15 +11,18 @@ export interface GeneratedQuestion {
   gabaritoComentado: string
 }
 
+export interface MaterialFile {
+  url: string
+  mimeType: string
+}
+
 export async function generateQuestionsFromMaterial(
-  materialUrl: string,
-  mimeType: string,
-  customInstructions?: string,
-  answerKeyUrl?: string,
-  answerKeyMimeType?: string
+  materials: MaterialFile[],
+  answerKeys: MaterialFile[],
+  customInstructions?: string
 ): Promise<GeneratedQuestion[]> {
   const { data, error } = await supabase.functions.invoke('ai-generate-questions', {
-    body: { materialUrl, mimeType, customInstructions, answerKeyUrl, answerKeyMimeType },
+    body: { materials, answerKeys, customInstructions },
   })
 
   if (error) {
