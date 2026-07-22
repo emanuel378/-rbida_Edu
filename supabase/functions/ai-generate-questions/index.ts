@@ -118,6 +118,15 @@ de páginas diferentes de uma mesma prova). Trate todos os arquivos de questões
 como um único documento contínuo, na ordem em que foram enviados, e não duplique uma
 mesma questão que apareça repetida por engano em mais de um arquivo.`
 
+const SHARED_BASE_TEXT_NOTE = `Muitas provas trazem um texto-base (texto de apoio, trecho de leitura, tirinha, gráfico,
+tabela etc.) do qual decorrem várias questões subsequentes. Quando isso acontecer, para
+CADA questão que depender desse texto-base, inclua o texto-base completo — na íntegra,
+sem resumir, cortar ou alterar palavras — diretamente no início do enunciado dessa
+questão, antes do enunciado propriamente dito, mesmo que isso signifique repetir o mesmo
+texto em várias questões. Cada questão deve ficar completa e independente, contendo tudo
+que é necessário para respondê-la sozinha. Nunca escreva algo como "considerando o texto
+acima" ou "com base no texto anterior" sem incluir o texto de fato.`
+
 type ContentBlock =
   | { type: 'document'; source: { type: 'base64'; media_type: 'application/pdf'; data: string } }
   | { type: 'image'; source: { type: 'base64'; media_type: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; data: string } }
@@ -227,7 +236,7 @@ Deno.serve(async (req) => {
   const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY })
 
   const classificationPrompt = buildClassificationPrompt(disciplinas, topicosPorDisciplina)
-  const promptParts = [BASE_PROMPT, answerKeyBlocks.length > 0 ? WITH_ANSWER_KEY_NOTE : NO_ANSWER_KEY_NOTE]
+  const promptParts = [BASE_PROMPT, answerKeyBlocks.length > 0 ? WITH_ANSWER_KEY_NOTE : NO_ANSWER_KEY_NOTE, SHARED_BASE_TEXT_NOTE]
   if (classificationPrompt) promptParts.push(classificationPrompt)
   if (materials.length > 1) promptParts.push(MULTI_FILE_NOTE)
   if (customInstructions?.trim()) {
@@ -240,7 +249,7 @@ Deno.serve(async (req) => {
 
   try {
     const stream = client.messages.stream({
-      model: 'claude-opus-4-8',
+      model: 'claude-haiku-4-5',
       max_tokens: 16000,
       thinking: { type: 'adaptive' },
       output_config: { format: { type: 'json_schema', schema: questionSchema } },
