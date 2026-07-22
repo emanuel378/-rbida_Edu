@@ -14,10 +14,12 @@ export interface GeneratedQuestion {
 export async function generateQuestionsFromMaterial(
   materialUrl: string,
   mimeType: string,
-  customInstructions?: string
+  customInstructions?: string,
+  answerKeyUrl?: string,
+  answerKeyMimeType?: string
 ): Promise<GeneratedQuestion[]> {
   const { data, error } = await supabase.functions.invoke('ai-generate-questions', {
-    body: { materialUrl, mimeType, customInstructions },
+    body: { materialUrl, mimeType, customInstructions, answerKeyUrl, answerKeyMimeType },
   })
 
   if (error) {

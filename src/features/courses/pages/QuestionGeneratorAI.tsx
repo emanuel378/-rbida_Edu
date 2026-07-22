@@ -40,14 +40,36 @@ function matchTopic(moduleId: string, assunto: string): string {
   return found ?? ''
 }
 
+const ANSWER_KEY_ACCEPT = '.pdf,.jpg,.jpeg,.png,.csv,.xlsx,.xls,application/pdf,image/jpeg,image/png,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel'
+
+function isSupportedQuestionFile(file: File): boolean {
+  return file.type === 'application/pdf' || file.type.startsWith('image/')
+}
+
+function isSupportedAnswerKeyFile(file: File): boolean {
+  return (
+    file.type === 'application/pdf' ||
+    file.type.startsWith('image/') ||
+    file.type === 'text/csv' ||
+    file.type === 'application/csv' ||
+    file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    file.type === 'application/vnd.ms-excel' ||
+    /\.(csv|xlsx|xls)$/i.test(file.name)
+  )
+}
+
 export default function QuestionGeneratorAI() {
   const { user } = useAuthStore()
   const { addQuestion } = useQuestionStore()
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const mainFileInputRef = useRef<HTMLInputElement>(null)
+  const answerKeyInputRef = useRef<HTMLInputElement>(null)
 
   const [defaultModuleId, setDefaultModuleId] = useState('')
   const [customInstructions, setCustomInstructions] = useState('')
-  const [isDragging, setIsDragging] = useState(false)
+  const [mainFile, setMainFile] = useState<File | null>(null)
+  const [answerKeyFile, setAnswerKeyFile] = useState<File | null>(null)
+  const [isDraggingMain, setIsDraggingMain] = useState(false)
+  const [isDraggingKey, setIsDraggingKey] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [reviewList, setReviewList] = useState<ReviewItem[]>([])
@@ -56,22 +78,45 @@ export default function QuestionGeneratorAI() {
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
 
-  const processFile = async (file: File) => {
-    const isPdf = file.type === 'application/pdf'
-    const isImage = file.type.startsWith('image/')
-    if (!isPdf && !isImage) {
-      setGenerateError('Envie um arquivo PDF, JPG ou PNG.')
+  const selectMainFile = (file: File) => {
+    if (!isSupportedQuestionFile(file)) {
+      setGenerateError('O arquivo das questões precisa ser PDF, JPG ou PNG.')
       return
     }
-    if (!user) return
+    setGenerateError(null)
+    setMainFile(file)
+  }
+
+  const selectAnswerKeyFile = (file: File) => {
+    if (!isSupportedAnswerKeyFile(file)) {
+      setGenerateError('O gabarito precisa ser PDF, JPG, PNG, CSV ou planilha (XLSX/XLS).')
+      return
+    }
+    setGenerateError(null)
+    setAnswerKeyFile(file)
+  }
+
+  const handleGenerate = async () => {
+    if (!mainFile || !user) return
 
     setIsGenerating(true)
     setGenerateError(null)
     try {
-      const upload = await uploadQuestionMaterial(file, user.id)
+      const upload = await uploadQuestionMaterial(mainFile, user.id)
       if (upload.error) throw new Error(upload.error)
 
-      const generated = await generateQuestionsFromMaterial(upload.url, file.type, customInstructions)
+      let answerKeyUrl: string | undefined
+      let answerKeyMimeType: string | undefined
+      if (answerKeyFile) {
+        const keyUpload = await uploadQuestionMaterial(answerKeyFile, user.id)
+        if (keyUpload.error) throw new Error(keyUpload.error)
+        answerKeyUrl = keyUpload.url
+        answerKeyMimeType = answerKeyFile.type
+      }
+
+      const generated = await generateQuestionsFromMaterial(
+        upload.url, mainFile.type, customInstructions, answerKeyUrl, answerKeyMimeType
+      )
       if (generated.length === 0) {
         setGenerateError('A IA não encontrou nenhuma questão de múltipla escolha neste material.')
         return
@@ -97,6 +142,8 @@ export default function QuestionGeneratorAI() {
         }
       })
       setReviewList(prev => [...prev, ...items])
+      setMainFile(null)
+      setAnswerKeyFile(null)
     } catch (err) {
       setGenerateError(err instanceof Error ? err.message : 'Erro ao gerar questões com IA')
     } finally {
@@ -104,11 +151,18 @@ export default function QuestionGeneratorAI() {
     }
   }
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleMainDrop = (e: React.DragEvent) => {
     e.preventDefault()
-    setIsDragging(false)
+    setIsDraggingMain(false)
     const file = e.dataTransfer.files?.[0]
-    if (file) processFile(file)
+    if (file) selectMainFile(file)
+  }
+
+  const handleAnswerKeyDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDraggingKey(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) selectAnswerKeyFile(file)
   }
 
   const openEdit = (item: ReviewItem) => {
@@ -199,46 +253,112 @@ export default function QuestionGeneratorAI() {
         />
       </div>
 
-      <div
-        onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={handleDrop}
-        className={`relative bg-white rounded-2xl border-2 border-dashed p-10 text-center transition-colors ${
-          isDragging ? 'border-purple-400 bg-purple-50' : 'border-gray-200 hover:border-purple-300'
-        }`}
-      >
-        {isGenerating ? (
+      {isGenerating ? (
+        <div className="bg-white rounded-2xl border-2 border-dashed border-gray-200 p-10 text-center">
           <div className="flex flex-col items-center gap-3 text-gray-600">
             <Loader2 className="w-10 h-10 animate-spin text-purple-600" />
             <p className="font-medium">A IA está lendo o material e gerando as questões...</p>
             <p className="text-sm text-gray-400">Isso pode levar um minuto, dependendo do tamanho do arquivo.</p>
           </div>
-        ) : (
-          <>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Zona: arquivo das questões */}
+          <div
+            onDragOver={e => { e.preventDefault(); setIsDraggingMain(true) }}
+            onDragLeave={() => setIsDraggingMain(false)}
+            onDrop={handleMainDrop}
+            className={`relative bg-white rounded-2xl border-2 border-dashed p-6 text-center transition-colors ${
+              isDraggingMain ? 'border-purple-400 bg-purple-50' : 'border-gray-200 hover:border-purple-300'
+            }`}
+          >
             <input
-              ref={fileInputRef}
+              ref={mainFileInputRef}
               type="file"
               accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
               className="hidden"
-              onChange={e => { const f = e.target.files?.[0]; if (f) processFile(f) }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) selectMainFile(f) }}
             />
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center">
-                <Wand2 className="w-7 h-7 text-purple-600" />
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center">
+                <Wand2 className="w-6 h-6 text-purple-600" />
               </div>
-              <p className="text-gray-700 font-medium">Arraste um arquivo aqui ou clique para selecionar</p>
-              <p className="text-sm text-gray-400">PDF, JPG ou PNG</p>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="mt-2 flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors font-medium text-sm"
-              >
-                <Upload className="w-4 h-4" />
-                Selecionar arquivo
-              </button>
+              <p className="text-sm font-semibold text-gray-700">Questões</p>
+              {mainFile ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 rounded-lg text-xs text-purple-700 max-w-full">
+                  <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="truncate">{mainFile.name}</span>
+                  <button onClick={() => setMainFile(null)} className="flex-shrink-0"><XIcon className="w-3.5 h-3.5" /></button>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-400">Arraste ou clique — PDF, JPG ou PNG</p>
+                  <button
+                    onClick={() => mainFileInputRef.current?.click()}
+                    className="mt-1 flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors font-medium text-xs"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    Selecionar
+                  </button>
+                </>
+              )}
             </div>
-          </>
-        )}
-      </div>
+          </div>
+
+          {/* Zona: gabarito */}
+          <div
+            onDragOver={e => { e.preventDefault(); setIsDraggingKey(true) }}
+            onDragLeave={() => setIsDraggingKey(false)}
+            onDrop={handleAnswerKeyDrop}
+            className={`relative bg-white rounded-2xl border-2 border-dashed p-6 text-center transition-colors ${
+              isDraggingKey ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:border-green-300'
+            }`}
+          >
+            <input
+              ref={answerKeyInputRef}
+              type="file"
+              accept={ANSWER_KEY_ACCEPT}
+              className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) selectAnswerKeyFile(f) }}
+            />
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
+              <p className="text-sm font-semibold text-gray-700">Gabarito (opcional)</p>
+              {answerKeyFile ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg text-xs text-green-700 max-w-full">
+                  <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="truncate">{answerKeyFile.name}</span>
+                  <button onClick={() => setAnswerKeyFile(null)} className="flex-shrink-0"><XIcon className="w-3.5 h-3.5" /></button>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-400">PDF, foto, CSV ou planilha (XLSX)</p>
+                  <button
+                    onClick={() => answerKeyInputRef.current?.click()}
+                    className="mt-1 flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-medium text-xs"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    Selecionar
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isGenerating && (
+        <button
+          onClick={handleGenerate}
+          disabled={!mainFile}
+          className="mt-4 w-full flex items-center justify-center gap-2 px-5 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Sparkles className="w-5 h-5" />
+          Gerar Questões com IA
+        </button>
+      )}
 
       {reviewList.length > 0 && (
         <div className="mt-8">

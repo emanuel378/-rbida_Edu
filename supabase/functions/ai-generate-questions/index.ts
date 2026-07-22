@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Anthropic from 'https://esm.sh/@anthropic-ai/sdk'
+import * as XLSX from 'https://esm.sh/xlsx@0.18.5'
 import { encodeBase64 } from 'jsr:@std/encoding@1/base64'
 import { corsHeaders } from '../_shared/cors.ts'
 
@@ -8,6 +9,11 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+const SPREADSHEET_MIME_TYPES = [
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+]
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -42,7 +48,7 @@ const QUESTION_SCHEMA = {
   additionalProperties: false,
 }
 
-const EXTRACTION_PROMPT = `Extraia todas as questões de múltipla escolha deste material e gere um JSON estruturado.
+const BASE_PROMPT = `Extraia todas as questões de múltipla escolha deste material e gere um JSON estruturado.
 Para cada questão, identifique:
 - o enunciado completo
 - as alternativas, na ordem em que aparecem no material
@@ -51,10 +57,57 @@ Para cada questão, identifique:
 - a banca organizadora, se identificável (senão deixe em branco)
 - o ano, se identificável (senão deixe em branco)
 - o nível ("Médio", "Superior" ou "Técnico"), se identificável (senão deixe em branco)
-- um gabarito comentado explicando por que a alternativa correta está certa
+- um gabarito comentado explicando por que a alternativa correta está certa`
 
-Se o material já tiver gabarito ou comentários, use-os como base para o gabarito comentado.
+const NO_ANSWER_KEY_NOTE = `Se o material já tiver gabarito ou comentários, use-os como base para o gabarito comentado.
 Se não conseguir identificar com confiança a alternativa correta de alguma questão, ainda assim inclua a questão com sua melhor estimativa.`
+
+const WITH_ANSWER_KEY_NOTE = `Um segundo arquivo foi anexado contendo o GABARITO OFICIAL das questões. Use esse
+gabarito como fonte de verdade para determinar o índice da alternativa correta de cada
+questão — não adivinhe se o gabarito já informa a resposta certa. O gabarito pode estar
+em qualquer formato (imagem, PDF, planilha ou texto simples); associe cada resposta à
+questão correspondente pelo número/ordem em que aparecem.`
+
+type ContentBlock =
+  | { type: 'document'; source: { type: 'base64'; media_type: 'application/pdf'; data: string } }
+  | { type: 'image'; source: { type: 'base64'; media_type: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; data: string } }
+  | { type: 'text'; text: string }
+
+async function buildContentBlock(url: string, mimeType: string, label: string): Promise<ContentBlock> {
+  const isPdf = mimeType === 'application/pdf'
+  const isImage = mimeType.startsWith('image/')
+  const isSpreadsheet = SPREADSHEET_MIME_TYPES.includes(mimeType) || mimeType === 'text/csv' || mimeType === 'application/csv'
+
+  if (!isPdf && !isImage && !isSpreadsheet) {
+    throw new Error(`Formato de arquivo não suportado para ${label}. Envie PDF, JPG, PNG, CSV ou planilha (XLSX).`)
+  }
+
+  const fileRes = await fetch(url)
+  if (!fileRes.ok) {
+    throw new Error(`Falha ao baixar o arquivo de ${label}`)
+  }
+  const arrayBuffer = await fileRes.arrayBuffer()
+
+  if (isPdf) {
+    return { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: encodeBase64(arrayBuffer) } }
+  }
+  if (isImage) {
+    return { type: 'image', source: { type: 'base64', media_type: mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data: encodeBase64(arrayBuffer) } }
+  }
+
+  // Planilha ou CSV: converte pra texto (CSV) e manda como bloco de texto
+  if (mimeType === 'text/csv' || mimeType === 'application/csv') {
+    const csvText = new TextDecoder('utf-8').decode(arrayBuffer)
+    return { type: 'text', text: `[${label} — CSV]\n${csvText}` }
+  }
+
+  const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' })
+  const sheets = workbook.SheetNames.map(name => {
+    const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[name])
+    return `-- Planilha "${name}" --\n${csv}`
+  }).join('\n\n')
+  return { type: 'text', text: `[${label} — Planilha]\n${sheets}` }
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
@@ -88,40 +141,46 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Usuário não autorizado a gerar questões' }, 403)
   }
 
-  let body: { materialUrl?: string; mimeType?: string; customInstructions?: string }
+  let body: {
+    materialUrl?: string
+    mimeType?: string
+    answerKeyUrl?: string
+    answerKeyMimeType?: string
+    customInstructions?: string
+  }
   try {
     body = await req.json()
   } catch {
     return jsonResponse({ error: 'Corpo da requisição inválido' }, 400)
   }
 
-  const { materialUrl, mimeType, customInstructions } = body
+  const { materialUrl, mimeType, answerKeyUrl, answerKeyMimeType, customInstructions } = body
   if (!materialUrl || !mimeType) {
     return jsonResponse({ error: 'materialUrl e mimeType são obrigatórios' }, 400)
   }
 
-  const isPdf = mimeType === 'application/pdf'
-  const isImage = mimeType.startsWith('image/')
-  if (!isPdf && !isImage) {
-    return jsonResponse({ error: 'Formato de arquivo não suportado. Envie PDF, JPG ou PNG.' }, 400)
+  let materialBlock: ContentBlock
+  let answerKeyBlock: ContentBlock | null = null
+  try {
+    materialBlock = await buildContentBlock(materialUrl, mimeType, 'questões')
+    if (answerKeyUrl && answerKeyMimeType) {
+      answerKeyBlock = await buildContentBlock(answerKeyUrl, answerKeyMimeType, 'gabarito')
+    }
+  } catch (err) {
+    return jsonResponse({ error: err instanceof Error ? err.message : 'Falha ao processar arquivo enviado' }, 400)
   }
-
-  const fileRes = await fetch(materialUrl)
-  if (!fileRes.ok) {
-    return jsonResponse({ error: 'Falha ao baixar o arquivo enviado' }, 502)
-  }
-  const arrayBuffer = await fileRes.arrayBuffer()
-  const base64 = encodeBase64(arrayBuffer)
-
-  const contentBlock = isPdf
-    ? { type: 'document' as const, source: { type: 'base64' as const, media_type: 'application/pdf' as const, data: base64 } }
-    : { type: 'image' as const, source: { type: 'base64' as const, media_type: mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data: base64 } }
 
   const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY })
 
-  const finalPrompt = customInstructions?.trim()
-    ? `${EXTRACTION_PROMPT}\n\nInstruções adicionais do professor (siga-as com prioridade):\n${customInstructions.trim()}`
-    : EXTRACTION_PROMPT
+  const promptParts = [BASE_PROMPT, answerKeyBlock ? WITH_ANSWER_KEY_NOTE : NO_ANSWER_KEY_NOTE]
+  if (customInstructions?.trim()) {
+    promptParts.push(`Instruções adicionais do professor (siga-as com prioridade):\n${customInstructions.trim()}`)
+  }
+  const finalPrompt = promptParts.join('\n\n')
+
+  const content: ContentBlock[] = [materialBlock]
+  if (answerKeyBlock) content.push(answerKeyBlock)
+  content.push({ type: 'text', text: finalPrompt })
 
   try {
     const stream = client.messages.stream({
@@ -129,10 +188,7 @@ Deno.serve(async (req) => {
       max_tokens: 16000,
       thinking: { type: 'adaptive' },
       output_config: { format: { type: 'json_schema', schema: QUESTION_SCHEMA } },
-      messages: [{
-        role: 'user',
-        content: [contentBlock, { type: 'text', text: finalPrompt }],
-      }],
+      messages: [{ role: 'user', content }],
     } as Anthropic.Messages.MessageStreamParams)
 
     const finalMessage = await stream.finalMessage()
