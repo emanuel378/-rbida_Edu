@@ -88,14 +88,14 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Usuário não autorizado a gerar questões' }, 403)
   }
 
-  let body: { materialUrl?: string; mimeType?: string }
+  let body: { materialUrl?: string; mimeType?: string; customInstructions?: string }
   try {
     body = await req.json()
   } catch {
     return jsonResponse({ error: 'Corpo da requisição inválido' }, 400)
   }
 
-  const { materialUrl, mimeType } = body
+  const { materialUrl, mimeType, customInstructions } = body
   if (!materialUrl || !mimeType) {
     return jsonResponse({ error: 'materialUrl e mimeType são obrigatórios' }, 400)
   }
@@ -119,6 +119,10 @@ Deno.serve(async (req) => {
 
   const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY })
 
+  const finalPrompt = customInstructions?.trim()
+    ? `${EXTRACTION_PROMPT}\n\nInstruções adicionais do professor (siga-as com prioridade):\n${customInstructions.trim()}`
+    : EXTRACTION_PROMPT
+
   try {
     const stream = client.messages.stream({
       model: 'claude-opus-4-8',
@@ -127,7 +131,7 @@ Deno.serve(async (req) => {
       output_config: { format: { type: 'json_schema', schema: QUESTION_SCHEMA } },
       messages: [{
         role: 'user',
-        content: [contentBlock, { type: 'text', text: EXTRACTION_PROMPT }],
+        content: [contentBlock, { type: 'text', text: finalPrompt }],
       }],
     } as Anthropic.Messages.MessageStreamParams)
 

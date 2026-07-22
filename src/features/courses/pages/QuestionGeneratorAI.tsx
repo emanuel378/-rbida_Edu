@@ -46,6 +46,7 @@ export default function QuestionGeneratorAI() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [defaultModuleId, setDefaultModuleId] = useState('')
+  const [customInstructions, setCustomInstructions] = useState('')
   const [isDragging, setIsDragging] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
@@ -70,7 +71,7 @@ export default function QuestionGeneratorAI() {
       const upload = await uploadQuestionMaterial(file, user.id)
       if (upload.error) throw new Error(upload.error)
 
-      const generated = await generateQuestionsFromMaterial(upload.url, file.type)
+      const generated = await generateQuestionsFromMaterial(upload.url, file.type, customInstructions)
       if (generated.length === 0) {
         setGenerateError('A IA não encontrou nenhuma questão de múltipla escolha neste material.')
         return
@@ -185,6 +186,18 @@ export default function QuestionGeneratorAI() {
           <p className="text-sm">{generateError}</p>
         </div>
       )}
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Instruções adicionais para a IA (opcional)</label>
+        <textarea
+          value={customInstructions}
+          onChange={e => setCustomInstructions(e.target.value)}
+          placeholder='Ex: "Estas questões são de Direito Constitucional, nível concurso público" ou "Ignore a última página, é só um rascunho"'
+          rows={2}
+          disabled={isGenerating}
+          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none disabled:bg-gray-50"
+        />
+      </div>
 
       <div
         onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
