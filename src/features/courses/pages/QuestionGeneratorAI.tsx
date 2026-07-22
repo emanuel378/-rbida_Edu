@@ -128,7 +128,7 @@ export default function QuestionGeneratorAI() {
       }
 
       const items: ReviewItem[] = generated.map(g => {
-        const moduleId = defaultModuleId
+        const moduleId = defaultModuleId || g.moduleId || ''
         const topicId = moduleId ? matchTopic(moduleId, g.assunto || '') : ''
         return {
           key: generateId(),
@@ -370,7 +370,7 @@ export default function QuestionGeneratorAI() {
       {reviewList.length > 0 && (
         <div className="mt-8">
           <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4 flex flex-wrap items-center gap-3">
-            <label className="text-sm font-medium text-gray-700">Aplicar disciplina a todas as questões geradas:</label>
+            <label className="text-sm font-medium text-gray-700">Disciplina (a IA já classifica sozinha — use aqui só se quiser sobrescrever tudo):</label>
             <select
               value={defaultModuleId}
               onChange={e => {

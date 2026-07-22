@@ -1,9 +1,11 @@
 import { supabase } from './supabase'
+import { DISCIPLINAS, TOPICOS_POR_DISCIPLINA } from '../features/courses/data/taxonomy'
 
 export interface GeneratedQuestion {
   question: string
   options: string[]
   correctAnswer: number
+  moduleId: string
   assunto: string
   banca: string
   ano: string
@@ -22,7 +24,13 @@ export async function generateQuestionsFromMaterial(
   customInstructions?: string
 ): Promise<GeneratedQuestion[]> {
   const { data, error } = await supabase.functions.invoke('ai-generate-questions', {
-    body: { materials, answerKeys, customInstructions },
+    body: {
+      materials,
+      answerKeys,
+      customInstructions,
+      disciplinas: DISCIPLINAS,
+      topicosPorDisciplina: TOPICOS_POR_DISCIPLINA,
+    },
   })
 
   if (error) {

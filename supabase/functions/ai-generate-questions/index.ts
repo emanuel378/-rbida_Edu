@@ -22,30 +22,75 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
-const QUESTION_SCHEMA = {
-  type: 'object',
-  properties: {
-    questions: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          question: { type: 'string' },
-          options: { type: 'array', items: { type: 'string' } },
-          correctAnswer: { type: 'integer' },
-          assunto: { type: 'string' },
-          banca: { type: 'string' },
-          ano: { type: 'string' },
-          nivel: { type: 'string' },
-          gabaritoComentado: { type: 'string' },
+interface Disciplina {
+  value: string
+  label: string
+}
+
+// Monta o schema de classificação de forma que a IA só possa escolher uma
+// disciplina real (registrada no sistema) combinada com um assunto que
+// realmente pertence a ela — impossível "inventar" categoria nova, o formato
+// da resposta trava isso, não é só um pedido no texto do prompt.
+function buildClassificationSchema(disciplinas: Disciplina[], topicosPorDisciplina: Record<string, string[]>) {
+  if (disciplinas.length === 0) {
+    return { type: 'object', properties: { moduleId: { type: 'string' }, assunto: { type: 'string' } }, required: ['moduleId', 'assunto'], additionalProperties: false }
+  }
+  return {
+    anyOf: disciplinas.map(d => ({
+      type: 'object',
+      properties: {
+        moduleId: { const: d.value },
+        assunto: { enum: (topicosPorDisciplina[d.value] ?? []).length > 0 ? topicosPorDisciplina[d.value] : [d.label] },
+      },
+      required: ['moduleId', 'assunto'],
+      additionalProperties: false,
+    })),
+  }
+}
+
+function buildQuestionSchema(disciplinas: Disciplina[], topicosPorDisciplina: Record<string, string[]>) {
+  return {
+    type: 'object',
+    properties: {
+      questions: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            question: { type: 'string' },
+            options: { type: 'array', items: { type: 'string' } },
+            correctAnswer: { type: 'integer' },
+            classificacao: buildClassificationSchema(disciplinas, topicosPorDisciplina),
+            banca: { type: 'string' },
+            ano: { type: 'string' },
+            nivel: { type: 'string' },
+            gabaritoComentado: { type: 'string' },
+          },
+          required: ['question', 'options', 'correctAnswer', 'classificacao', 'banca', 'ano', 'nivel', 'gabaritoComentado'],
+          additionalProperties: false,
         },
-        required: ['question', 'options', 'correctAnswer', 'assunto', 'banca', 'ano', 'nivel', 'gabaritoComentado'],
-        additionalProperties: false,
       },
     },
-  },
-  required: ['questions'],
-  additionalProperties: false,
+    required: ['questions'],
+    additionalProperties: false,
+  }
+}
+
+function buildClassificationPrompt(disciplinas: Disciplina[], topicosPorDisciplina: Record<string, string[]>): string {
+  if (disciplinas.length === 0) return ''
+  const listing = disciplinas
+    .map(d => `- ${d.label} (moduleId: "${d.value}"): ${(topicosPorDisciplina[d.value] ?? []).join('; ')}`)
+    .join('\n')
+  return `Você também atua como um assistente especialista em classificação de questões de provas e concursos.
+Para cada questão, classifique-a numa disciplina e num assunto, seguindo estas regras:
+1. Analise cuidadosamente o texto da questão.
+2. Identifique a disciplina correta, escolhendo estritamente uma das opções da lista abaixo (use o "moduleId" exatamente como está escrito).
+3. Identifique o assunto correto, escolhendo estritamente uma das opções listadas para aquela disciplina.
+4. Não crie, altere ou invente disciplinas ou assuntos novos — limite-se exclusivamente às listas fornecidas.
+5. Se a questão não se encaixar perfeitamente em nenhum assunto, escolha o mais próximo semanticamente — nunca deixe em branco nem invente um novo.
+
+LISTA DE DISCIPLINAS E ASSUNTOS DISPONÍVEIS:
+${listing}`
 }
 
 const BASE_PROMPT = `Extraia todas as questões de múltipla escolha deste material e gere um JSON estruturado.
@@ -53,7 +98,7 @@ Para cada questão, identifique:
 - o enunciado completo
 - as alternativas, na ordem em que aparecem no material
 - o índice (começando em 0) da alternativa correta
-- o assunto abordado
+- a classificação (disciplina e assunto — regras abaixo)
 - a banca organizadora, se identificável (senão deixe em branco)
 - o ano, se identificável (senão deixe em branco)
 - o nível ("Médio", "Superior" ou "Técnico"), se identificável (senão deixe em branco)
@@ -150,6 +195,8 @@ Deno.serve(async (req) => {
     materials?: { url: string; mimeType: string }[]
     answerKeys?: { url: string; mimeType: string }[]
     customInstructions?: string
+    disciplinas?: Disciplina[]
+    topicosPorDisciplina?: Record<string, string[]>
   }
   try {
     body = await req.json()
@@ -157,7 +204,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Corpo da requisição inválido' }, 400)
   }
 
-  const { materials, answerKeys, customInstructions } = body
+  const { materials, answerKeys, customInstructions, disciplinas = [], topicosPorDisciplina = {} } = body
   if (!Array.isArray(materials) || materials.length === 0) {
     return jsonResponse({ error: 'Envie pelo menos um arquivo de questões' }, 400)
   }
@@ -179,7 +226,9 @@ Deno.serve(async (req) => {
 
   const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY })
 
+  const classificationPrompt = buildClassificationPrompt(disciplinas, topicosPorDisciplina)
   const promptParts = [BASE_PROMPT, answerKeyBlocks.length > 0 ? WITH_ANSWER_KEY_NOTE : NO_ANSWER_KEY_NOTE]
+  if (classificationPrompt) promptParts.push(classificationPrompt)
   if (materials.length > 1) promptParts.push(MULTI_FILE_NOTE)
   if (customInstructions?.trim()) {
     promptParts.push(`Instruções adicionais do professor (siga-as com prioridade):\n${customInstructions.trim()}`)
@@ -187,13 +236,14 @@ Deno.serve(async (req) => {
   const finalPrompt = promptParts.join('\n\n')
 
   const content: ContentBlock[] = [...materialBlocks, ...answerKeyBlocks, { type: 'text', text: finalPrompt }]
+  const questionSchema = buildQuestionSchema(disciplinas, topicosPorDisciplina)
 
   try {
     const stream = client.messages.stream({
       model: 'claude-opus-4-8',
       max_tokens: 16000,
       thinking: { type: 'adaptive' },
-      output_config: { format: { type: 'json_schema', schema: QUESTION_SCHEMA } },
+      output_config: { format: { type: 'json_schema', schema: questionSchema } },
       messages: [{ role: 'user', content }],
     } as Anthropic.Messages.MessageStreamParams)
 
@@ -209,7 +259,12 @@ Deno.serve(async (req) => {
     }
 
     const parsed = JSON.parse(textBlock.text)
-    return jsonResponse({ questions: parsed.questions ?? [] })
+    const questions = (parsed.questions ?? []).map((q: Record<string, unknown>) => {
+      const classificacao = (q.classificacao ?? {}) as { moduleId?: string; assunto?: string }
+      const { classificacao: _omit, ...rest } = q
+      return { ...rest, moduleId: classificacao.moduleId ?? '', assunto: classificacao.assunto ?? '' }
+    })
+    return jsonResponse({ questions })
   } catch (err) {
     return jsonResponse({ error: err instanceof Error ? err.message : 'Erro ao gerar questões com IA' }, 500)
   }
