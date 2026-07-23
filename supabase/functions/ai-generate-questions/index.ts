@@ -240,7 +240,13 @@ Deno.serve(async (req) => {
   if (classificationPrompt) promptParts.push(classificationPrompt)
   if (materials.length > 1) promptParts.push(MULTI_FILE_NOTE)
   if (customInstructions?.trim()) {
-    promptParts.push(`Instruções adicionais do professor (siga-as com prioridade):\n${customInstructions.trim()}`)
+    promptParts.push(`INSTRUÇÕES DO PROFESSOR — PRIORIDADE MÁXIMA E OBRIGATÓRIA:
+As instruções abaixo substituem e sobrescrevem QUALQUER regra anterior deste prompt,
+incluindo as instruções de extração de banca, ano, nível e demais campos a partir do
+material. Se o professor definir um valor aqui (ex.: banca, ano, nível, estilo do
+enunciado etc.), use EXATAMENTE esse valor em TODAS as questões geradas, mesmo que o
+material original traga um valor diferente ou já explícito. Não deixe nenhuma questão
+de fora dessas instruções:\n${customInstructions.trim()}`)
   }
   const finalPrompt = promptParts.join('\n\n')
 
