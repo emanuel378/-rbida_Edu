@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuestionStore } from '../data/questionStore'
 import { useAuthStore } from '../../auth/services/authStore'
@@ -6,7 +6,7 @@ import { uploadQuestionMaterial } from '../../../lib/supabase-storage'
 import type { Question } from '../data/mock'
 import {
   Plus, CheckCircle, Upload, X as XIcon, FileText, Image as ImageIcon,
-  Edit2, Trash2, Eye, ChevronLeft, Save, AlertCircle, Loader2, Send
+  Edit2, Trash2, Eye, ChevronLeft, Save, AlertCircle, Loader2, Send, Search
 } from 'lucide-react'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 import { DISCIPLINAS, TOPICOS_POR_DISCIPLINA } from '../data/taxonomy'
@@ -54,6 +54,17 @@ export default function QuestionBank() {
   const [showEditSuccess, setShowEditSuccess] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const filteredQuestions = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase()
+    if (!term) return questions
+    return questions.filter(q => {
+      const disciplina = DISCIPLINAS.find(d => d.value === q.moduleId)?.label || q.moduleId || ''
+      return [q.question, q.code, q.banca, q.topicId, q.nivel, q.ano, disciplina]
+        .some(field => field?.toLowerCase().includes(term))
+    })
+  }, [questions, searchTerm])
 
   // Abre a edição automaticamente ao chegar do "Banco de Questões" com uma questão selecionada
   useEffect(() => {
@@ -969,14 +980,39 @@ export default function QuestionBank() {
           {!isEditing ? (
             // --- Lista de questões ---
             <div className="space-y-4">
+              {questions.length > 0 && (
+                <div className="relative">
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    placeholder="Buscar por texto, código, banca, disciplina..."
+                    className="w-full pl-9 pr-9 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 hover:bg-gray-100 rounded-full"
+                    >
+                      <XIcon className="w-4 h-4 text-gray-400" />
+                    </button>
+                  )}
+                </div>
+              )}
+
               {questions.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
                   <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                   <p>Nenhuma questão criada ainda.</p>
                   <p className="text-sm">Adicione sua primeira questão!</p>
                 </div>
+              ) : filteredQuestions.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Search className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>Nenhuma questão encontrada para "{searchTerm}".</p>
+                </div>
               ) : (
-                questions.map((q, index) => (
+                filteredQuestions.map((q, index) => (
                   <div key={q.id} className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-all">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
