@@ -1,11 +1,19 @@
 import { useState, useMemo } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuestionStore } from '../data/questionStore'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
-import { Search, X, HelpCircle, BookOpen, ArrowRight, RefreshCw, AlertCircle, Loader2 } from 'lucide-react'
+import { Search, X, HelpCircle, BookOpen, Edit2, RefreshCw, AlertCircle, Loader2 } from 'lucide-react'
 
 export default function QuestionBrowser() {
   const { questions, loading, loadQuestions } = useQuestionStore()
   const [localError, setLocalError] = useState<string | null>(null)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const basePath = location.pathname.startsWith('/admin') ? '/admin' : '/teacher'
+
+  const handleEdit = (questionId: string) => {
+    navigate(`${basePath}/questions`, { state: { editQuestionId: questionId } })
+  }
 
   const [filterValues, setFilterValues] = useState({
     moduleId: '',
@@ -298,9 +306,19 @@ export default function QuestionBrowser() {
                       {idx + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-gray-900 font-medium leading-relaxed line-clamp-2">
-                        {q.question}
-                      </p>
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-gray-900 font-medium leading-relaxed line-clamp-2">
+                          {q.question}
+                        </p>
+                        <button
+                          onClick={() => handleEdit(q.id)}
+                          title="Editar questão"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex-shrink-0"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          Editar
+                        </button>
+                      </div>
                       <div className="flex flex-wrap items-center gap-2 mt-2">
                         {q.code && (
                           <span className="text-xs text-gray-400 font-mono">{q.code}</span>

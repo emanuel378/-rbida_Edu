@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuestionStore } from '../data/questionStore'
 import { useAuthStore } from '../../auth/services/authStore'
 import { uploadQuestionMaterial } from '../../../lib/supabase-storage'
@@ -43,6 +44,8 @@ const EMPTY_FORM = {
 export default function QuestionBank() {
   const { user } = useAuthStore()
   const { questions, addQuestion, updateQuestion, deleteQuestion } = useQuestionStore()
+  const location = useLocation()
+  const navigate = useNavigate()
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null)
@@ -51,6 +54,18 @@ export default function QuestionBank() {
   const [showEditSuccess, setShowEditSuccess] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+
+  // Abre a edição automaticamente ao chegar do "Banco de Questões" com uma questão selecionada
+  useEffect(() => {
+    const editQuestionId = (location.state as { editQuestionId?: string } | null)?.editQuestionId
+    if (!editQuestionId) return
+    const target = questions.find(q => q.id === editQuestionId)
+    if (target) {
+      handleEdit(target)
+      navigate(location.pathname, { replace: true, state: null })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state, questions])
 
   const uploadImageFile = async (file: File): Promise<string> => {
     const result = await uploadQuestionMaterial(file, user?.id || 'unknown')
