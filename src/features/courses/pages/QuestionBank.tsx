@@ -46,8 +46,9 @@ export default function QuestionBank() {
   const { questions, addQuestion, updateQuestion, deleteQuestion } = useQuestionStore()
   const location = useLocation()
   const navigate = useNavigate()
+  const isEditRoute = location.pathname.endsWith('/editar')
 
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(() => isEditRoute)
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
@@ -638,10 +639,12 @@ export default function QuestionBank() {
     <div className="flex h-screen">
       {/* ===== CONTEÚDO PRINCIPAL ===== */}
       <div className={`flex-1 p-6 lg:p-8 overflow-y-auto transition-all duration-300 ${sidebarOpen ? 'mr-[420px]' : ''}`}>
-        <Breadcrumb items={[{ label: 'Criar Questões' }]} />
+        <Breadcrumb items={[{ label: isEditRoute ? 'Editar Questões' : 'Criar Questões' }]} />
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Criar Questões</h1>
-          <p className="text-gray-600 mt-1">Preencha os campos para adicionar uma nova questão ao banco</p>
+          <h1 className="text-3xl font-bold text-gray-900">{isEditRoute ? 'Editar Questões' : 'Criar Questões'}</h1>
+          <p className="text-gray-600 mt-1">
+            {isEditRoute ? 'Selecione uma questão ao lado para editar ou excluir' : 'Preencha os campos para adicionar uma nova questão ao banco'}
+          </p>
         </div>
 
         {showSuccess && (

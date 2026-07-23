@@ -19,6 +19,7 @@ import {
   PlusCircle,
   Database,
   Sparkles,
+  Edit2,
 } from 'lucide-react'
 
 interface NavItem {
@@ -39,7 +40,8 @@ const studentNavItems: NavItem[] = [
 const teacherNavItems: NavItem[] = [
   { to: '/teacher', icon: GraduationCap, label: 'Painel', end: true },
   { to: '/teacher/courses', icon: BookOpen, label: 'Meus Cursos', end: false },
-  { to: '/teacher/questions', icon: PlusCircle, label: 'Criar Questões', end: false },
+  { to: '/teacher/questions', icon: PlusCircle, label: 'Criar Questões', end: true },
+  { to: '/teacher/questions/editar', icon: Edit2, label: 'Editar Questões', end: false },
   { to: '/teacher/question-bank', icon: Database, label: 'Banco de Questões', end: false },
   { to: '/teacher/question-generator', icon: Sparkles, label: 'Gerador IA de Questões', end: false },
   { to: '/dashboard/questions', icon: HelpCircle, label: 'Responder Questões', end: false },
@@ -48,7 +50,8 @@ const teacherNavItems: NavItem[] = [
 
 const adminNavItems: NavItem[] = [
   { to: '/admin', icon: ShieldCheck, label: 'Painel', end: true },
-  { to: '/admin/questions', icon: PlusCircle, label: 'Criar Questões', end: false },
+  { to: '/admin/questions', icon: PlusCircle, label: 'Criar Questões', end: true },
+  { to: '/admin/questions/editar', icon: Edit2, label: 'Editar Questões', end: false },
   { to: '/admin/question-bank', icon: Database, label: 'Banco de Questões', end: false },
   { to: '/admin/question-generator', icon: Sparkles, label: 'Gerador IA de Questões', end: false },
   { to: '/dashboard/questions', icon: HelpCircle, label: 'Responder Questões', end: false },

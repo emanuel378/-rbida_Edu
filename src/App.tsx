@@ -55,6 +55,7 @@ export default function App() {
           <Route path="courses" element={<TeacherCourses />} />
           <Route path="course/:id" element={<TeacherCourseDetail />} />
           <Route path="questions" element={<QuestionBank />} />
+          <Route path="questions/editar" element={<QuestionBank />} />
           <Route path="question-bank" element={<QuestionBrowser />} />
           <Route path="question-generator" element={<QuestionGeneratorAI />} />
           <Route path="messages" element={<TeacherMessages />} />
@@ -71,6 +72,7 @@ export default function App() {
           <Route index element={<Admin />} />
           <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="questions" element={<QuestionBank />} />
+          <Route path="questions/editar" element={<QuestionBank />} />
           <Route path="question-bank" element={<QuestionBrowser />} />
           <Route path="question-generator" element={<QuestionGeneratorAI />} />
           <Route path="configuracoes" element={<Configuracoes />} />
