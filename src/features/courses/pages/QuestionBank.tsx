@@ -48,7 +48,7 @@ export default function QuestionBank() {
   const navigate = useNavigate()
   const isEditRoute = location.pathname.endsWith('/editar')
 
-  const [sidebarOpen, setSidebarOpen] = useState(() => isEditRoute)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
@@ -378,6 +378,12 @@ export default function QuestionBank() {
     }
   }
 
+  const handleCancelEdit = () => {
+    setIsEditing(false)
+    setEditingQuestion(null)
+    if (isEditRoute) setSidebarOpen(false)
+  }
+
   const handleDelete = async (id: string) => {
     const question = questions.find(q => q.id === id)
     if (!question) return
@@ -635,6 +641,77 @@ export default function QuestionBank() {
     )
   }
 
+  // --- Painel com busca e lista de questões criadas (usado no conteúdo principal da rota de edição e na sidebar da rota de criação) ---
+  const QuestionListPanel = () => (
+    <div className="space-y-4">
+      {questions.length > 0 && (
+        <div className="relative">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder="Buscar por texto, código, banca, disciplina..."
+            className="w-full pl-9 pr-9 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 hover:bg-gray-100 rounded-full"
+            >
+              <XIcon className="w-4 h-4 text-gray-400" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {questions.length === 0 ? (
+        <div className="text-center py-12 text-gray-500">
+          <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+          <p>Nenhuma questão criada ainda.</p>
+          <p className="text-sm">Adicione sua primeira questão!</p>
+        </div>
+      ) : filteredQuestions.length === 0 ? (
+        <div className="text-center py-12 text-gray-500">
+          <Search className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+          <p>Nenhuma questão encontrada para "{searchTerm}".</p>
+        </div>
+      ) : (
+        filteredQuestions.map((q, index) => (
+          <div key={q.id} className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-all">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                  {index + 1}. {q.question}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {q.banca && <span className="px-2 py-1 rounded-md bg-blue-100 text-blue-700 text-xs">{q.banca}</span>}
+                  {q.ano && <span className="px-2 py-1 rounded-md bg-purple-100 text-purple-700 text-xs">{q.ano}</span>}
+                  {q.moduleId && (
+                    <span className="px-2 py-1 rounded-md bg-green-100 text-green-700 text-xs">
+                      {DISCIPLINAS.find(d => d.value === q.moduleId)?.label || q.moduleId}
+                    </span>
+                  )}
+                  {q.nivel && <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-600 text-xs">{q.nivel}</span>}
+                </div>
+                <div className="mt-2 text-xs text-gray-500">
+                  Gabarito: {getCorrectLetter(q.correctAnswer)}
+                </div>
+              </div>
+              <div className="flex gap-1 flex-shrink-0">
+                <button onClick={() => handleEdit(q)} className="p-1.5 hover:bg-blue-100 rounded-lg text-blue-600" title="Editar">
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button onClick={() => handleDelete(q.id)} className="p-1.5 hover:bg-red-100 rounded-lg text-red-600" title="Excluir">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  )
+
   return (
     <div className="flex h-screen">
       {/* ===== CONTEÚDO PRINCIPAL ===== */}
@@ -643,10 +720,16 @@ export default function QuestionBank() {
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">{isEditRoute ? 'Editar Questões' : 'Criar Questões'}</h1>
           <p className="text-gray-600 mt-1">
-            {isEditRoute ? 'Selecione uma questão ao lado para editar ou excluir' : 'Preencha os campos para adicionar uma nova questão ao banco'}
+            {isEditRoute ? 'Veja, edite ou exclua as questões já cadastradas' : 'Preencha os campos para adicionar uma nova questão ao banco'}
           </p>
         </div>
 
+        {isEditRoute ? (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <QuestionListPanel />
+          </div>
+        ) : (
+        <>
         {showSuccess && (
           <div className="mb-6 flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 text-green-700 rounded-xl text-sm">
             <CheckCircle className="w-5 h-5" />
@@ -936,17 +1019,21 @@ export default function QuestionBank() {
             </button>
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* Botão para abrir sidebar */}
-      <button
-        onClick={() => setSidebarOpen(true)}
-        className={`fixed top-1/2 right-0 transform -translate-y-1/2 bg-blue-600 text-white p-2 rounded-l-lg shadow-lg hover:bg-blue-700 transition-all duration-300 z-40 ${
-          sidebarOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
-        }`}
-      >
-        <ChevronLeft className="w-5 h-5" />
-      </button>
+      {!isEditRoute && (
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className={`fixed top-1/2 right-0 transform -translate-y-1/2 bg-blue-600 text-white p-2 rounded-l-lg shadow-lg hover:bg-blue-700 transition-all duration-300 z-40 ${
+            sidebarOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          }`}
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+      )}
 
       {/* ===== SIDEBAR ===== */}
       <div className={`fixed top-0 right-0 h-full w-[420px] bg-white shadow-2xl border-l border-gray-200 transition-all duration-300 z-50 overflow-y-auto ${
@@ -981,74 +1068,7 @@ export default function QuestionBank() {
           )}
 
           {!isEditing ? (
-            // --- Lista de questões ---
-            <div className="space-y-4">
-              {questions.length > 0 && (
-                <div className="relative">
-                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                    placeholder="Buscar por texto, código, banca, disciplina..."
-                    className="w-full pl-9 pr-9 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                  {searchTerm && (
-                    <button
-                      onClick={() => setSearchTerm('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 hover:bg-gray-100 rounded-full"
-                    >
-                      <XIcon className="w-4 h-4 text-gray-400" />
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {questions.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                  <p>Nenhuma questão criada ainda.</p>
-                  <p className="text-sm">Adicione sua primeira questão!</p>
-                </div>
-              ) : filteredQuestions.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <Search className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                  <p>Nenhuma questão encontrada para "{searchTerm}".</p>
-                </div>
-              ) : (
-                filteredQuestions.map((q, index) => (
-                  <div key={q.id} className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-all">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 line-clamp-2">
-                          {index + 1}. {q.question}
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {q.banca && <span className="px-2 py-1 rounded-md bg-blue-100 text-blue-700 text-xs">{q.banca}</span>}
-                          {q.ano && <span className="px-2 py-1 rounded-md bg-purple-100 text-purple-700 text-xs">{q.ano}</span>}
-                          {q.moduleId && (
-                            <span className="px-2 py-1 rounded-md bg-green-100 text-green-700 text-xs">
-                              {DISCIPLINAS.find(d => d.value === q.moduleId)?.label || q.moduleId}
-                            </span>
-                          )}
-                          {q.nivel && <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-600 text-xs">{q.nivel}</span>}
-                        </div>
-                        <div className="mt-2 text-xs text-gray-500">
-                          Gabarito: {getCorrectLetter(q.correctAnswer)}
-                        </div>
-                      </div>
-                      <div className="flex gap-1 flex-shrink-0">
-                        <button onClick={() => handleEdit(q)} className="p-1.5 hover:bg-blue-100 rounded-lg text-blue-600" title="Editar">
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleDelete(q.id)} className="p-1.5 hover:bg-red-100 rounded-lg text-red-600" title="Excluir">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+            !isEditRoute && <QuestionListPanel />
           ) : (
             // --- Formulário de edição ---
             <div className="space-y-4">
@@ -1308,7 +1328,7 @@ export default function QuestionBank() {
                   {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
                 </button>
                 <button
-                  onClick={() => { setIsEditing(false); setEditingQuestion(null) }}
+                  onClick={handleCancelEdit}
                   className="px-4 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors font-medium"
                 >
                   Cancelar
