@@ -2,7 +2,23 @@ import { useState, useEffect } from 'react'
 import { useCourseStore } from '../data/courseStore'
 import { useAuthStore } from '../../auth/services/authStore'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Send, ArrowLeft, MessageCircle } from 'lucide-react'
+import { generateId } from '../../../lib/id'
+import { Send, ArrowLeft, MessageCircle, Video, BookOpen, HelpCircle } from 'lucide-react'
+
+type Origin = { icon: typeof Video; label: string; classes: string }
+
+function getOrigin(msg: { lessonId?: string; moduleId?: string; targetType?: string }): Origin {
+  if (msg.targetType === 'question') {
+    return { icon: HelpCircle, label: 'Questão', classes: 'bg-purple-50 text-purple-700 border-purple-100' }
+  }
+  if (msg.lessonId) {
+    return { icon: Video, label: 'Aula', classes: 'bg-orange-50 text-orange-700 border-orange-100' }
+  }
+  if (msg.moduleId) {
+    return { icon: BookOpen, label: 'Módulo', classes: 'bg-blue-50 text-blue-700 border-blue-100' }
+  }
+  return { icon: MessageCircle, label: 'Curso', classes: 'bg-gray-100 text-gray-700 border-gray-200' }
+}
 
 export default function CourseMessages() {
   const { id } = useParams<{ id: string }>()
@@ -21,6 +37,7 @@ export default function CourseMessages() {
 
   useEffect(() => {
     const lessonFromUrl = searchParams.get('lesson')
+    const moduleFromUrl = searchParams.get('module')
     if (lessonFromUrl) {
       const lesson = lessons.find(l => l.id === lessonFromUrl)
       if (lesson) {
@@ -28,12 +45,20 @@ export default function CourseMessages() {
         setModuleId(lesson.moduleId)
         setType('lesson')
       }
+    } else if (moduleFromUrl) {
+      const mod = modules.find(m => m.id === moduleFromUrl)
+      if (mod) {
+        setModuleId(mod.id)
+        setType('module')
+      }
     }
-  }, [searchParams, lessons])
+  }, [searchParams, lessons, modules])
 
   const selectedModuleLessons = lessons.filter(l => l.moduleId === moduleId)
 
-  const myMessages = messages.filter(m => m.fromUserId === user?.id && m.courseId === id)
+  const myMessages = messages
+    .filter(m => (!m.type || m.type === 'question') && m.fromUserId === user?.id && m.courseId === id)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
   const handleSend = () => {
     if (!text || !user || !course) return
@@ -47,7 +72,7 @@ export default function CourseMessages() {
       if (mod) toTeacherId = mod.teacherId
     }
     addMessage({
-      id: Date.now().toString(),
+      id: generateId(),
       courseId: course.id,
       moduleId: type !== 'course' ? moduleId : undefined,
       lessonId: type === 'lesson' ? lessonId : undefined,
@@ -56,6 +81,8 @@ export default function CourseMessages() {
       toTeacherId,
       text,
       createdAt: new Date().toISOString(),
+      type: 'question',
+      status: 'pending',
     })
     setText('')
   }
@@ -135,19 +162,32 @@ export default function CourseMessages() {
           <p className="text-gray-500 text-center py-4">Nenhuma dúvida enviada ainda.</p>
         ) : (
           <div className="space-y-3">
-            {myMessages.map(msg => (
-              <div key={msg.id} className="p-4 bg-gray-50 rounded-xl">
-                <p className="text-sm text-gray-600 mb-2">{msg.text}</p>
-                {msg.reply ? (
-                  <div className="mt-2 p-3 bg-blue-50 rounded-lg">
-                    <p className="text-sm font-medium text-blue-900">Resposta do professor:</p>
-                    <p className="text-sm text-blue-800">{msg.reply}</p>
+            {myMessages.map(msg => {
+              const origin = getOrigin(msg)
+              const OriginIcon = origin.icon
+              return (
+                <div key={msg.id} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${origin.classes}`}>
+                      <OriginIcon className="w-3.5 h-3.5" />
+                      {origin.label}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {new Date(msg.createdAt).toLocaleDateString('pt-BR')}
+                    </span>
                   </div>
-                ) : (
-                  <p className="text-xs text-yellow-600">Aguardando resposta...</p>
-                )}
-              </div>
-            ))}
+                  <p className="text-sm text-gray-600 mb-2">{msg.text}</p>
+                  {msg.reply ? (
+                    <div className="mt-2 p-3 bg-blue-50 rounded-lg">
+                      <p className="text-sm font-medium text-blue-900">Resposta do professor:</p>
+                      <p className="text-sm text-blue-800">{msg.reply}</p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-yellow-600">Aguardando resposta...</p>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

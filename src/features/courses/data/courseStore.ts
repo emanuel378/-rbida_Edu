@@ -76,6 +76,7 @@ interface CourseState {
   getEnrollment: (userId: string, courseId: string) => Enrollment | undefined
   addMessage: (message: Message) => void
   replyMessage: (messageId: string, reply: string) => void
+  askQuestionDoubt: (params: { questionId: string; moduleId: string; questionCode?: string; fromUserId: string; fromUserName: string; text: string }) => void
   getTeacherName: (teacherId: string) => string
   requestCoursePrice: (courseId: string, teacherName: string) => void
   requestContentDeletion: (params: { courseId: string; moduleId?: string; lessonId?: string; teacherName: string; targetType: 'course' | 'module' | 'lesson' | 'question'; targetName: string }) => void
@@ -376,6 +377,7 @@ export const useCourseStore = create<CourseState>((set, get) => {
         course_id: message.courseId,
         module_id: message.moduleId ?? null,
         lesson_id: message.lessonId ?? null,
+        question_id: message.questionId ?? null,
         from_user_id: message.fromUserId,
         from_user_name: message.fromUserName,
         to_teacher_id: message.toTeacherId,
@@ -400,6 +402,28 @@ export const useCourseStore = create<CourseState>((set, get) => {
         replied_at: new Date().toISOString(),
       }).eq('id', messageId).then(({ error }) => { if (error) console.error(error) })
     }
+  },
+
+  askQuestionDoubt: ({ questionId, moduleId, questionCode, fromUserId, fromUserName, text }) => {
+    const mod = get().modules.find(m => m.id === moduleId)
+    const course = get().courses.find(c => c.id === mod?.courseId)
+    if (!course) return
+    const message: Message = {
+      id: generateId(),
+      courseId: course.id,
+      moduleId: mod?.id,
+      questionId,
+      fromUserId,
+      fromUserName,
+      toTeacherId: course.teacherId,
+      text,
+      createdAt: new Date().toISOString(),
+      type: 'question',
+      status: 'pending',
+      targetType: 'question',
+      targetName: `Questão ${questionCode ?? questionId}`,
+    }
+    get().addMessage(message)
   },
 
   getTeacherName: (teacherId) => {
@@ -651,6 +675,7 @@ function mapRowToModel(key: string, row: any): any {
         courseId: row.course_id,
         moduleId: row.module_id,
         lessonId: row.lesson_id,
+        questionId: row.question_id,
         fromUserId: row.from_user_id,
         fromUserName: row.from_user_name,
         toTeacherId: row.to_teacher_id,

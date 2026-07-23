@@ -99,6 +99,7 @@ export interface Message {
   courseId: string
   moduleId?: string
   lessonId?: string
+  questionId?: string
   fromUserId: string
   fromUserName: string
   toTeacherId: string

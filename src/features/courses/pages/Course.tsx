@@ -103,15 +103,24 @@ export default function Course() {
             return (
               <div key={module.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all duration-300">
                 <div className="p-4 sm:p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold">
-                      {index + 1}
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-gray-900">{module.title}</h3>
+                        <p className="text-sm text-gray-500">{moduleLessons.length} aulas • {moduleQuestions.length} atividades</p>
+                        <p className="text-xs text-blue-600">Professor: {getTeacherName(module.teacherId)}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900">{module.title}</h3>
-                      <p className="text-sm text-gray-500">{moduleLessons.length} aulas • {moduleQuestions.length} atividades</p>
-                      <p className="text-xs text-blue-600">Professor: {getTeacherName(module.teacherId)}</p>
-                    </div>
+                    <button
+                      onClick={() => navigate(`/dashboard/course/${id}/messages?module=${module.id}`)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 border border-orange-200 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-xs font-medium flex-shrink-0"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Tirar dúvida do módulo</span>
+                    </button>
                   </div>
 
                   {moduleLessons.length > 0 ? (

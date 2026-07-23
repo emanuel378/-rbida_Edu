@@ -3,9 +3,10 @@ import { useQuestionStore } from '../../courses/data/questionStore'
 import { useAuthStore } from '../../auth/services/authStore'
 import type { Question } from '../../courses/data/mock'
 import { getDisciplinaLabel } from '../../courses/data/taxonomy'
+import { useCourseStore } from '../../courses/data/courseStore'
 import {
   CheckCircle, XCircle, Play, FileText, BarChart3, MessageCircle,
-  Flag, Send, X, ZoomIn,
+  Flag, Send, X, ZoomIn, HelpCircle,
 } from 'lucide-react'
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E']
@@ -102,6 +103,7 @@ interface Props {
 export default function QuestionCard({ question, index, onAnswered }: Props) {
   const { user } = useAuthStore()
   const { questionStats, answerHistory, recordAnswer, getQuestionComments, addComment, reportQuestionError } = useQuestionStore()
+  const { askQuestionDoubt } = useCourseStore()
 
   const previousAnswer = answerHistory.find(r => r.questionId === question.id && r.userId === user?.id)
 
@@ -111,9 +113,12 @@ export default function QuestionCard({ question, index, onAnswered }: Props) {
   const [showStats, setShowStats] = useState(false)
   const [showComments, setShowComments] = useState(false)
   const [showReport, setShowReport] = useState(false)
+  const [showDoubt, setShowDoubt] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [reportText, setReportText] = useState('')
   const [reportSent, setReportSent] = useState(false)
+  const [doubtText, setDoubtText] = useState('')
+  const [doubtSent, setDoubtSent] = useState(false)
   const [zoomImage, setZoomImage] = useState<string | null>(null)
 
   const stats = questionStats.find(s => s.questionId === question.id)
@@ -162,6 +167,21 @@ export default function QuestionCard({ question, index, onAnswered }: Props) {
     setReportText('')
     setReportSent(true)
     setTimeout(() => { setReportSent(false); setShowReport(false) }, 2000)
+  }
+
+  const handleDoubt = () => {
+    if (!doubtText.trim() || !user || !question.moduleId) return
+    askQuestionDoubt({
+      questionId: question.id,
+      moduleId: question.moduleId,
+      questionCode: question.code,
+      fromUserId: user.id,
+      fromUserName: user.name,
+      text: doubtText.trim(),
+    })
+    setDoubtText('')
+    setDoubtSent(true)
+    setTimeout(() => { setDoubtSent(false); setShowDoubt(false) }, 2000)
   }
 
   // "revealState" só é true quando o aluno acabou de responder nesta sessão;
@@ -371,6 +391,17 @@ export default function QuestionCard({ question, index, onAnswered }: Props) {
           <MessageCircle className="w-3.5 h-3.5" />
           Comentários{comments.length > 0 ? ` (${comments.length})` : ''}
         </button>
+        {question.moduleId && (
+          <button
+            onClick={() => setShowDoubt(s => !s)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              showDoubt ? 'bg-orange-100 text-orange-700' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            Tirar Dúvida
+          </button>
+        )}
         <button
           onClick={() => setShowReport(s => !s)}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
@@ -466,6 +497,36 @@ export default function QuestionCard({ question, index, onAnswered }: Props) {
               <Send className="w-4 h-4" />
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Painel de tirar dúvida */}
+      {showDoubt && (
+        <div className="border-t border-gray-100 p-6 space-y-3">
+          {doubtSent ? (
+            <p className="text-sm text-green-600 font-medium text-center py-2 flex items-center justify-center gap-2">
+              <CheckCircle className="w-4 h-4" /> Dúvida enviada ao professor. Você verá a resposta em "Mensagens" no curso.
+            </p>
+          ) : (
+            <>
+              <p className="text-xs text-gray-500">Não entendeu o enunciado ou a resolução desta questão? Pergunte ao professor.</p>
+              <textarea
+                value={doubtText}
+                onChange={e => setDoubtText(e.target.value)}
+                rows={3}
+                placeholder="Descreva sua dúvida sobre esta questão..."
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400 text-sm resize-none"
+              />
+              <button
+                onClick={handleDoubt}
+                disabled={!doubtText.trim()}
+                className="flex items-center gap-2 px-5 py-2.5 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors disabled:opacity-50 font-medium text-sm"
+              >
+                <HelpCircle className="w-4 h-4" />
+                Enviar Dúvida
+              </button>
+            </>
+          )}
         </div>
       )}
 
