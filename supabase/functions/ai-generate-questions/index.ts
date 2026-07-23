@@ -118,14 +118,30 @@ de páginas diferentes de uma mesma prova). Trate todos os arquivos de questões
 como um único documento contínuo, na ordem em que foram enviados, e não duplique uma
 mesma questão que apareça repetida por engano em mais de um arquivo.`
 
-const SHARED_BASE_TEXT_NOTE = `Muitas provas trazem um texto-base (texto de apoio, trecho de leitura, tirinha, gráfico,
-tabela etc.) do qual decorrem várias questões subsequentes. Quando isso acontecer, para
-CADA questão que depender desse texto-base, inclua o texto-base completo — na íntegra,
-sem resumir, cortar ou alterar palavras — diretamente no início do enunciado dessa
-questão, antes do enunciado propriamente dito, mesmo que isso signifique repetir o mesmo
-texto em várias questões. Cada questão deve ficar completa e independente, contendo tudo
-que é necessário para respondê-la sozinha. Nunca escreva algo como "considerando o texto
-acima" ou "com base no texto anterior" sem incluir o texto de fato.`
+const SHARED_BASE_TEXT_NOTE = `TEXTO-BASE COMPARTILHADO — SIGA ESTE PROCEDIMENTO EXATO:
+Muitas provas trazem um texto-base (texto de apoio, trecho de leitura, tirinha, gráfico,
+tabela, notícia, poema etc.) do qual decorrem várias questões subsequentes (ex.: "Texto 1"
+seguido de várias questões que dizem "com base no texto acima", "considerando o texto 1"
+ou apenas ficam posicionadas logo depois dele sem repetir a instrução).
+
+Passo a passo obrigatório:
+1. Ao ler o material, identifique cada texto-base presente e TODAS as questões que
+   dependem dele — mesmo que a dependência não esteja escrita explicitamente, mas fique
+   clara pela posição/numeração no documento (ex.: um texto seguido de 5 questões).
+2. Para CADA UMA dessas questões, copie o texto-base COMPLETO e LITERAL — sem resumir,
+   cortar, parafrasear ou alterar uma única palavra — e cole-o no INÍCIO do campo
+   "question", antes do enunciado da questão em si.
+3. Repita esse mesmo texto-base por inteiro em CADA questão dependente. Se 5 questões
+   usam o mesmo texto-base, as 5 (não apenas a primeira) devem trazer o texto-base
+   completo.
+4. NUNCA escreva substitutos como "considerando o texto acima", "com base no texto
+   anterior" ou "vide texto 1" sem colar o texto de fato — isso tornaria a questão
+   incompreensível para quem a lesse isoladamente.
+5. Cada questão do JSON final deve ser 100% autossuficiente: alguém que leia apenas
+   aquela questão, sem acesso ao restante do material, precisa conseguir respondê-la.
+
+Formato esperado no campo "question" quando há texto-base (separe com uma linha em branco):
+"[texto-base completo, na íntegra]\n\n[enunciado da questão que usa esse texto-base]"`
 
 type ContentBlock =
   | { type: 'document'; source: { type: 'base64'; media_type: 'application/pdf'; data: string } }
@@ -256,7 +272,7 @@ de fora dessas instruções:\n${customInstructions.trim()}`)
   try {
     const stream = client.messages.stream({
       model: 'claude-sonnet-5',
-      max_tokens: 16000,
+      max_tokens: 32000,
       thinking: { type: 'adaptive' },
       output_config: { format: { type: 'json_schema', schema: questionSchema } },
       messages: [{ role: 'user', content }],
