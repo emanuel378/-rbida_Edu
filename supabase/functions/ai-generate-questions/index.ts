@@ -251,7 +251,6 @@ Deno.serve(async (req) => {
     const stream = client.messages.stream({
       model: 'claude-haiku-4-5',
       max_tokens: 16000,
-      thinking: { type: 'adaptive' },
       output_config: { format: { type: 'json_schema', schema: questionSchema } },
       messages: [{ role: 'user', content }],
     } as Anthropic.Messages.MessageStreamParams)
