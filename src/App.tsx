@@ -7,7 +7,7 @@ import { DashboardHome, MeusCursos, Cronograma, Desempenho, Configuracoes, Stude
 import { Course, Lesson, QuestionBank, QuestionBrowser, QuestionGeneratorAI, CourseMessages } from './features/courses'
 import { Simulado } from './features/simulado'
 import { TeacherDashboard, TeacherCourses, TeacherCourseDetail, TeacherSimulados, TeacherMessages } from './features/teacher'
-import { Admin, AdminAnalytics } from './features/admin'
+import { Admin, AdminAnalytics, AdminMessages } from './features/admin'
 import { useQuestionStore } from './features/courses/data/questionStore'
 
 export default function App() {
@@ -75,6 +75,7 @@ export default function App() {
           <Route path="questions/editar" element={<QuestionBank />} />
           <Route path="question-bank" element={<QuestionBrowser />} />
           <Route path="question-generator" element={<QuestionGeneratorAI />} />
+          <Route path="messages" element={<AdminMessages />} />
           <Route path="configuracoes" element={<Configuracoes />} />
         </Route>
 

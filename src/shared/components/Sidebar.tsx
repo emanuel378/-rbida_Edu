@@ -55,6 +55,7 @@ const adminNavItems: NavItem[] = [
   { to: '/admin/question-bank', icon: Database, label: 'Banco de Questões', end: false },
   { to: '/admin/question-generator', icon: Sparkles, label: 'Gerador IA de Questões', end: false },
   { to: '/dashboard/questions', icon: HelpCircle, label: 'Responder Questões', end: false },
+  { to: '/admin/messages', icon: MessageCircle, label: 'Mensagens', end: false },
   { to: '/admin/analytics', icon: TrendingUp, label: 'Analytics & Financeiro', end: false },
 ]
 
