@@ -250,7 +250,7 @@ Deno.serve(async (req) => {
 
   try {
     const stream = client.messages.stream({
-      model: 'claude-opus-4-8',
+      model: 'claude-sonnet-5',
       max_tokens: 16000,
       thinking: { type: 'adaptive' },
       output_config: { format: { type: 'json_schema', schema: questionSchema } },
