@@ -78,6 +78,7 @@ export default function QuestionGeneratorAI() {
 
   const [defaultModuleId, setDefaultModuleId] = useState('')
   const [customInstructions, setCustomInstructions] = useState('')
+  const [rawQuestionText, setRawQuestionText] = useState('')
   const [mainFiles, setMainFiles] = useState<File[]>([])
   const [answerKeyFiles, setAnswerKeyFiles] = useState<File[]>([])
   const [isDraggingMain, setIsDraggingMain] = useState(false)
@@ -130,7 +131,7 @@ export default function QuestionGeneratorAI() {
   const removeAnswerKeyFile = (index: number) => setAnswerKeyFiles(prev => prev.filter((_, i) => i !== index))
 
   const handleGenerate = async () => {
-    if (mainFiles.length === 0 || !user) return
+    if ((mainFiles.length === 0 && !rawQuestionText.trim()) || !user) return
 
     setIsGenerating(true)
     setGenerateError(null)
@@ -147,7 +148,7 @@ export default function QuestionGeneratorAI() {
         return { url: upload.url, mimeType: file.type }
       }))
 
-      const generated = await generateQuestionsFromMaterial(materials, answerKeys, customInstructions)
+      const generated = await generateQuestionsFromMaterial(materials, answerKeys, customInstructions, rawQuestionText)
       if (generated.length === 0) {
         setGenerateError('A IA não encontrou nenhuma questão de múltipla escolha neste material.')
         return
@@ -181,6 +182,7 @@ export default function QuestionGeneratorAI() {
       setReviewList(prev => [...prev, ...items])
       setMainFiles([])
       setAnswerKeyFiles([])
+      setRawQuestionText('')
     } catch (err) {
       setGenerateError(err instanceof Error ? err.message : 'Erro ao gerar questões com IA')
     } finally {
@@ -454,9 +456,24 @@ export default function QuestionGeneratorAI() {
       )}
 
       {!isGenerating && (
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Ou cole o texto bruto das questões aqui (alternativa ao envio de arquivo)
+          </label>
+          <textarea
+            value={rawQuestionText}
+            onChange={e => setRawQuestionText(e.target.value)}
+            placeholder={'Cole aqui o texto das questões copiado de um PDF, site ou documento...\n\nEx: "1. Qual é a capital do Brasil?\\nA) São Paulo\\nB) Brasília\\n..."'}
+            rows={8}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-y font-mono text-sm"
+          />
+        </div>
+      )}
+
+      {!isGenerating && (
         <button
           onClick={handleGenerate}
-          disabled={mainFiles.length === 0}
+          disabled={mainFiles.length === 0 && !rawQuestionText.trim()}
           className="mt-4 w-full flex items-center justify-center gap-2 px-5 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Sparkles className="w-5 h-5" />

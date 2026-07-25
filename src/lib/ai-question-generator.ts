@@ -21,11 +21,13 @@ export interface MaterialFile {
 export async function generateQuestionsFromMaterial(
   materials: MaterialFile[],
   answerKeys: MaterialFile[],
-  customInstructions?: string
+  customInstructions?: string,
+  rawText?: string
 ): Promise<GeneratedQuestion[]> {
   const { data, error } = await supabase.functions.invoke('ai-generate-questions', {
     body: {
       materials,
+      rawText,
       answerKeys,
       customInstructions,
       disciplinas: DISCIPLINAS,

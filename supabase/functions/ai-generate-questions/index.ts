@@ -193,6 +193,7 @@ Deno.serve(async (req) => {
 
   let body: {
     materials?: { url: string; mimeType: string }[]
+    rawText?: string
     answerKeys?: { url: string; mimeType: string }[]
     customInstructions?: string
     disciplinas?: Disciplina[]
@@ -204,9 +205,10 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Corpo da requisição inválido' }, 400)
   }
 
-  const { materials, answerKeys, customInstructions, disciplinas = [], topicosPorDisciplina = {} } = body
-  if (!Array.isArray(materials) || materials.length === 0) {
-    return jsonResponse({ error: 'Envie pelo menos um arquivo de questões' }, 400)
+  const { materials = [], rawText, answerKeys, customInstructions, disciplinas = [], topicosPorDisciplina = {} } = body
+  const hasRawText = !!rawText?.trim()
+  if (materials.length === 0 && !hasRawText) {
+    return jsonResponse({ error: 'Envie pelo menos um arquivo ou cole o texto das questões' }, 400)
   }
 
   let materialBlocks: ContentBlock[]
@@ -215,6 +217,9 @@ Deno.serve(async (req) => {
     materialBlocks = await Promise.all(
       materials.map((m, i) => buildContentBlock(m.url, m.mimeType, materials.length > 1 ? `Questões (arquivo ${i + 1}/${materials.length})` : 'Questões'))
     )
+    if (hasRawText) {
+      materialBlocks.push({ type: 'text', text: `[Questões — texto colado]\n${rawText!.trim()}` })
+    }
     if (Array.isArray(answerKeys) && answerKeys.length > 0) {
       answerKeyBlocks = await Promise.all(
         answerKeys.map((a, i) => buildContentBlock(a.url, a.mimeType, answerKeys.length > 1 ? `Gabarito (arquivo ${i + 1}/${answerKeys.length})` : 'Gabarito'))
