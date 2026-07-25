@@ -6,6 +6,12 @@ import {
   deleteQuestion as deleteFromSupabase,
   generateQuestionCode,
 } from './questionsService'
+import {
+  fetchQuestionStats,
+  upsertQuestionStats,
+  fetchAnswerHistory,
+  upsertAnswerRecord,
+} from './answersService'
 import type { Question, Comment, SimuladoResult, QuestionStats, QuestionAnswerRecord, Message } from './mock'
 import { mockQuestionStats } from './mock'
 import { supabase, isSupabaseConfigured } from '../../../lib/supabase'
@@ -45,6 +51,7 @@ interface QuestionState {
   deleteQuestion: (questionId: string) => Promise<void>
   updateQuestion: (question: Question) => Promise<void>
   loadQuestions: () => Promise<void>
+  loadAnswerData: () => Promise<void>
   addComment: (comment: Comment) => void
   getComments: (lessonId: string) => Comment[]
   getQuestionComments: (questionId: string) => Comment[]
@@ -76,6 +83,18 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
       console.error('Erro ao carregar questões do Supabase:', err)
     } finally {
       set({ loading: false })
+    }
+  },
+
+  loadAnswerData: async () => {
+    const [stats, history] = await Promise.all([fetchQuestionStats(), fetchAnswerHistory()])
+    if (stats.length > 0) {
+      saveStats(stats)
+      set({ questionStats: stats })
+    }
+    if (history.length > 0) {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
+      set({ answerHistory: history })
     }
   },
 
@@ -194,11 +213,18 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
     saveStats(stats)
     set({ questionStats: stats })
 
+    const storedRecord: QuestionAnswerRecord = record.correct
+      ? record
+      : { ...record, selectedAnswer: -1 }
+
     const updatedHistory = prev
-      ? history.map(r => r.questionId === record.questionId && r.userId === record.userId ? record : r)
-      : [...history, record]
+      ? history.map(r => r.questionId === record.questionId && r.userId === record.userId ? storedRecord : r)
+      : [...history, storedRecord]
     localStorage.setItem(HISTORY_KEY, JSON.stringify(updatedHistory))
     set({ answerHistory: updatedHistory })
+
+    upsertQuestionStats(qStat)
+    upsertAnswerRecord(storedRecord)
   },
 
   getAnswerHistory: (userId) => {

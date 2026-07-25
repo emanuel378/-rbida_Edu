@@ -104,7 +104,7 @@ export default function QuestionCard({ question, index }: Props) {
 
   const previousAnswer = answerHistory.find(r => r.questionId === question.id && r.userId === user?.id)
 
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(previousAnswer ? previousAnswer.selectedAnswer : null)
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(previousAnswer?.correct ? previousAnswer.selectedAnswer : null)
   const [answered, setAnswered] = useState(!!previousAnswer)
   const [showStats, setShowStats] = useState(false)
   const [showComments, setShowComments] = useState(false)

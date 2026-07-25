@@ -12,9 +12,11 @@ import { useQuestionStore } from './features/courses/data/questionStore'
 
 export default function App() {
   const loadQuestions = useQuestionStore(s => s.loadQuestions)
+  const loadAnswerData = useQuestionStore(s => s.loadAnswerData)
 
   useEffect(() => {
     loadQuestions()
+    loadAnswerData()
   }, [])
 
   return (
