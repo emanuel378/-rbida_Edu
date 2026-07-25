@@ -195,6 +195,7 @@ Deno.serve(async (req) => {
     materials?: { url: string; mimeType: string }[]
     rawText?: string
     answerKeys?: { url: string; mimeType: string }[]
+    rawAnswerKeyText?: string
     customInstructions?: string
     disciplinas?: Disciplina[]
     topicosPorDisciplina?: Record<string, string[]>
@@ -205,8 +206,9 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Corpo da requisição inválido' }, 400)
   }
 
-  const { materials = [], rawText, answerKeys, customInstructions, disciplinas = [], topicosPorDisciplina = {} } = body
+  const { materials = [], rawText, answerKeys, rawAnswerKeyText, customInstructions, disciplinas = [], topicosPorDisciplina = {} } = body
   const hasRawText = !!rawText?.trim()
+  const hasRawAnswerKeyText = !!rawAnswerKeyText?.trim()
   if (materials.length === 0 && !hasRawText) {
     return jsonResponse({ error: 'Envie pelo menos um arquivo ou cole o texto das questões' }, 400)
   }
@@ -224,6 +226,9 @@ Deno.serve(async (req) => {
       answerKeyBlocks = await Promise.all(
         answerKeys.map((a, i) => buildContentBlock(a.url, a.mimeType, answerKeys.length > 1 ? `Gabarito (arquivo ${i + 1}/${answerKeys.length})` : 'Gabarito'))
       )
+    }
+    if (hasRawAnswerKeyText) {
+      answerKeyBlocks.push({ type: 'text', text: `[Gabarito — texto colado]\n${rawAnswerKeyText!.trim()}` })
     }
   } catch (err) {
     return jsonResponse({ error: err instanceof Error ? err.message : 'Falha ao processar arquivo enviado' }, 400)

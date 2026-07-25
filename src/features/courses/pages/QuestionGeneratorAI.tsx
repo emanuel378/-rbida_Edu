@@ -79,6 +79,7 @@ export default function QuestionGeneratorAI() {
   const [defaultModuleId, setDefaultModuleId] = useState('')
   const [customInstructions, setCustomInstructions] = useState('')
   const [rawQuestionText, setRawQuestionText] = useState('')
+  const [rawAnswerKeyText, setRawAnswerKeyText] = useState('')
   const [mainFiles, setMainFiles] = useState<File[]>([])
   const [answerKeyFiles, setAnswerKeyFiles] = useState<File[]>([])
   const [isDraggingMain, setIsDraggingMain] = useState(false)
@@ -148,7 +149,7 @@ export default function QuestionGeneratorAI() {
         return { url: upload.url, mimeType: file.type }
       }))
 
-      const generated = await generateQuestionsFromMaterial(materials, answerKeys, customInstructions, rawQuestionText)
+      const generated = await generateQuestionsFromMaterial(materials, answerKeys, customInstructions, rawQuestionText, rawAnswerKeyText)
       if (generated.length === 0) {
         setGenerateError('A IA não encontrou nenhuma questão de múltipla escolha neste material.')
         return
@@ -183,6 +184,7 @@ export default function QuestionGeneratorAI() {
       setMainFiles([])
       setAnswerKeyFiles([])
       setRawQuestionText('')
+      setRawAnswerKeyText('')
     } catch (err) {
       setGenerateError(err instanceof Error ? err.message : 'Erro ao gerar questões com IA')
     } finally {
@@ -466,6 +468,21 @@ export default function QuestionGeneratorAI() {
             placeholder={'Cole aqui o texto das questões copiado de um PDF, site ou documento...\n\nEx: "1. Qual é a capital do Brasil?\\nA) São Paulo\\nB) Brasília\\n..."'}
             rows={8}
             className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-y font-mono text-sm"
+          />
+        </div>
+      )}
+
+      {!isGenerating && (
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Ou cole o texto bruto do gabarito aqui (opcional — lido em conjunto com as questões)
+          </label>
+          <textarea
+            value={rawAnswerKeyText}
+            onChange={e => setRawAnswerKeyText(e.target.value)}
+            placeholder={'Cole aqui o texto do gabarito...\n\nEx: "1-B, 2-A, 3-D..." ou "1) B  2) A  3) D"'}
+            rows={4}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 resize-y font-mono text-sm"
           />
         </div>
       )}
