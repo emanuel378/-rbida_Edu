@@ -65,3 +65,11 @@ export async function uploadLessonPdf(
   const path = generateFilePath(userId, `lesson_${file.name}`)
   return uploadFile(file, path)
 }
+
+export async function uploadCourseCover(
+  file: File,
+  courseId: string
+): Promise<{ url: string; error: string | null }> {
+  const path = generateFilePath('course-covers', `${courseId}_${file.name}`)
+  return uploadFile(file, path)
+}

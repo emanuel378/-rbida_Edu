@@ -100,8 +100,12 @@ export default function DashboardHome() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {availableCourses.map((course) => (
               <Card key={course.id}>
-                <div className="h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-t-2xl flex items-center justify-center">
-                  <BookOpen className="w-12 h-12 text-white/80" />
+                <div className="h-32 rounded-t-2xl overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                  {course.coverImageUrl ? (
+                    <img src={course.coverImageUrl} alt={course.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <BookOpen className="w-12 h-12 text-white/80" />
+                  )}
                 </div>
                 <CardContent>
                   <h3 className="text-lg font-bold text-gray-900 mb-1">{course.title}</h3>

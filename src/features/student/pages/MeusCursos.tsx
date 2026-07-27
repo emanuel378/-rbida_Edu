@@ -54,7 +54,13 @@ export default function MeusCursos() {
 
             return (
               <Card key={course.id} hoverable>
-                <div className="h-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-t-2xl" />
+                {course.coverImageUrl ? (
+                  <div className="h-28 rounded-t-2xl overflow-hidden">
+                    <img src={course.coverImageUrl} alt={course.title} className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="h-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-t-2xl" />
+                )}
                 <CardHeader
                   title={course.title}
                   subtitle={course.description}

@@ -19,6 +19,7 @@ export interface Course {
   status: 'pending' | 'approved' | 'rejected'
   createdAt: string
   published: boolean
+  coverImageUrl?: string
 }
 
 export interface Module {

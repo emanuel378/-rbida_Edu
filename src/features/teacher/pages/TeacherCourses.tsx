@@ -140,9 +140,13 @@ export default function TeacherCourses() {
                 <div className={`h-1.5 bg-gradient-to-r ${color.gradient}`} />
                 <div className="p-5">
                   <div className="flex items-start gap-4">
-                    <div className={`w-12 h-12 ${color.light} rounded-xl flex items-center justify-center flex-shrink-0`}>
-                      <BookOpen className="w-6 h-6" />
-                    </div>
+                    {course.coverImageUrl ? (
+                      <img src={course.coverImageUrl} alt={course.title} className="w-12 h-12 rounded-xl object-cover flex-shrink-0" />
+                    ) : (
+                      <div className={`w-12 h-12 ${color.light} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                        <BookOpen className="w-6 h-6" />
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/teacher/course/${course.id}`)}>
                       <h3 className="font-bold text-gray-900 text-lg mb-1 group-hover:text-blue-600 transition-colors">{course.title}</h3>
                       <p className="text-sm text-gray-500 mb-3 line-clamp-2">{course.description || 'Sem descrição'}</p>

@@ -6,11 +6,11 @@ import {
   BookOpen, Plus, Video, HelpCircle, Trash2, ArrowLeft,
   ChevronDown, ChevronRight, FileText, CheckCircle, Loader2,
   Edit2, Check, X, ExternalLink, Upload,
-  GraduationCap, AlertTriangle, XCircle, PlayCircle, Send, Clock, DollarSign, Globe
+  GraduationCap, AlertTriangle, XCircle, PlayCircle, Send, Clock, DollarSign, Globe, Camera
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { isSupabaseConfigured } from '../../../lib/supabase'
-import { uploadLessonPdf } from '../../../lib/supabase-storage'
+import { uploadLessonPdf, uploadCourseCover } from '../../../lib/supabase-storage'
 import { uploadVideoToBunny } from '../../../lib/bunny-upload'
 import { generateId } from '../../../lib/id'
 import { DISCIPLINAS, TOPICOS_POR_DISCIPLINA } from '../../courses/data/taxonomy'
@@ -124,14 +124,11 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
 export default function TeacherCourseDetail() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuthStore()
-  const { courses, modules, lessons, topics, enrollments, messages, addModule, addLesson, updateModule, updateLesson, requestContentDeletion, requestCoursePublish, getTeacherName } = useCourseStore()
+  const { courses, modules, lessons, topics, enrollments, messages, addModule, addLesson, updateModule, updateLesson, requestContentDeletion, requestCoursePublish, updateCourseCover, getTeacherName } = useCourseStore()
   const { questions, addQuestion, deleteQuestion, updateQuestion } = useQuestionStore()
   const navigate = useNavigate()
 
   const course = courses.find(c => c.id === id)
-  if (course && course.teacherId !== user?.id) {
-    return <p className="text-center py-8 text-red-500">Você não tem permissão para acessar este curso.</p>
-  }
 
   const myModules = modules.filter(m => m.courseId === id).sort((a, b) => a.order - b.order)
   const myLessons = lessons.filter(l => myModules.some(m => m.id === l.moduleId))
@@ -174,6 +171,33 @@ export default function TeacherCourseDetail() {
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'module' | 'lesson' | 'question'; id: string; name: string; moduleId?: string } | null>(null)
   const [successMsg, setSuccessMsg] = useState('')
 
+  const [uploadingCover, setUploadingCover] = useState(false)
+  const [coverError, setCoverError] = useState('')
+  const coverInputRef = useRef<HTMLInputElement>(null)
+
+  const handleCoverChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !course) return
+    if (!file.type.startsWith('image/')) {
+      setCoverError('Selecione um arquivo de imagem.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setCoverError('A imagem deve ter no máximo 5MB.')
+      return
+    }
+    setCoverError('')
+    setUploadingCover(true)
+    const { url, error } = await uploadCourseCover(file, course.id)
+    setUploadingCover(false)
+    if (error) {
+      setCoverError(error)
+      return
+    }
+    updateCourseCover(course.id, url)
+  }
+
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [linkLessonId, setLinkLessonId] = useState('')
   const [selectedBankQuestions, setSelectedBankQuestions] = useState<string[]>([])
@@ -206,6 +230,7 @@ export default function TeacherCourseDetail() {
   }, [editingLessonId])
 
   if (!course) return <p className="text-center py-8">Curso não encontrado</p>
+  if (course.teacherId !== user?.id) return <p className="text-center py-8 text-red-500">Você não tem permissão para acessar este curso.</p>
 
   const handleAddModule = () => {
     if (!newModuleTitle.trim() || !user) return
@@ -467,6 +492,29 @@ export default function TeacherCourseDetail() {
 
   return (
     <div className="max-w-5xl mx-auto">
+      <div className="relative h-40 sm:h-48 rounded-2xl overflow-hidden mb-6 bg-gradient-to-br from-blue-500 to-purple-600">
+        {course.coverImageUrl ? (
+          <img src={course.coverImageUrl} alt={course.title} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <BookOpen className="w-12 h-12 text-white/70" />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-black/10" />
+        <button
+          onClick={() => coverInputRef.current?.click()}
+          disabled={uploadingCover}
+          className="absolute bottom-3 right-3 flex items-center gap-2 px-3.5 py-2 bg-white/95 hover:bg-white text-gray-800 rounded-xl text-sm font-medium shadow-sm transition-colors disabled:opacity-60"
+        >
+          {uploadingCover ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+          {course.coverImageUrl ? 'Alterar capa' : 'Adicionar capa'}
+        </button>
+        <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
+      </div>
+      {coverError && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 mb-6">{coverError}</p>
+      )}
+
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => navigate('/teacher/courses')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
           <ArrowLeft className="w-5 h-5 text-gray-600" />
