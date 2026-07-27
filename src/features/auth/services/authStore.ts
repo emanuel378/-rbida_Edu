@@ -21,6 +21,9 @@ interface AuthState {
   signUp: (name: string, email: string, password: string, role: 'aluno' | 'professor', acceptedTerms: boolean) => Promise<{ error: string | null }>
   logoutFromSupabase: () => Promise<void>
   loadFromSupabase: () => Promise<void>
+  updateProfile: (updates: { name?: string; phone?: string; cpf?: string; avatarUrl?: string }) => Promise<{ error: string | null }>
+  updatePassword: (newPassword: string) => Promise<{ error: string | null }>
+  uploadAvatar: (file: File) => Promise<{ error: string | null; url?: string }>
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -105,6 +108,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           role: profile.role,
           approved: profile.approved ?? false,
           lastLogin: new Date().toISOString(),
+          phone: profile.phone ?? undefined,
+          cpf: profile.cpf ?? undefined,
+          avatarUrl: profile.avatar_url ?? undefined,
         }
         localStorage.setItem('user', JSON.stringify(user))
         set({ user })
@@ -182,6 +188,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         role: p.role,
         approved: p.approved ?? false,
         lastLogin: p.last_login ?? undefined,
+        phone: p.phone ?? undefined,
+        cpf: p.cpf ?? undefined,
+        avatarUrl: p.avatar_url ?? undefined,
       }))
       set({ users, supabaseReady: true })
 
@@ -212,10 +221,61 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           role: profile.role,
           approved: profile.approved ?? false,
           lastLogin: new Date().toISOString(),
+          phone: profile.phone ?? undefined,
+          cpf: profile.cpf ?? undefined,
+          avatarUrl: profile.avatar_url ?? undefined,
         }
         localStorage.setItem('user', JSON.stringify(user))
         set({ user })
       }
     }
+  },
+
+  updateProfile: async (updates) => {
+    const current = get().user
+    if (!current) return { error: 'Usuário não autenticado.' }
+    if (!isSupabaseConfigured()) return { error: 'Supabase não configurado.' }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        ...(updates.name !== undefined && { name: updates.name }),
+        ...(updates.phone !== undefined && { phone: updates.phone }),
+        ...(updates.cpf !== undefined && { cpf: updates.cpf }),
+        ...(updates.avatarUrl !== undefined && { avatar_url: updates.avatarUrl }),
+      })
+      .eq('id', current.id)
+    if (error) return { error: error.message }
+
+    const user: User = { ...current, ...updates }
+    localStorage.setItem('user', JSON.stringify(user))
+    set({ user })
+    return { error: null }
+  },
+
+  updatePassword: async (newPassword) => {
+    if (!isSupabaseConfigured()) return { error: 'Supabase não configurado.' }
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) return { error: error.message }
+    return { error: null }
+  },
+
+  uploadAvatar: async (file) => {
+    const current = get().user
+    if (!current) return { error: 'Usuário não autenticado.' }
+    if (!isSupabaseConfigured()) return { error: 'Supabase não configurado.' }
+
+    const ext = file.name.split('.').pop() || 'jpg'
+    const path = `avatars/${current.id}-${Date.now()}.${ext}`
+    const { error: uploadError } = await supabase.storage
+      .from('education-files')
+      .upload(path, file, { upsert: true })
+    if (uploadError) return { error: uploadError.message }
+
+    const { data } = supabase.storage.from('education-files').getPublicUrl(path)
+    const url = data.publicUrl
+    const { error } = await get().updateProfile({ avatarUrl: url })
+    if (error) return { error }
+    return { error: null, url }
   },
 }))

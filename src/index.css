@@ -1,10 +1,73 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   body {
     @apply antialiased;
     font-family: 'Poppins', system-ui, -apple-system, sans-serif;
   }
+
+  /* Reescreve a escala de cinza para o modo escuro. Como o app inteiro usa
+     as classes gray (bg, text, border) como neutras, e nunca como tinta
+     branca sobre botao colorido, redefinir as variaveis de cor aqui propaga
+     automaticamente para hover, focus etc, sem editar cada componente. */
+  .dark {
+    color-scheme: dark;
+    --color-gray-50: #0f172a;
+    --color-gray-100: #1e293b;
+    --color-gray-200: #334155;
+    --color-gray-300: #475569;
+    --color-gray-400: #64748b;
+    --color-gray-500: #94a3b8;
+    --color-gray-600: #cbd5e1;
+    --color-gray-700: #e2e8f0;
+    --color-gray-800: #f1f5f9;
+    --color-gray-900: #f8fafc;
+  }
+
+  .dark body {
+    background-color: #0f172a;
+    color: #e2e8f0;
+  }
+}
+
+/* Fora de qualquer @layer: as camadas do Tailwind (base/components/utilities)
+   tem prioridade sobre especificidade dentro delas, entao regras que competem
+   diretamente com utilitarios (bg-white, gradientes) precisam ficar sem
+   camada para vencer a cascata. */
+
+/* bg-white e usado como superficie de cartao/modal em todo o app, entao
+   precisa de tratamento a parte: remapear a variavel --color-white
+   quebraria o texto e a borda brancos usados em botoes coloridos.
+   !important porque o plugin do Tailwind (modo dev) as vezes injeta essa
+   camada de utilitarios depois desta regra, o que inverteria a prioridade. */
+.dark .bg-white:not(.js-keep-white) {
+  background-color: #1e293b !important;
+}
+
+.dark input:not([type='checkbox']):not([type='radio']),
+.dark textarea,
+.dark select {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b;
+}
+
+/* Gradientes pastel de fundo (telas de login/landing) ficam claros demais
+   no escuro; troca para um degrade sobrio na mesma paleta do app. */
+.dark .from-blue-50 {
+  --tw-gradient-from: #0f172a !important;
+}
+.dark .via-white {
+  --tw-gradient-via: #111827 !important;
+}
+.dark .to-purple-50 {
+  --tw-gradient-to: #1e1b3a !important;
 }
 
 @layer components {

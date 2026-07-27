@@ -5,6 +5,9 @@ export interface User {
   role: 'aluno' | 'professor' | 'admin'
   approved?: boolean
   lastLogin?: string
+  phone?: string
+  cpf?: string
+  avatarUrl?: string
 }
 
 export interface Course {
