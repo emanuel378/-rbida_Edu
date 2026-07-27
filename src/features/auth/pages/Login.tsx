@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../services/authStore'
+import TermsModal from '../components/TermsModal'
+import type { LegalDoc } from '../data/legalDocs'
 import { LogIn, Loader2, AlertCircle, Mail } from 'lucide-react'
 
 export default function Login() {
@@ -12,6 +14,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [realError, setRealError] = useState<string | null>(null)
   const [pendingConfirmation, setPendingConfirmation] = useState(false)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [openDoc, setOpenDoc] = useState<LegalDoc['key'] | null>(null)
 
   const loginWithEmail = useAuthStore(s => s.loginWithEmail)
   const signUp = useAuthStore(s => s.signUp)
@@ -35,7 +39,7 @@ export default function Login() {
     setLoading(true)
     try {
       if (isSigningUp) {
-        const { error } = await signUp(signUpName, email, password, signUpRole)
+        const { error } = await signUp(signUpName, email, password, signUpRole, acceptedTerms)
         if (error) {
           setRealError(error)
           return
@@ -145,6 +149,32 @@ export default function Login() {
                 </div>
               )}
 
+              {isSigningUp && (
+                <label className="flex items-start gap-2 text-sm text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={acceptedTerms}
+                    onChange={e => setAcceptedTerms(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>
+                    Li e aceito o{' '}
+                    <button type="button" onClick={() => setOpenDoc('termo')} className="text-blue-600 underline hover:text-blue-700">
+                      Termo de Uso
+                    </button>
+                    , a{' '}
+                    <button type="button" onClick={() => setOpenDoc('privacidade')} className="text-blue-600 underline hover:text-blue-700">
+                      Política de Privacidade
+                    </button>{' '}
+                    e a{' '}
+                    <button type="button" onClick={() => setOpenDoc('cancelamento')} className="text-blue-600 underline hover:text-blue-700">
+                      Política de Cancelamento e Reembolso
+                    </button>{' '}
+                    da ÓrbitaEdu.
+                  </span>
+                </label>
+              )}
+
               {realError && (
                 <div className="flex items-start gap-2 p-3 bg-red-50 text-red-700 rounded-xl text-sm">
                   <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -154,7 +184,7 @@ export default function Login() {
 
               <button
                 onClick={handleRealSubmit}
-                disabled={loading || !email || !password || (isSigningUp && !signUpName)}
+                disabled={loading || !email || !password || (isSigningUp && (!signUpName || !acceptedTerms))}
                 className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
               >
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
@@ -162,7 +192,7 @@ export default function Login() {
               </button>
 
               <button
-                onClick={() => { setIsSigningUp(v => !v); setRealError(null); setPendingConfirmation(false) }}
+                onClick={() => { setIsSigningUp(v => !v); setRealError(null); setPendingConfirmation(false); setAcceptedTerms(false) }}
                 className="w-full text-center text-sm text-blue-600 hover:text-blue-700"
               >
                 {isSigningUp ? 'Já tenho conta, entrar' : 'Criar uma conta nova'}
@@ -171,6 +201,8 @@ export default function Login() {
           )}
         </div>
       </div>
+
+      {openDoc && <TermsModal docKey={openDoc} onClose={() => setOpenDoc(null)} />}
     </div>
   )
 }
