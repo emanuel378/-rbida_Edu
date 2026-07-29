@@ -51,6 +51,12 @@ export interface Topic {
   title: string
 }
 
+export interface Institution {
+  id: string
+  name: string
+  createdAt?: string
+}
+
 export interface Question {
   id: string
   code: string
@@ -61,6 +67,7 @@ export interface Question {
   options: string[]
   correctAnswer: number
   banca?: string
+  institutionId?: string
   assunto?: string
   nivel?: string
   ano?: string

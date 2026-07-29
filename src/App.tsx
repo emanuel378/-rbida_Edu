@@ -7,16 +7,19 @@ import { DashboardHome, MeusCursos, Cronograma, Desempenho, Configuracoes, Stude
 import { Course, Lesson, QuestionBank, QuestionBrowser, QuestionGeneratorAI, CourseMessages } from './features/courses'
 import { Simulado } from './features/simulado'
 import { TeacherDashboard, TeacherCourses, TeacherCourseDetail, TeacherSimulados, TeacherMessages } from './features/teacher'
-import { Admin, AdminAnalytics, AdminMessages } from './features/admin'
+import { Admin, AdminAnalytics, AdminMessages, AdminInstitutions } from './features/admin'
 import { useQuestionStore } from './features/courses/data/questionStore'
+import { useInstitutionStore } from './features/courses/data/institutionStore'
 
 export default function App() {
   const loadQuestions = useQuestionStore(s => s.loadQuestions)
   const loadAnswerHistory = useQuestionStore(s => s.loadAnswerHistory)
+  const loadInstitutions = useInstitutionStore(s => s.loadInstitutions)
 
   useEffect(() => {
     loadQuestions()
     loadAnswerHistory()
+    loadInstitutions()
   }, [])
 
   return (
@@ -71,6 +74,7 @@ export default function App() {
         }>
           <Route index element={<Admin />} />
           <Route path="analytics" element={<AdminAnalytics />} />
+          <Route path="institutions" element={<AdminInstitutions />} />
           <Route path="questions" element={<QuestionBank />} />
           <Route path="questions/editar" element={<QuestionBank />} />
           <Route path="question-bank" element={<QuestionBrowser />} />

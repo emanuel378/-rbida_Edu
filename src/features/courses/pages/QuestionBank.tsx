@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuestionStore } from '../data/questionStore'
+import { useInstitutionStore } from '../data/institutionStore'
 import { useAuthStore } from '../../auth/services/authStore'
 import { uploadQuestionMaterial } from '../../../lib/supabase-storage'
 import type { Question } from '../data/mock'
@@ -30,6 +31,7 @@ const EMPTY_FORM = {
   moduleId: '',
   topicId: '',
   banca: '',
+  institutionId: '',
   nivel: '',
   ano: '',
   gabaritoComentado: '',
@@ -127,9 +129,14 @@ function QuestionListPanel({ questions, filteredQuestions, searchTerm, onSearchC
 export default function QuestionBank() {
   const { user } = useAuthStore()
   const { questions, addQuestion, updateQuestion, deleteQuestion } = useQuestionStore()
+  const { institutions, loadInstitutions } = useInstitutionStore()
   const location = useLocation()
   const navigate = useNavigate()
   const isEditRoute = location.pathname.endsWith('/editar')
+
+  useEffect(() => {
+    loadInstitutions()
+  }, [loadInstitutions])
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null)
@@ -314,6 +321,7 @@ export default function QuestionBank() {
         topicId: form.topicId,
         assunto: form.topicId,
         banca: form.banca,
+        institutionId: form.institutionId || undefined,
         nivel: form.nivel,
         ano: form.ano,
         gabaritoComentado: form.gabaritoComentado,
@@ -355,6 +363,7 @@ export default function QuestionBank() {
       moduleId: question.moduleId || '',
       topicId: question.topicId || '',
       banca: question.banca || '',
+      institutionId: question.institutionId || '',
       nivel: question.nivel || '',
       ano: question.ano || '',
       gabaritoComentado: question.gabaritoComentado || '',
@@ -432,6 +441,7 @@ export default function QuestionBank() {
         topicId: editForm.topicId,
         assunto: editForm.topicId,
         banca: editForm.banca,
+        institutionId: editForm.institutionId || undefined,
         nivel: editForm.nivel,
         ano: editForm.ano,
         gabaritoComentado: editForm.gabaritoComentado,
@@ -764,8 +774,8 @@ export default function QuestionBank() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="p-6 space-y-5">
 
-            {/* Disciplina + Banca */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Disciplina + Banca + Instituição */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">DISCIPLINA</label>
                 <select
@@ -778,6 +788,17 @@ export default function QuestionBank() {
                 </select>
               </div>
               <BancaField isEdit={false} />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">INSTITUIÇÃO</label>
+                <select
+                  value={form.institutionId}
+                  onChange={e => setForm(prev => ({ ...prev, institutionId: e.target.value }))}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">Selecione a instituição...</option>
+                  {institutions.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                </select>
+              </div>
             </div>
 
             {/* Assunto */}
@@ -1111,6 +1132,18 @@ export default function QuestionBank() {
               </div>
 
               <BancaField isEdit={true} />
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">INSTITUIÇÃO</label>
+                <select
+                  value={editForm.institutionId}
+                  onChange={e => setEditForm(prev => ({ ...prev, institutionId: e.target.value }))}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">Selecione a instituição...</option>
+                  {institutions.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                </select>
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">ASSUNTO</label>

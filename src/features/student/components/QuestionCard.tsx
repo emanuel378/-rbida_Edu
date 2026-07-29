@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuestionStore } from '../../courses/data/questionStore'
+import { useInstitutionStore } from '../../courses/data/institutionStore'
 import { useAuthStore } from '../../auth/services/authStore'
 import type { Question } from '../../courses/data/mock'
 import { getDisciplinaLabel } from '../../courses/data/taxonomy'
@@ -104,6 +105,7 @@ export default function QuestionCard({ question, index, onAnswered }: Props) {
   const { user } = useAuthStore()
   const { questionStats, answerHistory, recordAnswer, getQuestionComments, addComment, reportQuestionError } = useQuestionStore()
   const { askQuestionDoubt } = useCourseStore()
+  const institutionName = useInstitutionStore(s => s.institutions.find(i => i.id === question.institutionId)?.name)
 
   const previousAnswer = answerHistory.find(r => r.questionId === question.id && r.userId === user?.id)
 
@@ -233,6 +235,7 @@ export default function QuestionCard({ question, index, onAnswered }: Props) {
         <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
           {question.ano && <span>Ano: <strong className="text-gray-700">{question.ano}</strong></span>}
           {question.banca && <span>Banca: <strong className="text-gray-700">{question.banca}</strong></span>}
+          {institutionName && <span>Instituição: <strong className="text-gray-700">{institutionName}</strong></span>}
           {question.nivel && <span>Nível: <strong className="text-gray-700">{question.nivel}</strong></span>}
         </div>
 

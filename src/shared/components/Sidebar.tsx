@@ -20,6 +20,7 @@ import {
   Database,
   Sparkles,
   Edit2,
+  Landmark,
 } from 'lucide-react'
 
 interface NavItem {
@@ -50,6 +51,7 @@ const teacherNavItems: NavItem[] = [
 
 const adminNavItems: NavItem[] = [
   { to: '/admin', icon: ShieldCheck, label: 'Painel', end: true },
+  { to: '/admin/institutions', icon: Landmark, label: 'Instituições', end: false },
   { to: '/admin/questions', icon: PlusCircle, label: 'Criar Questões', end: true },
   { to: '/admin/questions/editar', icon: Edit2, label: 'Editar Questões', end: false },
   { to: '/admin/question-bank', icon: Database, label: 'Banco de Questões', end: false },

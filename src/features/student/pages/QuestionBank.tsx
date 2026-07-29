@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuestionStore } from '../../courses/data/questionStore'
+import { useInstitutionStore } from '../../courses/data/institutionStore'
 import { useAuthStore } from '../../auth/services/authStore'
 import { DISCIPLINAS, TOPICOS_POR_DISCIPLINA } from '../../courses/data/taxonomy'
 import QuestionCard from '../components/QuestionCard'
@@ -10,13 +11,19 @@ type Situacao = '' | 'resolvidas' | 'nao_resolvidas' | 'acertei' | 'errei'
 
 export default function QuestionBank() {
   const { questions, loading, loadQuestions, answerHistory } = useQuestionStore()
+  const { institutions, loadInstitutions } = useInstitutionStore()
   const { user } = useAuthStore()
   const [localError, setLocalError] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadInstitutions()
+  }, [loadInstitutions])
 
   const [filterValues, setFilterValues] = useState({
     moduleId: '',
     topicId: '',
     banca: '',
+    institutionId: '',
     nivel: '',
     ano: '',
     situacao: '' as Situacao,
@@ -81,6 +88,7 @@ export default function QuestionBank() {
       if (appliedFilters.moduleId && q.moduleId !== appliedFilters.moduleId) return false
       if (appliedFilters.topicId && q.topicId !== appliedFilters.topicId) return false
       if (appliedFilters.banca && q.banca !== appliedFilters.banca) return false
+      if (appliedFilters.institutionId && q.institutionId !== appliedFilters.institutionId) return false
       if (appliedFilters.nivel && q.nivel !== appliedFilters.nivel) return false
       if (appliedFilters.ano && q.ano !== appliedFilters.ano) return false
       if (!justAnsweredIds.has(q.id)) {
@@ -100,10 +108,12 @@ export default function QuestionBank() {
   const applyFilters = () => setAppliedFilters(filterValues)
 
   const clearFilters = () => {
-    const empty: typeof filterValues = { moduleId: '', topicId: '', banca: '', nivel: '', ano: '', situacao: '', palavraChave: '' }
+    const empty: typeof filterValues = { moduleId: '', topicId: '', banca: '', institutionId: '', nivel: '', ano: '', situacao: '', palavraChave: '' }
     setFilterValues(empty)
     setAppliedFilters(empty)
   }
+
+  const getInstitutionName = (id?: string) => institutions.find(i => i.id === id)?.name || ''
 
   const removeFilter = (key: keyof typeof filterValues) => {
     const next = { ...filterValues, [key]: key === 'moduleId' ? '' : filterValues[key] }
@@ -117,6 +127,7 @@ export default function QuestionBank() {
       case 'moduleId': return `Disciplina: ${DISCIPLINAS.find(d => d.value === value)?.label || value}`
       case 'topicId': return `Assunto: ${value}`
       case 'banca': return `Banca: ${value}`
+      case 'institutionId': return `Instituição: ${getInstitutionName(value) || value}`
       case 'nivel': return `Nível: ${value}`
       case 'ano': return `Ano: ${value}`
       case 'palavraChave': return `Palavra-chave: ${value}`
@@ -240,6 +251,20 @@ export default function QuestionBank() {
                     <option value="">Todas as bancas</option>
                     {bancaOptions.map(v => (
                       <option key={v} value={v}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">INSTITUIÇÃO</label>
+                  <select
+                    value={filterValues.institutionId}
+                    onChange={e => setFilterValues({ ...filterValues, institutionId: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="">Todas as instituições</option>
+                    {institutions.map(i => (
+                      <option key={i.id} value={i.id}>{i.name}</option>
                     ))}
                   </select>
                 </div>

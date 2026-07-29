@@ -1,15 +1,21 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuestionStore } from '../data/questionStore'
+import { useInstitutionStore } from '../data/institutionStore'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
-import { Search, X, HelpCircle, BookOpen, Edit2, RefreshCw, AlertCircle, Loader2 } from 'lucide-react'
+import { Search, X, HelpCircle, BookOpen, Landmark, Edit2, RefreshCw, AlertCircle, Loader2 } from 'lucide-react'
 
 export default function QuestionBrowser() {
   const { questions, loading, loadQuestions } = useQuestionStore()
+  const { institutions, loadInstitutions } = useInstitutionStore()
   const [localError, setLocalError] = useState<string | null>(null)
   const navigate = useNavigate()
   const location = useLocation()
   const basePath = location.pathname.startsWith('/admin') ? '/admin' : '/teacher'
+
+  useEffect(() => {
+    loadInstitutions()
+  }, [loadInstitutions])
 
   const handleEdit = (questionId: string) => {
     navigate(`${basePath}/questions`, { state: { editQuestionId: questionId } })
@@ -19,6 +25,7 @@ export default function QuestionBrowser() {
     moduleId: '',
     topicId: '',
     banca: '',
+    institutionId: '',
     nivel: '',
     ano: '',
   })
@@ -87,9 +94,11 @@ export default function QuestionBrowser() {
   }
 
   const clearFilters = () => {
-    setFilterValues({ moduleId: '', topicId: '', banca: '', nivel: '', ano: '' })
+    setFilterValues({ moduleId: '', topicId: '', banca: '', institutionId: '', nivel: '', ano: '' })
     setAppliedFilters({})
   }
+
+  const getInstitutionName = (id?: string) => institutions.find(i => i.id === id)?.name || ''
 
   const removeFilter = (key: string) => {
     const next = { ...appliedFilters }
@@ -103,6 +112,7 @@ export default function QuestionBrowser() {
       case 'moduleId': return `Disciplina: ${value}`
       case 'topicId': return `Assunto: ${value}`
       case 'banca': return `Banca: ${value}`
+      case 'institutionId': return `Instituição: ${getInstitutionName(value) || value}`
       case 'nivel': return `Nível: ${value}`
       case 'ano': return `Ano: ${value}`
       default: return `${key}: ${value}`
@@ -188,6 +198,20 @@ export default function QuestionBrowser() {
                     <option value="">Todas as bancas</option>
                     {bancaOptions.map(v => (
                       <option key={v} value={v}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">INSTITUIÇÃO</label>
+                  <select
+                    value={filterValues.institutionId}
+                    onChange={e => setFilterValues({ ...filterValues, institutionId: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="">Todas as instituições</option>
+                    {institutions.map(i => (
+                      <option key={i.id} value={i.id}>{i.name}</option>
                     ))}
                   </select>
                 </div>
@@ -337,6 +361,12 @@ export default function QuestionBrowser() {
                         {q.banca && (
                           <span className="px-2 py-0.5 bg-orange-50 text-orange-600 rounded-md text-xs font-medium">
                             {q.banca}
+                          </span>
+                        )}
+                        {getInstitutionName(q.institutionId) && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-md text-xs font-medium">
+                            <Landmark className="w-3 h-3" />
+                            {getInstitutionName(q.institutionId)}
                           </span>
                         )}
                         {q.nivel && (
