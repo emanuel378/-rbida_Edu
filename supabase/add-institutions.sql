@@ -21,5 +21,10 @@ CREATE TABLE IF NOT EXISTS institutions (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- O dashboard do Supabase liga RLS por padrão em tabelas novas
+-- (sem nenhuma policy) — sem esta linha, INSERT/UPDATE/DELETE
+-- falham com "new row violates row-level security policy".
+ALTER TABLE institutions DISABLE ROW LEVEL SECURITY;
+
 ALTER TABLE questions
   ADD COLUMN IF NOT EXISTS institution_id TEXT;

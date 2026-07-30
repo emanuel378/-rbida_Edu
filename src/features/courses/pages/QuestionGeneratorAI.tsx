@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuestionStore } from '../data/questionStore'
+import { useInstitutionStore } from '../data/institutionStore'
 import { useAuthStore } from '../../auth/services/authStore'
 import { uploadQuestionMaterial } from '../../../lib/supabase-storage'
 import { generateQuestionsFromMaterial } from '../../../lib/ai-question-generator'
@@ -18,6 +19,7 @@ interface ReviewForm {
   moduleId: string
   topicId: string
   banca: string
+  institutionId: string
   nivel: string
   ano: string
   gabaritoComentado: string
@@ -40,7 +42,7 @@ interface ReviewItem {
 
 const EMPTY_FORM: ReviewForm = {
   question: '', options: ['', '', '', '', ''], correctAnswer: 0,
-  moduleId: '', topicId: '', banca: '', nivel: '', ano: '', gabaritoComentado: '',
+  moduleId: '', topicId: '', banca: '', institutionId: '', nivel: '', ano: '', gabaritoComentado: '',
   materialUrl: '', materialType: undefined, aulaRelacionada: '',
   questionImageUrl: '', optionImages: ['', '', '', '', ''],
   optionTypes: ['text', 'text', 'text', 'text', 'text'],
@@ -73,8 +75,13 @@ function isSupportedAnswerKeyFile(file: File): boolean {
 export default function QuestionGeneratorAI() {
   const { user } = useAuthStore()
   const { addQuestion } = useQuestionStore()
+  const { institutions, loadInstitutions } = useInstitutionStore()
   const mainFileInputRef = useRef<HTMLInputElement>(null)
   const answerKeyInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    loadInstitutions()
+  }, [loadInstitutions])
 
   const [defaultModuleId, setDefaultModuleId] = useState('')
   const [customInstructions, setCustomInstructions] = useState('')
@@ -168,6 +175,7 @@ export default function QuestionGeneratorAI() {
             moduleId,
             topicId,
             banca: g.banca || '',
+            institutionId: '',
             nivel: g.nivel || '',
             ano: g.ano || '',
             gabaritoComentado: g.gabaritoComentado || '',
@@ -305,6 +313,7 @@ export default function QuestionGeneratorAI() {
         topicId: form.topicId,
         assunto: form.topicId,
         banca: form.banca,
+        institutionId: form.institutionId || undefined,
         nivel: form.nivel,
         ano: form.ano,
         gabaritoComentado: form.gabaritoComentado,
@@ -554,6 +563,11 @@ export default function QuestionGeneratorAI() {
 
                 <div className="flex flex-wrap gap-2 mb-4">
                   {item.form.banca && <span className="px-2 py-1 rounded-md bg-blue-100 text-blue-700 text-xs">{item.form.banca}</span>}
+                  {item.form.institutionId && (
+                    <span className="px-2 py-1 rounded-md bg-indigo-100 text-indigo-700 text-xs">
+                      {institutions.find(i => i.id === item.form.institutionId)?.name}
+                    </span>
+                  )}
                   {item.form.ano && <span className="px-2 py-1 rounded-md bg-purple-100 text-purple-700 text-xs">{item.form.ano}</span>}
                   {item.form.nivel && <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-600 text-xs">{item.form.nivel}</span>}
                   {item.form.moduleId && (
@@ -910,7 +924,7 @@ export default function QuestionGeneratorAI() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">BANCA</label>
                   <input
@@ -918,6 +932,17 @@ export default function QuestionGeneratorAI() {
                     onChange={e => setEditForm(prev => ({ ...prev, banca: e.target.value }))}
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">INSTITUIÇÃO</label>
+                  <select
+                    value={editForm.institutionId}
+                    onChange={e => setEditForm(prev => ({ ...prev, institutionId: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                  >
+                    <option value="">Selecione...</option>
+                    {institutions.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">NÍVEL</label>
