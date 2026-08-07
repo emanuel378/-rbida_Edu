@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useUiStore } from '../../features/dashboard/store/uiStore'
 import { useAuthStore } from '../../features/auth/services/authStore'
+import { useCourseStore, hasQuestionBankAccess } from '../../features/courses/data/courseStore'
 import {
   LayoutDashboard,
   BookOpen,
@@ -64,6 +65,7 @@ const adminNavItems: NavItem[] = [
 export default function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUiStore()
   const { user, logout } = useAuthStore()
+  const { courses, getEnrollment } = useCourseStore()
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -71,7 +73,10 @@ export default function Sidebar() {
     navigate('/login')
   }
 
-  const navItems = user?.role === 'professor' ? teacherNavItems : user?.role === 'admin' ? adminNavItems : studentNavItems
+  const canAccessQuestionBank = hasQuestionBankAccess(user, courses, getEnrollment)
+
+  const navItems = (user?.role === 'professor' ? teacherNavItems : user?.role === 'admin' ? adminNavItems : studentNavItems)
+    .filter(item => canAccessQuestionBank || item.to !== '/dashboard/questions')
 
   return (
     <aside

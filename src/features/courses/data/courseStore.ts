@@ -5,6 +5,33 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabase'
 import { generateId } from '../../../lib/id'
 import { useQuestionStore } from './questionStore'
 
+const QUESTION_BANK_TITLE = 'banco de questoes'
+
+const normalizeTitle = (title: string) => {
+  let result = ''
+  for (const ch of title.trim().toLowerCase().normalize('NFD')) {
+    const code = ch.codePointAt(0) || 0
+    if (code < 0x300 || code > 0x36f) result += ch
+  }
+  return result
+}
+
+export const isQuestionBankCourse = (course: Course) => normalizeTitle(course.title) === QUESTION_BANK_TITLE
+
+export const getQuestionBankCourse = (courses: Course[]) => courses.find(isQuestionBankCourse)
+
+export const hasQuestionBankAccess = (
+  user: { id: string; role: string } | null,
+  courses: Course[],
+  getEnrollment: (userId: string, courseId: string) => Enrollment | undefined
+): boolean => {
+  if (!user) return false
+  if (user.role !== 'aluno') return true
+  const course = getQuestionBankCourse(courses)
+  if (!course) return false
+  return !!getEnrollment(user.id, course.id)
+}
+
 const initData = <T>(key: string, mockData: T[]): T[] => {
   if (key === 'modules') {
     const oldData = localStorage.getItem('disciplines')

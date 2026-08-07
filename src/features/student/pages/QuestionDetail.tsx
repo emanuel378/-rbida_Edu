@@ -1,5 +1,8 @@
+import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuestionStore } from '../../courses/data/questionStore'
+import { useAuthStore } from '../../auth/services/authStore'
+import { useCourseStore, hasQuestionBankAccess } from '../../courses/data/courseStore'
 import QuestionCard from '../components/QuestionCard'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 import { ArrowLeft, HelpCircle } from 'lucide-react'
@@ -8,8 +11,18 @@ export default function QuestionDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { questions } = useQuestionStore()
+  const { user } = useAuthStore()
+  const { courses, getEnrollment } = useCourseStore()
+
+  const canAccess = hasQuestionBankAccess(user, courses, getEnrollment)
+
+  useEffect(() => {
+    if (!canAccess) navigate('/dashboard/questions', { replace: true })
+  }, [canAccess, navigate])
 
   const question = questions.find(q => q.id === id)
+
+  if (!canAccess) return null
 
   if (!question) {
     return (

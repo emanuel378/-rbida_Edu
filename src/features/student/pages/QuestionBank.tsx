@@ -2,14 +2,72 @@ import { useState, useMemo, useEffect } from 'react'
 import { useQuestionStore } from '../../courses/data/questionStore'
 import { useInstitutionStore } from '../../courses/data/institutionStore'
 import { useAuthStore } from '../../auth/services/authStore'
+import { useCourseStore, hasQuestionBankAccess, getQuestionBankCourse } from '../../courses/data/courseStore'
 import { DISCIPLINAS, TOPICOS_POR_DISCIPLINA } from '../../courses/data/taxonomy'
 import QuestionCard from '../components/QuestionCard'
+import CheckoutModal from '../../courses/components/CheckoutModal'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
-import { Search, X, HelpCircle, RefreshCw, AlertCircle, Loader2 } from 'lucide-react'
+import { Search, X, HelpCircle, RefreshCw, AlertCircle, Loader2, Lock, ShoppingCart } from 'lucide-react'
 
 type Situacao = '' | 'resolvidas' | 'nao_resolvidas' | 'acertei' | 'errei'
 
-export default function QuestionBank() {
+function QuestionBankLocked() {
+  const { user } = useAuthStore()
+  const { courses, loadFromSupabase } = useCourseStore()
+  const [showCheckout, setShowCheckout] = useState(false)
+  const course = getQuestionBankCourse(courses)
+
+  return (
+    <div className="p-6 lg:p-8 max-w-4xl mx-auto">
+      <Breadcrumb items={[{ label: 'Banco de Questões' }]} />
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+        <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Lock className="w-8 h-8 text-blue-600" />
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Banco de Questões bloqueado</h1>
+        <p className="text-gray-500 max-w-md mx-auto mb-6">
+          {course
+            ? 'Adquira o acesso ao Banco de Questões para praticar com milhares de exercícios organizados por disciplina, banca e instituição.'
+            : 'O Banco de Questões ainda não está disponível para compra. Entre em contato com o administrador.'}
+        </p>
+        {course && (
+          <button
+            onClick={() => {
+              if (course.price > 0) {
+                setShowCheckout(true)
+                return
+              }
+              if (!user) return
+              useCourseStore.getState().enroll({
+                id: Date.now().toString(),
+                userId: user.id,
+                courseId: course.id,
+                progress: 0,
+                completedLessons: [],
+                createdAt: new Date().toISOString(),
+              })
+            }}
+            className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium text-sm"
+          >
+            <ShoppingCart className="w-4 h-4" />
+            {course.price > 0 ? `Comprar acesso — R$ ${course.price.toFixed(2)}` : 'Liberar acesso'}
+          </button>
+        )}
+      </div>
+
+      {showCheckout && course && user && (
+        <CheckoutModal
+          course={course}
+          user={user}
+          onClose={() => setShowCheckout(false)}
+          onPaid={() => loadFromSupabase()}
+        />
+      )}
+    </div>
+  )
+}
+
+function QuestionBankContent() {
   const { questions, loading, loadQuestions, answerHistory } = useQuestionStore()
   const { institutions, loadInstitutions } = useInstitutionStore()
   const { user } = useAuthStore()
@@ -389,4 +447,15 @@ export default function QuestionBank() {
       )}
     </div>
   )
+}
+
+export default function QuestionBank() {
+  const { user } = useAuthStore()
+  const { courses, getEnrollment } = useCourseStore()
+
+  if (!hasQuestionBankAccess(user, courses, getEnrollment)) {
+    return <QuestionBankLocked />
+  }
+
+  return <QuestionBankContent />
 }
