@@ -61,6 +61,7 @@ interface CourseState {
   approveCourse: (courseId: string) => void
   rejectCourse: (courseId: string) => void
   updateCoursePrice: (courseId: string, price: number) => void
+  adminUpdateCoursePrice: (courseId: string, price: number) => void
   updateCourseCover: (courseId: string, coverImageUrl: string) => void
   addModule: (module: Module) => void
   addLesson: (lesson: Lesson) => Promise<string | null>
@@ -181,6 +182,17 @@ export const useCourseStore = create<CourseState>((set, get) => {
         price,
         status: get().courses.find(c => c.id === courseId)?.status === 'approved' ? 'pending' : undefined,
       }).eq('id', courseId).then(({ error }) => { if (error) console.error(error) })
+    }
+  },
+
+  adminUpdateCoursePrice: (courseId, price) => {
+    const courses = get().courses.map(c =>
+      c.id === courseId ? { ...c, price } : c
+    )
+    set({ courses })
+    if (isSupabaseConfigured()) {
+      supabase.from('courses').update({ price }).eq('id', courseId)
+        .then(({ error }) => { if (error) console.error(error) })
     }
   },
 

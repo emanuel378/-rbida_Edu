@@ -124,7 +124,7 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
 export default function TeacherCourseDetail() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuthStore()
-  const { courses, modules, lessons, topics, enrollments, messages, addModule, addLesson, updateModule, updateLesson, requestContentDeletion, requestCoursePublish, updateCourseCover, getTeacherName } = useCourseStore()
+  const { courses, modules, lessons, topics, enrollments, messages, addModule, addLesson, updateModule, updateLesson, requestContentDeletion, requestCoursePublish, updateCourseCover, adminUpdateCoursePrice, deleteCourse, getTeacherName } = useCourseStore()
   const { questions, addQuestion, deleteQuestion, updateQuestion } = useQuestionStore()
   const navigate = useNavigate()
 
@@ -174,6 +174,24 @@ export default function TeacherCourseDetail() {
   const [uploadingCover, setUploadingCover] = useState(false)
   const [coverError, setCoverError] = useState('')
   const coverInputRef = useRef<HTMLInputElement>(null)
+
+  const [editingPrice, setEditingPrice] = useState(false)
+  const [priceInput, setPriceInput] = useState('')
+  const [showDeleteCourse, setShowDeleteCourse] = useState(false)
+
+  const handleSavePrice = () => {
+    if (!course) return
+    const price = parseFloat(priceInput.replace(',', '.'))
+    if (isNaN(price) || price < 0) return
+    adminUpdateCoursePrice(course.id, price)
+    setEditingPrice(false)
+  }
+
+  const handleDeleteCourse = () => {
+    if (!course) return
+    deleteCourse(course.id)
+    navigate('/admin')
+  }
 
   const handleCoverChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -230,7 +248,7 @@ export default function TeacherCourseDetail() {
   }, [editingLessonId])
 
   if (!course) return <p className="text-center py-8">Curso não encontrado</p>
-  if (course.teacherId !== user?.id) return <p className="text-center py-8 text-red-500">Você não tem permissão para acessar este curso.</p>
+  if (course.teacherId !== user?.id && user?.role !== 'admin') return <p className="text-center py-8 text-red-500">Você não tem permissão para acessar este curso.</p>
 
   const handleAddModule = () => {
     if (!newModuleTitle.trim() || !user) return
@@ -516,17 +534,42 @@ export default function TeacherCourseDetail() {
       )}
 
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => navigate('/teacher/courses')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+        <button onClick={() => navigate(user?.role === 'admin' ? '/admin' : '/teacher/courses')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
           <ArrowLeft className="w-5 h-5 text-gray-600" />
         </button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900">{course.title}</h1>
           <p className="text-gray-500 text-sm">{course.description}</p>
-          <div className="flex items-center gap-3 mt-2">
-            <div className="flex items-center gap-1.5 text-sm">
-              <DollarSign className="w-4 h-4 text-green-600" />
-              {course.price > 0 ? `R$ ${course.price.toFixed(2)}` : 'Gratuito'}
-            </div>
+          <div className="flex items-center gap-3 mt-2 flex-wrap">
+            {editingPrice ? (
+              <div className="flex items-center gap-1.5 text-sm">
+                <DollarSign className="w-4 h-4 text-green-600" />
+                <input
+                  type="number" min="0" step="0.01" autoFocus
+                  value={priceInput}
+                  onChange={e => setPriceInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSavePrice(); if (e.key === 'Escape') setEditingPrice(false) }}
+                  className="w-24 px-2 py-1 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button onClick={handleSavePrice} className="p-1 text-green-600 hover:bg-green-50 rounded-lg" title="Salvar">
+                  <Check className="w-4 h-4" />
+                </button>
+                <button onClick={() => setEditingPrice(false)} className="p-1 text-gray-400 hover:bg-gray-100 rounded-lg" title="Cancelar">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-sm">
+                <DollarSign className="w-4 h-4 text-green-600" />
+                {course.price > 0 ? `R$ ${course.price.toFixed(2)}` : 'Gratuito'}
+                {user?.role === 'admin' && (
+                  <button onClick={() => { setPriceInput(String(course.price)); setEditingPrice(true) }}
+                    className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar preço">
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
             <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
               course.status === 'approved' ? 'bg-green-100 text-green-700' :
               course.status === 'rejected' ? 'bg-red-100 text-red-700' :
@@ -541,6 +584,12 @@ export default function TeacherCourseDetail() {
             </span>
           </div>
         </div>
+        {user?.role === 'admin' && (
+          <button onClick={() => setShowDeleteCourse(true)}
+            className="flex items-center gap-2 px-4 py-2.5 text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors font-medium text-sm flex-shrink-0">
+            <Trash2 className="w-4 h-4" /> Excluir curso
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
@@ -1226,6 +1275,13 @@ export default function TeacherCourseDetail() {
         message={`Solicitar exclusão de "${deleteTarget?.name}"? O admin será notificado para aprovação.`}
         confirmText="Solicitar Exclusão"
         confirmColor="bg-orange-600 hover:bg-orange-700" />
+
+      <ConfirmModal open={showDeleteCourse} onClose={() => setShowDeleteCourse(false)}
+        onConfirm={handleDeleteCourse}
+        title="Excluir curso"
+        message={`Tem certeza que deseja excluir o curso "${course.title}"? Todos os módulos, aulas e questões vinculadas serão excluídos permanentemente. Essa ação não pode ser desfeita.`}
+        confirmText="Excluir curso"
+        confirmColor="bg-red-600 hover:bg-red-700" />
     </div>
   )
 }
