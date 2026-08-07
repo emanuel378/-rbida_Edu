@@ -1,4 +1,5 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useUiStore } from '../../features/dashboard/store/uiStore'
 import { useAuthStore } from '../../features/auth/services/authStore'
 import { useCourseStore, hasQuestionBankAccess } from '../../features/courses/data/courseStore'
@@ -6,22 +7,23 @@ import {
   LayoutDashboard,
   BookOpen,
   Calendar,
-  BarChart2,
   Settings,
   LogOut,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   GraduationCap,
   MessageCircle,
   HelpCircle,
   ShieldCheck,
   TrendingUp,
-  Users,
   PlusCircle,
   Database,
   Sparkles,
   Edit2,
   Landmark,
+  Wrench,
+  ClipboardList,
 } from 'lucide-react'
 
 interface NavItem {
@@ -31,33 +33,55 @@ interface NavItem {
   end?: boolean
 }
 
-const studentNavItems: NavItem[] = [
+interface NavGroup {
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  children: NavItem[]
+}
+
+type NavEntry = NavItem | NavGroup
+
+const isNavGroup = (entry: NavEntry): entry is NavGroup => 'children' in entry
+
+const studentNavItems: NavEntry[] = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/dashboard/cursos', icon: BookOpen, label: 'Meus Cursos', end: false },
   { to: '/dashboard/cronograma', icon: Calendar, label: 'Cronograma', end: false },
-  { to: '/dashboard/desempenho', icon: BarChart2, label: 'Desempenho', end: false },
   { to: '/dashboard/questions', icon: HelpCircle, label: 'Banco de Questões', end: false },
 ]
 
-const teacherNavItems: NavItem[] = [
+const teacherNavItems: NavEntry[] = [
   { to: '/teacher', icon: GraduationCap, label: 'Painel', end: true },
   { to: '/teacher/courses', icon: BookOpen, label: 'Meus Cursos', end: false },
-  { to: '/teacher/questions', icon: PlusCircle, label: 'Criar Questões', end: true },
-  { to: '/teacher/questions/editar', icon: Edit2, label: 'Editar Questões', end: false },
+  { to: '/teacher/simulados', icon: ClipboardList, label: 'Simulados', end: false },
   { to: '/teacher/question-bank', icon: Database, label: 'Banco de Questões', end: false },
-  { to: '/teacher/question-generator', icon: Sparkles, label: 'Gerador IA de Questões', end: false },
-  { to: '/dashboard/questions', icon: HelpCircle, label: 'Responder Questões', end: false },
+  {
+    label: 'Ferramentas',
+    icon: Wrench,
+    children: [
+      { to: '/teacher/questions', icon: PlusCircle, label: 'Criar Questões', end: true },
+      { to: '/teacher/questions/editar', icon: Edit2, label: 'Editar Questões', end: false },
+      { to: '/teacher/question-generator', icon: Sparkles, label: 'Gerador IA de Questões', end: false },
+      { to: '/dashboard/questions', icon: HelpCircle, label: 'Responder Questões', end: false },
+    ],
+  },
   { to: '/teacher/messages', icon: MessageCircle, label: 'Mensagens', end: false },
 ]
 
-const adminNavItems: NavItem[] = [
+const adminNavItems: NavEntry[] = [
   { to: '/admin', icon: ShieldCheck, label: 'Painel', end: true },
   { to: '/admin/institutions', icon: Landmark, label: 'Instituições', end: false },
-  { to: '/admin/questions', icon: PlusCircle, label: 'Criar Questões', end: true },
-  { to: '/admin/questions/editar', icon: Edit2, label: 'Editar Questões', end: false },
   { to: '/admin/question-bank', icon: Database, label: 'Banco de Questões', end: false },
-  { to: '/admin/question-generator', icon: Sparkles, label: 'Gerador IA de Questões', end: false },
-  { to: '/dashboard/questions', icon: HelpCircle, label: 'Responder Questões', end: false },
+  {
+    label: 'Ferramentas',
+    icon: Wrench,
+    children: [
+      { to: '/admin/questions', icon: PlusCircle, label: 'Criar Questões', end: true },
+      { to: '/admin/questions/editar', icon: Edit2, label: 'Editar Questões', end: false },
+      { to: '/admin/question-generator', icon: Sparkles, label: 'Gerador IA de Questões', end: false },
+      { to: '/dashboard/questions', icon: HelpCircle, label: 'Responder Questões', end: false },
+    ],
+  },
   { to: '/admin/messages', icon: MessageCircle, label: 'Mensagens', end: false },
   { to: '/admin/analytics', icon: TrendingUp, label: 'Analytics & Financeiro', end: false },
 ]
@@ -67,6 +91,8 @@ export default function Sidebar() {
   const { user, logout } = useAuthStore()
   const { courses, getEnrollment } = useCourseStore()
   const navigate = useNavigate()
+  const location = useLocation()
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set())
 
   const handleLogout = () => {
     logout()
@@ -75,8 +101,30 @@ export default function Sidebar() {
 
   const canAccessQuestionBank = hasQuestionBankAccess(user, courses, getEnrollment)
 
-  const navItems = (user?.role === 'professor' ? teacherNavItems : user?.role === 'admin' ? adminNavItems : studentNavItems)
-    .filter(item => canAccessQuestionBank || item.to !== '/dashboard/questions')
+  const rawNavItems = user?.role === 'professor' ? teacherNavItems : user?.role === 'admin' ? adminNavItems : studentNavItems
+
+  const navItems: NavEntry[] = rawNavItems
+    .map(entry => isNavGroup(entry)
+      ? { ...entry, children: entry.children.filter(c => canAccessQuestionBank || c.to !== '/dashboard/questions') }
+      : entry)
+    .filter(entry => isNavGroup(entry) ? entry.children.length > 0 : canAccessQuestionBank || entry.to !== '/dashboard/questions')
+
+  useEffect(() => {
+    const activeGroup = navItems.find(entry => isNavGroup(entry) && entry.children.some(c => location.pathname === c.to))
+    if (activeGroup && isNavGroup(activeGroup)) {
+      setOpenGroups(prev => (prev.has(activeGroup.label) ? prev : new Set(prev).add(activeGroup.label)))
+    }
+  }, [location.pathname]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleGroup = (label: string) => {
+    if (sidebarCollapsed) toggleSidebar()
+    setOpenGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(label)) next.delete(label)
+      else next.add(label)
+      return next
+    })
+  }
 
   return (
     <aside
@@ -106,30 +154,82 @@ export default function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-4 px-3 space-y-1">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg transition-all duration-200 ${
-                  sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'
-                } ${
-                  isActive
-                    ? 'bg-[#1a3a5c] text-white'
-                    : 'text-gray-500 hover:bg-gray-100 hover:text-[#1a3a5c]'
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : ''}`} />
-                  {!sidebarCollapsed && <span className="text-sm font-medium">{item.label}</span>}
-                </>
-              )}
-            </NavLink>
-          ))}
+        <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+          {navItems.map((entry) =>
+            isNavGroup(entry) ? (
+              <div key={entry.label}>
+                <button
+                  onClick={() => toggleGroup(entry.label)}
+                  className={`w-full flex items-center gap-3 rounded-lg transition-all duration-200 ${
+                    sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'
+                  } ${
+                    entry.children.some(c => location.pathname === c.to)
+                      ? 'bg-[#1a3a5c] text-white'
+                      : 'text-gray-500 hover:bg-gray-100 hover:text-[#1a3a5c]'
+                  }`}
+                >
+                  <entry.icon className={`w-5 h-5 flex-shrink-0 ${entry.children.some(c => location.pathname === c.to) ? 'text-white' : ''}`} />
+                  {!sidebarCollapsed && (
+                    <>
+                      <span className="text-sm font-medium flex-1 text-left">{entry.label}</span>
+                      {openGroups.has(entry.label) ? (
+                        <ChevronDown className="w-4 h-4 flex-shrink-0" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                      )}
+                    </>
+                  )}
+                </button>
+                {!sidebarCollapsed && openGroups.has(entry.label) && (
+                  <div className="mt-1 ml-4 pl-3 border-l border-gray-200 space-y-1">
+                    {entry.children.map(child => (
+                      <NavLink
+                        key={child.to}
+                        to={child.to}
+                        end={child.end}
+                        className={({ isActive }) =>
+                          `flex items-center gap-2.5 rounded-lg px-3 py-2 transition-colors ${
+                            isActive
+                              ? 'bg-[#1a3a5c] text-white'
+                              : 'text-gray-500 hover:bg-gray-100 hover:text-[#1a3a5c]'
+                          }`
+                        }
+                      >
+                        {({ isActive }) => (
+                          <>
+                            <child.icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : ''}`} />
+                            <span className="text-sm font-medium">{child.label}</span>
+                          </>
+                        )}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <NavLink
+                key={entry.to}
+                to={entry.to}
+                end={entry.end}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-lg transition-all duration-200 ${
+                    sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'
+                  } ${
+                    isActive
+                      ? 'bg-[#1a3a5c] text-white'
+                      : 'text-gray-500 hover:bg-gray-100 hover:text-[#1a3a5c]'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <entry.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : ''}`} />
+                    {!sidebarCollapsed && <span className="text-sm font-medium">{entry.label}</span>}
+                  </>
+                )}
+              </NavLink>
+            )
+          )}
         </nav>
 
         {/* Footer */}

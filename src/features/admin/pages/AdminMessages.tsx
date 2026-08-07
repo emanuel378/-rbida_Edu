@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useCourseStore } from '../../courses/data/courseStore'
 import { Reply, Flag, HelpCircle, Clock, CheckCircle2, Inbox } from 'lucide-react'
+import Breadcrumb from '../../../shared/components/Breadcrumb'
 
 export default function AdminMessages() {
   const { messages, replyMessage, loadFromSupabase } = useCourseStore()
@@ -85,7 +86,9 @@ export default function AdminMessages() {
   )
 
   return (
-    <div>
+    <div className="p-6 lg:p-8 max-w-7xl">
+      <Breadcrumb items={[{ label: 'Mensagens' }]} />
+
       <h1 className="text-3xl font-bold text-gray-900 mb-2">Mensagens</h1>
       <p className="text-gray-600 mb-8">Relatos de erro enviados pelos alunos no Banco de Questões</p>
 

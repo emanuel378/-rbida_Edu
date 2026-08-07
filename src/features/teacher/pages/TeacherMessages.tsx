@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useCourseStore } from '../../courses/data/courseStore'
 import { useAuthStore } from '../../auth/services/authStore'
 import { Reply, MessageCircle, BookOpen, Video, HelpCircle, Clock, CheckCircle2, Inbox } from 'lucide-react'
+import Breadcrumb from '../../../shared/components/Breadcrumb'
 
 type Origin = { icon: typeof Video; label: string; detail: string; classes: string }
 
@@ -135,7 +136,9 @@ export default function TeacherMessages() {
   }
 
   return (
-    <div>
+    <div className="p-6 lg:p-8 max-w-7xl">
+      <Breadcrumb items={[{ label: 'Mensagens' }]} />
+
       <h1 className="text-3xl font-bold text-gray-900 mb-2">Mensagens dos Alunos</h1>
       <p className="text-gray-600 mb-8">Responda às dúvidas dos alunos dos seus módulos</p>
 

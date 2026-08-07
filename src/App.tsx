@@ -10,16 +10,19 @@ import { TeacherDashboard, TeacherCourses, TeacherCourseDetail, TeacherSimulados
 import { Admin, AdminAnalytics, AdminMessages, AdminInstitutions } from './features/admin'
 import { useQuestionStore } from './features/courses/data/questionStore'
 import { useInstitutionStore } from './features/courses/data/institutionStore'
+import { useTeacherSimuladoStore } from './features/teacher/data/teacherSimuladoStore'
 
 export default function App() {
   const loadQuestions = useQuestionStore(s => s.loadQuestions)
   const loadAnswerHistory = useQuestionStore(s => s.loadAnswerHistory)
   const loadInstitutions = useInstitutionStore(s => s.loadInstitutions)
+  const loadSimulados = useTeacherSimuladoStore(s => s.loadFromSupabase)
 
   useEffect(() => {
-    loadQuestions()
+    loadQuestions().catch(() => {})
     loadAnswerHistory()
     loadInstitutions()
+    loadSimulados()
   }, [])
 
   return (

@@ -12,9 +12,11 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { isSupabaseConfigured } from '../../../lib/supabase'
 import { uploadLessonPdf, uploadCourseCover } from '../../../lib/supabase-storage'
 import { uploadVideoToBunny } from '../../../lib/bunny-upload'
+import { getBunnyEmbedUrl } from '../../../lib/bunny'
 import { generateId } from '../../../lib/id'
 import { DISCIPLINAS, TOPICOS_POR_DISCIPLINA } from '../../courses/data/taxonomy'
 import type { Question } from '../../courses/data/mock'
+import Breadcrumb from '../../../shared/components/Breadcrumb'
 
 const BANCAS_PREDEFINIDAS = [
   'Cebraspe', 'Fundação Getúlio Vargas - FGV', 'Fundação Carlos Chagas - FCC', 'Fundação Cesgranrio',
@@ -509,7 +511,9 @@ export default function TeacherCourseDetail() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+      <Breadcrumb items={[{ label: course.title }]} />
+
       <div className="relative h-40 sm:h-48 rounded-2xl overflow-hidden mb-6 bg-gradient-to-br from-blue-500 to-purple-600">
         {course.coverImageUrl ? (
           <img src={course.coverImageUrl} alt={course.title} className="w-full h-full object-cover" />
@@ -717,6 +721,10 @@ export default function TeacherCourseDetail() {
                         <div className="divide-y divide-gray-50">
                           {modLessons.map(lesson => {
                             const lessonQuestions = questions.filter(q => q.lessonId === lesson.id)
+                            const videoHref = lesson.videoProvider === 'bunny' && lesson.bunnyVideoId
+                              ? getBunnyEmbedUrl(lesson.bunnyVideoId)
+                              : lesson.videoUrl
+                            const pdfHref = lesson.pdfUrl && lesson.pdfUrl.startsWith('http') ? lesson.pdfUrl : ''
                             return (
                             <div key={lesson.id}>
                               <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors group">
@@ -738,12 +746,14 @@ export default function TeacherCourseDetail() {
                                       <span className="text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full flex-shrink-0">{lessonQuestions.length} questões</span>
                                     )}
                                     <div className="flex items-center gap-2">
-                                      <a href={lesson.videoUrl} target="_blank" rel="noopener noreferrer"
-                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Abrir vídeo">
-                                        <PlayCircle className="w-3.5 h-3.5" />
-                                      </a>
-                                      {lesson.pdfUrl && (
-                                        <a href={lesson.pdfUrl} target="_blank" rel="noopener noreferrer"
+                                      {videoHref && (
+                                        <a href={videoHref} target="_blank" rel="noopener noreferrer"
+                                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Abrir vídeo">
+                                          <PlayCircle className="w-3.5 h-3.5" />
+                                        </a>
+                                      )}
+                                      {pdfHref && (
+                                        <a href={pdfHref} target="_blank" rel="noopener noreferrer"
                                           className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Abrir PDF">
                                           <FileText className="w-3.5 h-3.5" />
                                         </a>
@@ -784,7 +794,7 @@ export default function TeacherCourseDetail() {
                                     <Edit2 className="w-3.5 h-3.5" />
                                   </button>
                                   <button onClick={() => setDeleteTarget({ type: 'question', id: q.id, name: q.question, moduleId: q.moduleId })}
-                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100" title="Excluir do banco permanentemente">
+                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100" title="Solicitar exclusão">
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 </div>

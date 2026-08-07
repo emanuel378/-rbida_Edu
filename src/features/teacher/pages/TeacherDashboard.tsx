@@ -4,6 +4,7 @@ import { useAuthStore } from '../../auth/services/authStore'
 import { BookOpen, Video, HelpCircle, Plus, Clock, CheckCircle, XCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { Module, Lesson } from '../../courses/data/mock'
+import Breadcrumb from '../../../shared/components/Breadcrumb'
 
 export default function TeacherDashboard() {
   const { user } = useAuthStore()
@@ -21,7 +22,9 @@ export default function TeacherDashboard() {
   const rejectedCourses = myCourses.filter(c => c.status === 'rejected')
 
   return (
-    <div>
+    <div className="p-6 lg:p-8 max-w-7xl">
+      <Breadcrumb items={[{ label: 'Painel' }]} />
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Painel do Professor</h1>
         <p className="text-gray-600">Gerencie seus cursos e conteúdos</p>

@@ -93,9 +93,13 @@ function QuestionBankContent() {
 
   const handleRefresh = async () => {
     setLocalError(null)
-    await loadQuestions()
-    setRefreshKey(k => k + 1)
-    setJustAnsweredIds(new Set())
+    try {
+      await loadQuestions()
+      setRefreshKey(k => k + 1)
+      setJustAnsweredIds(new Set())
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : 'Erro ao carregar questões')
+    }
   }
 
   const markJustAnswered = (questionId: string) => {

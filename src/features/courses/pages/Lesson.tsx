@@ -73,7 +73,7 @@ export default function Lesson() {
   }
 
   if (!lesson) return (
-    <div className="text-center py-20">
+    <div className="p-6 lg:p-8 max-w-4xl mx-auto text-center py-20">
       <p className="text-gray-500 text-lg">Aula não encontrada</p>
       <Link to="/dashboard" className="text-blue-600 hover:underline mt-4 inline-block">
         Voltar ao Dashboard
@@ -86,7 +86,7 @@ export default function Lesson() {
   const nextLesson = currentIndex < courseLessons.length - 1 ? courseLessons[currentIndex + 1] : null
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-8rem)]">
+    <div className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-8rem)] p-6 lg:p-8">
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
         className="lg:hidden fixed top-20 left-4 z-40 p-2 bg-white rounded-lg shadow-md"
@@ -165,7 +165,7 @@ export default function Lesson() {
         />
       )}
 
-      <main className="flex-1 max-w-4xl w-full p-4 sm:p-6 mx-auto">
+      <main className="flex-1 max-w-4xl w-full mx-auto">
         {course && module && (
           <Breadcrumb items={[
             { label: 'Meus Cursos', to: '/dashboard/cursos' },

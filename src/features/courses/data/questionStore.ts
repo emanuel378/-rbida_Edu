@@ -81,6 +81,7 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
       set({ questions: data.map(ensureCode) })
     } catch (err) {
       console.error('Erro ao carregar questões do Supabase:', err)
+      throw err
     } finally {
       set({ loading: false })
     }

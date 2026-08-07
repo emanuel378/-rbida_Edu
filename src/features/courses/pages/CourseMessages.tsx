@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useCourseStore } from '../data/courseStore'
 import { useAuthStore } from '../../auth/services/authStore'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { generateId } from '../../../lib/id'
 import { Send, ArrowLeft, MessageCircle, Video, BookOpen, HelpCircle } from 'lucide-react'
+import Breadcrumb from '../../../shared/components/Breadcrumb'
 
 type Origin = { icon: typeof Video; label: string; classes: string }
 
@@ -87,12 +88,25 @@ export default function CourseMessages() {
     setText('')
   }
 
-  if (!course) return <p className="text-center py-8">Curso não encontrado</p>
+  if (!course) return (
+    <div className="p-6 lg:p-8 max-w-4xl mx-auto text-center py-20">
+      <p className="text-gray-500 text-lg">Curso não encontrado</p>
+      <Link to="/dashboard/cursos" className="text-blue-600 hover:underline mt-4 inline-block">
+        Voltar aos Meus Cursos
+      </Link>
+    </div>
+  )
 
   return (
-    <div>
+    <div className="p-6 lg:p-8 max-w-4xl mx-auto">
+      <Breadcrumb items={[
+        { label: 'Meus Cursos', to: '/dashboard/cursos' },
+        { label: course.title, to: `/dashboard/course/${id}` },
+        { label: 'Dúvidas' },
+      ]} />
+
       <div className="flex items-center gap-4 mb-8">
-        <button onClick={() => navigate(`/course/${id}`)} className="p-2 hover:bg-gray-100 rounded-lg">
+        <button onClick={() => navigate(`/dashboard/course/${id}`)} className="p-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>

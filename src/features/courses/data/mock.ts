@@ -173,9 +173,9 @@ export const mockTopics: Topic[] = [
 ]
 
 export const mockLessons: Lesson[] = [
-  { id: 'l1', moduleId: 'd1', title: 'Álgebra Básica', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', pdfUrl: '#', order: 1, videoProvider: 'youtube', bunnyVideoId: '', videoStatus: 'ready' },
-  { id: 'l2', moduleId: 'd1', title: 'Geometria Plana', videoUrl: 'https://www.youtube.com/watch?v=9bZkp7q19f0', pdfUrl: '#', order: 2, videoProvider: 'youtube', bunnyVideoId: '', videoStatus: 'ready' },
-  { id: 'l3', moduleId: 'd2', title: 'Interpretação de Texto', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', pdfUrl: '#', order: 1, videoProvider: 'youtube', bunnyVideoId: '', videoStatus: 'ready' },
+  { id: 'l1', moduleId: 'd1', title: 'Álgebra Básica', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', pdfUrl: '', order: 1, videoProvider: 'youtube', bunnyVideoId: '', videoStatus: 'ready' },
+  { id: 'l2', moduleId: 'd1', title: 'Geometria Plana', videoUrl: 'https://www.youtube.com/watch?v=9bZkp7q19f0', pdfUrl: '', order: 2, videoProvider: 'youtube', bunnyVideoId: '', videoStatus: 'ready' },
+  { id: 'l3', moduleId: 'd2', title: 'Interpretação de Texto', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', pdfUrl: '', order: 1, videoProvider: 'youtube', bunnyVideoId: '', videoStatus: 'ready' },
 ]
 
 export const mockQuestions: Question[] = [

@@ -4,6 +4,7 @@ import { useAuthStore } from '../../auth/services/authStore'
 import { useCourseStore } from '../../courses/data/courseStore'
 import { ShieldCheck, Users, BookOpen, CheckCircle, Clock, XCircle, DollarSign, UserCheck, UserX, Ban, Trash2, Globe, Download, Flag } from 'lucide-react'
 import { generateId } from '../../../lib/id'
+import Breadcrumb from '../../../shared/components/Breadcrumb'
 
 function exportStudentsCSV(users: any[], enrollments: any[], courses: any[]) {
   const alunos = users.filter(u => u.role === 'aluno')
@@ -55,7 +56,9 @@ export default function Admin() {
   const questionReports = messages.filter(m => m.type === 'question_report' && m.status === 'pending')
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-6xl mx-auto">
+      <Breadcrumb items={[{ label: 'Painel' }]} />
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
           <ShieldCheck className="w-8 h-8 text-blue-600" />

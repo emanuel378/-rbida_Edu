@@ -1,6 +1,7 @@
 import { useAuthStore } from '../../auth/services/authStore'
 import { useCourseStore } from '../../courses/data/courseStore'
 import { BarChart3 } from 'lucide-react'
+import Breadcrumb from '../../../shared/components/Breadcrumb'
 
 export default function AdminAnalytics() {
   const { users } = useAuthStore()
@@ -43,7 +44,9 @@ export default function AdminAnalytics() {
   const maxPop = Math.max(...pop.map(p => p.count), 1)
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-6xl mx-auto">
+      <Breadcrumb items={[{ label: 'Analytics & Financeiro' }]} />
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
           <BarChart3 className="w-8 h-8 text-blue-600" />

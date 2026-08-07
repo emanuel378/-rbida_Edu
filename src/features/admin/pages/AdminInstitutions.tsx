@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useInstitutionStore } from '../../courses/data/institutionStore'
 import { Landmark, Plus, Trash2, AlertCircle, Loader2 } from 'lucide-react'
+import Breadcrumb from '../../../shared/components/Breadcrumb'
 
 export default function AdminInstitutions() {
   const { institutions, loading, loadInstitutions, addInstitution, deleteInstitution } = useInstitutionStore()
@@ -41,7 +42,9 @@ export default function AdminInstitutions() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-3xl mx-auto">
+      <Breadcrumb items={[{ label: 'Instituições' }]} />
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
           <Landmark className="w-8 h-8 text-blue-600" />

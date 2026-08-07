@@ -22,6 +22,7 @@ const initData = (): TeacherSimulado[] => {
 interface TeacherSimuladoState {
   simulados: TeacherSimulado[]
   addSimulado: (simulado: Omit<TeacherSimulado, 'id' | 'createdAt'>) => void
+  deleteSimulado: (id: string) => void
   getSimulado: (id: string) => TeacherSimulado | undefined
   getSimuladosByTeacher: (teacherId: string) => TeacherSimulado[]
   getQuestions: (simuladoId: string, allQuestions: Question[]) => Question[]
@@ -50,6 +51,15 @@ export const useTeacherSimuladoStore = create<TeacherSimuladoState>((set, get) =
         time_limit: newSimulado.timeLimit,
         created_at: newSimulado.createdAt,
       }).then(({ error }) => { if (error) console.error('Erro ao salvar simulado no Supabase:', error) })
+    }
+  },
+
+  deleteSimulado: (id) => {
+    const simulados = get().simulados.filter(s => s.id !== id)
+    set({ simulados })
+    if (isSupabaseConfigured()) {
+      supabase.from('teacher_simulados').delete().eq('id', id)
+        .then(({ error }) => { if (error) console.error('Erro ao excluir simulado no Supabase:', error) })
     }
   },
 

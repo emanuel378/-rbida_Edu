@@ -3,16 +3,42 @@ import { useCourseStore } from '../../courses/data/courseStore'
 import { useQuestionStore } from '../../courses/data/questionStore'
 import { useAuthStore } from '../../auth/services/authStore'
 import { useTeacherSimuladoStore } from '../data/teacherSimuladoStore'
-import { BookOpen, Plus, Clock, Save } from 'lucide-react'
+import { BookOpen, Plus, Clock, Save, Trash2, AlertTriangle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { Course, Module, Question } from '../../courses/data/mock'
+import Breadcrumb from '../../../shared/components/Breadcrumb'
+
+function ConfirmModal({ open, onClose, onConfirm, title, message }: {
+  open: boolean; onClose: () => void; onConfirm: () => void; title: string; message: string
+}) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+        </div>
+        <p className="text-gray-600 mb-6">{message}</p>
+        <div className="flex gap-3 justify-end">
+          <button onClick={onClose} className="px-4 py-2.5 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors font-medium text-sm">Cancelar</button>
+          <button onClick={() => { onConfirm(); onClose() }} className="px-4 py-2.5 text-white rounded-xl transition-colors font-medium text-sm bg-red-600 hover:bg-red-700">Excluir</button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function TeacherSimulados() {
   const { user } = useAuthStore()
   const { courses, modules } = useCourseStore()
   const { questions } = useQuestionStore()
-  const { addSimulado, simulados } = useTeacherSimuladoStore()
+  const { addSimulado, deleteSimulado, simulados } = useTeacherSimuladoStore()
   const navigate = useNavigate()
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null)
 
   const myCourses: Course[] = courses.filter((c: Course) => c.teacherId === user?.id)
   const myModules: Module[] = modules.filter((m: Module) => myCourses.some((c: Course) => c.id === m.courseId))
@@ -54,7 +80,9 @@ export default function TeacherSimulados() {
   }
 
   return (
-    <div>
+    <div className="p-6 lg:p-8 max-w-7xl">
+      <Breadcrumb items={[{ label: 'Simulados' }]} />
+
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Simulados</h1>
@@ -198,11 +226,26 @@ export default function TeacherSimulados() {
                 <span className="text-xs text-gray-500">
                   {new Date(sim.createdAt).toLocaleDateString('pt-BR')}
                 </span>
+                <button
+                  onClick={() => setDeleteTarget({ id: sim.id, title: sim.title })}
+                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Excluir simulado"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => { if (deleteTarget) deleteSimulado(deleteTarget.id) }}
+        title="Excluir simulado"
+        message={`Tem certeza que deseja excluir o simulado "${deleteTarget?.title}"? Essa ação não pode ser desfeita.`}
+      />
     </div>
   )
 }

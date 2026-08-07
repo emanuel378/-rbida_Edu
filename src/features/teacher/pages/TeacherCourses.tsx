@@ -4,6 +4,7 @@ import { useAuthStore } from '../../auth/services/authStore'
 import { BookOpen, Plus, Trash2, ArrowLeft, X, Layers, Video, GraduationCap, AlertTriangle, Clock, CheckCircle, XCircle, DollarSign, Send } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { generateId } from '../../../lib/id'
+import Breadcrumb from '../../../shared/components/Breadcrumb'
 
 function ConfirmModal({ open, onClose, onConfirm, title, message, confirmText = 'Excluir', confirmColor = 'bg-red-600 hover:bg-red-700' }: {
   open: boolean; onClose: () => void; onConfirm: () => void; title: string; message: string; confirmText?: string; confirmColor?: string
@@ -100,7 +101,9 @@ export default function TeacherCourses() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+      <Breadcrumb items={[{ label: 'Meus Cursos' }]} />
+
       <div className="flex items-center gap-4 mb-8">
         <button onClick={() => navigate('/teacher')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
           <ArrowLeft className="w-5 h-5 text-gray-600" />

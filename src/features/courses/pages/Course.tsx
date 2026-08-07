@@ -26,7 +26,7 @@ export default function Course() {
   const totalLessons = lessons.filter(l => courseModules.some(m => m.id === l.moduleId)).length
 
   if (!course) return (
-    <div className="text-center py-20">
+    <div className="p-6 lg:p-8 max-w-5xl mx-auto text-center py-20">
       <p className="text-gray-500 text-lg">Curso não encontrado</p>
       <Link to="/dashboard" className="text-blue-600 hover:underline mt-4 inline-block">
         Voltar ao Dashboard

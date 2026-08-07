@@ -33,7 +33,11 @@ export default function QuestionBrowser() {
 
   const handleRefresh = async () => {
     setLocalError(null)
-    await loadQuestions()
+    try {
+      await loadQuestions()
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : 'Erro ao carregar questões')
+    }
   }
 
   const disciplinaOptions = useMemo(() => {
