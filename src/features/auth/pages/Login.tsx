@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../services/authStore'
 import TermsModal from '../components/TermsModal'
 import type { LegalDoc } from '../data/legalDocs'
@@ -20,6 +20,8 @@ export default function Login() {
   const loginWithEmail = useAuthStore(s => s.loginWithEmail)
   const signUp = useAuthStore(s => s.signUp)
   const navigate = useNavigate()
+  const location = useLocation()
+  const kicked = Boolean((location.state as { kicked?: boolean } | null)?.kicked)
 
   const goToRoleHome = (user: { role: 'aluno' | 'professor' | 'admin'; approved?: boolean }) => {
     if (user.role === 'admin') {
@@ -77,6 +79,13 @@ export default function Login() {
             <LogIn className="w-5 h-5 text-blue-600" />
             <h2 className="text-xl font-bold text-gray-900">Acesso ao Sistema</h2>
           </div>
+
+          {kicked && !pendingConfirmation && (
+            <div className="flex items-start gap-2 p-3 bg-amber-50 text-amber-700 rounded-xl text-sm mb-4">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>Sua conta foi acessada em outro aparelho. Por segurança, encerramos esta sessão. Faça login novamente.</span>
+            </div>
+          )}
 
           {pendingConfirmation ? (
             <div className="text-center py-4 space-y-4">

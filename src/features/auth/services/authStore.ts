@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { mockUsers, type User } from '../../courses/data/mock'
 import { supabase, isSupabaseConfigured } from '../../../lib/supabase'
+import { generateId } from '../../../lib/id'
 
 const loadUsers = (): User[] => {
   const saved = localStorage.getItem('users')
@@ -11,9 +12,13 @@ const loadUsers = (): User[] => {
 interface AuthState {
   user: User | null
   users: User[]
+  sessionToken: string | null
   supabaseReady: boolean
   login: (user: User) => void
   logout: () => void
+  claimSession: () => Promise<void>
+  ensureSessionToken: () => Promise<void>
+  checkSingleSession: () => Promise<boolean>
   approveTeacher: (userId: string) => void
   rejectTeacher: (userId: string) => Promise<{ error: string | null }>
   loadUsers: () => void
@@ -32,6 +37,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return saved ? JSON.parse(saved) : null
   })(),
   users: loadUsers(),
+  sessionToken: localStorage.getItem('sessionToken'),
   supabaseReady: false,
 
   login: (user) => {
@@ -41,7 +47,58 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: () => {
     localStorage.removeItem('user')
-    set({ user: null })
+    localStorage.removeItem('sessionToken')
+    set({ user: null, sessionToken: null })
+  },
+
+  // Grava um token novo em profiles.active_session_token, "derrubando"
+  // qualquer outro aparelho logado com a mesma conta de aluno — só
+  // deve ser chamado num login explícito (não numa restauração de sessão).
+  claimSession: async () => {
+    const user = get().user
+    if (!user || user.role !== 'aluno' || !isSupabaseConfigured()) return
+    const token = generateId()
+    localStorage.setItem('sessionToken', token)
+    set({ sessionToken: token })
+    await supabase.from('profiles').update({ active_session_token: token }).eq('id', user.id)
+  },
+
+  // Chamado ao restaurar uma sessão existente (refresh de página). Não
+  // "derruba" ninguém: só adota o token que já é deste aparelho, ou
+  // reivindica a sessão se ainda não houver nenhum token registrado.
+  ensureSessionToken: async () => {
+    const user = get().user
+    if (!user || user.role !== 'aluno' || !isSupabaseConfigured()) return
+    if (localStorage.getItem('sessionToken')) {
+      set({ sessionToken: localStorage.getItem('sessionToken') })
+      return
+    }
+    const { data } = await supabase.from('profiles').select('active_session_token').eq('id', user.id).maybeSingle()
+    const dbToken = (data as { active_session_token?: string | null } | null)?.active_session_token
+    if (dbToken) {
+      localStorage.setItem('sessionToken', dbToken)
+      set({ sessionToken: dbToken })
+      return
+    }
+    await get().claimSession()
+  },
+
+  // Compara o token local com o gravado no perfil. Se outro aparelho
+  // fez login depois (sobrescrevendo o token), desloga este aparelho.
+  checkSingleSession: async () => {
+    const user = get().user
+    const localToken = get().sessionToken
+    if (!user || user.role !== 'aluno' || !isSupabaseConfigured() || !localToken) return true
+    const { data } = await supabase.from('profiles').select('active_session_token').eq('id', user.id).maybeSingle()
+    const dbToken = (data as { active_session_token?: string | null } | null)?.active_session_token
+    if (dbToken && dbToken !== localToken) {
+      if (isSupabaseConfigured()) await supabase.auth.signOut()
+      localStorage.removeItem('user')
+      localStorage.removeItem('sessionToken')
+      set({ user: null, sessionToken: null })
+      return false
+    }
+    return true
   },
 
   approveTeacher: (userId) => {
@@ -114,6 +171,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
         localStorage.setItem('user', JSON.stringify(user))
         set({ user })
+        await get().claimSession()
       }
     }
     return { error: null }
@@ -163,6 +221,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (data.session) {
         localStorage.setItem('user', JSON.stringify(user))
         set({ user })
+        await get().claimSession()
       }
     }
     return { error: null }
@@ -173,7 +232,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await supabase.auth.signOut()
     }
     localStorage.removeItem('user')
-    set({ user: null })
+    localStorage.removeItem('sessionToken')
+    set({ user: null, sessionToken: null })
   },
 
   loadFromSupabase: async () => {
@@ -227,6 +287,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
         localStorage.setItem('user', JSON.stringify(user))
         set({ user })
+        await get().ensureSessionToken()
       }
     }
   },
