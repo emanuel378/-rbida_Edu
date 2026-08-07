@@ -410,38 +410,48 @@ function QuestionBankContent() {
             </div>
           )}
 
-          {/* Contador */}
-          <p className="text-sm text-gray-500 mb-4">
-            Foram encontradas <strong className="text-gray-800">{filteredQuestions.length}</strong>{' '}
-            {filteredQuestions.length === 1 ? 'questão' : 'questões'}
-          </p>
-
-          {/* Lista de questões */}
-          {filteredQuestions.length === 0 ? (
+          {activeFilterEntries.length === 0 ? (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
-              <HelpCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 text-lg font-medium">Nenhuma questão encontrada</p>
-              <p className="text-gray-400 text-sm mt-1">Tente ajustar os filtros ou clique em Atualizar para recarregar.</p>
-              <button
-                onClick={handleRefresh}
-                disabled={loading}
-                className="mt-4 flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium text-sm mx-auto disabled:opacity-50"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Atualizar
-              </button>
+              <Search className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 text-lg font-medium">Use os filtros acima para buscar questões</p>
+              <p className="text-gray-400 text-sm mt-1">Escolha ao menos um filtro para ver as questões correspondentes.</p>
             </div>
           ) : (
-            <div className="space-y-5">
-              {filteredQuestions.map((q, idx) => (
-                <QuestionCard
-                  key={`${q.id}-${refreshKey}`}
-                  question={q}
-                  index={idx + 1}
-                  onAnswered={() => markJustAnswered(q.id)}
-                />
-              ))}
-            </div>
+            <>
+              {/* Contador */}
+              <p className="text-sm text-gray-500 mb-4">
+                Foram encontradas <strong className="text-gray-800">{filteredQuestions.length}</strong>{' '}
+                {filteredQuestions.length === 1 ? 'questão' : 'questões'}
+              </p>
+
+              {/* Lista de questões */}
+              {filteredQuestions.length === 0 ? (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+                  <HelpCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 text-lg font-medium">Nenhuma questão encontrada</p>
+                  <p className="text-gray-400 text-sm mt-1">Tente ajustar os filtros ou clique em Atualizar para recarregar.</p>
+                  <button
+                    onClick={handleRefresh}
+                    disabled={loading}
+                    className="mt-4 flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium text-sm mx-auto disabled:opacity-50"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Atualizar
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  {filteredQuestions.map((q, idx) => (
+                    <QuestionCard
+                      key={`${q.id}-${refreshKey}`}
+                      question={q}
+                      index={idx + 1}
+                      onAnswered={() => markJustAnswered(q.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </>
       )}
