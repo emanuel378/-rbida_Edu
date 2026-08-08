@@ -20,6 +20,10 @@ export interface Course {
   createdAt: string
   published: boolean
   coverImageUrl?: string
+  // Preço promocional fixo no cartão, por curso (substitui o cálculo automático
+  // de repasse de taxa quando preenchido). Null/undefined = usa o cálculo padrão.
+  cardCashPrice?: number
+  card3xPrice?: number
 }
 
 export interface Module {

@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { ensureEnrollment } from '../_shared/enroll.ts'
 
 const ASAAS_WEBHOOK_TOKEN = Deno.env.get('ASAAS_WEBHOOK_TOKEN') ?? ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
@@ -65,27 +66,8 @@ Deno.serve(async (req) => {
       if (updateError) console.error('Falha ao marcar order como paga:', updateError.message)
     }
 
-    // Não depende de constraint UNIQUE(user_id, course_id) no banco: verifica
-    // explicitamente antes de inserir, pra ser idempotente mesmo se o Asaas
-    // reenviar o evento (retry) ou se o webhook rodar mais de uma vez.
-    const { data: existingEnrollment } = await admin
-      .from('enrollments')
-      .select('id')
-      .eq('user_id', order.user_id)
-      .eq('course_id', order.course_id)
-      .maybeSingle()
-
-    if (!existingEnrollment) {
-      const { error: enrollError } = await admin.from('enrollments').insert({
-        id: crypto.randomUUID(),
-        user_id: order.user_id,
-        course_id: order.course_id,
-        progress: 0,
-        completed_lessons: [],
-        created_at: new Date().toISOString(),
-      })
-      if (enrollError) console.error('Falha ao criar enrollment:', enrollError.message)
-    }
+    // Idempotente mesmo se o Asaas reenviar o evento (retry) ou o webhook rodar mais de uma vez.
+    await ensureEnrollment(admin, order.user_id, order.course_id)
   } else if (FAILED_EVENTS.has(event)) {
     if (order.status === 'pending') {
       await admin.from('orders').update({ status: 'failed' }).eq('id', order.id)

@@ -676,6 +676,8 @@ function mapRowToModel(key: string, row: any): any {
         createdAt: row.created_at ?? '',
         published: row.published ?? false,
         coverImageUrl: row.cover_image_url ?? '',
+        cardCashPrice: row.card_cash_price ?? undefined,
+        card3xPrice: row.card_3x_price ?? undefined,
       }
     case 'modules':
       return {
