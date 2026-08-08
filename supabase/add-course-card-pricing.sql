@@ -10,10 +10,12 @@ ALTER TABLE courses ADD COLUMN IF NOT EXISTS card_cash_price DECIMAL(10,2);
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS card_3x_price DECIMAL(10,2);
 
 -- Preço específico do curso BANCO DE QUESTÕES:
--- Pix e cartão à vista: R$ 49,90 (sem repasse de taxa no à vista)
+-- Pix: R$ 49,90
+-- Cartão à vista: sem preço fixo — usa o cálculo automático de repasse da taxa
+--   da Asaas (grossCardAmount), igual aos demais cursos (~R$ 51,94 pra 49,90 líquido)
 -- Cartão 3x: R$ 19,90 x 3 = R$ 59,70 no total (preço promocional fixo, não é o cálculo automático)
 UPDATE courses
 SET price = 49.90,
-    card_cash_price = 49.90,
+    card_cash_price = NULL,
     card_3x_price = 59.70
 WHERE title = 'BANCO DE QUESTÕES';
