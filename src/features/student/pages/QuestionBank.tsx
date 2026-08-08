@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useQuestionStore } from '../../courses/data/questionStore'
 import { useInstitutionStore } from '../../courses/data/institutionStore'
 import { useAuthStore } from '../../auth/services/authStore'
-import { useCourseStore, hasQuestionBankAccess, getQuestionBankCourse } from '../../courses/data/courseStore'
+import { useCourseStore, hasQuestionBankAccess, getQuestionBankCourse, isEnrollmentExpired } from '../../courses/data/courseStore'
 import { DISCIPLINAS, TOPICOS_POR_DISCIPLINA } from '../../courses/data/taxonomy'
 import QuestionCard from '../components/QuestionCard'
 import CheckoutModal from '../../courses/components/CheckoutModal'
@@ -13,9 +13,11 @@ type Situacao = '' | 'resolvidas' | 'nao_resolvidas' | 'acertei' | 'errei'
 
 function QuestionBankLocked() {
   const { user } = useAuthStore()
-  const { courses, loadFromSupabase } = useCourseStore()
+  const { courses, loadFromSupabase, getEnrollment } = useCourseStore()
   const [showCheckout, setShowCheckout] = useState(false)
   const course = getQuestionBankCourse(courses)
+  const enrollment = user && course ? getEnrollment(user.id, course.id) : undefined
+  const expired = isEnrollmentExpired(enrollment)
 
   return (
     <div className="p-6 lg:p-8 max-w-4xl mx-auto">
@@ -24,11 +26,15 @@ function QuestionBankLocked() {
         <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <Lock className="w-8 h-8 text-blue-600" />
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Banco de Questões bloqueado</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          {expired ? 'Seu acesso ao Banco de Questões expirou' : 'Banco de Questões bloqueado'}
+        </h1>
         <p className="text-gray-500 max-w-md mx-auto mb-6">
-          {course
-            ? 'Adquira o acesso ao Banco de Questões para praticar com milhares de exercícios organizados por disciplina, banca e instituição.'
-            : 'O Banco de Questões ainda não está disponível para compra. Entre em contato com o administrador.'}
+          {expired
+            ? `Seu acesso de 3 meses terminou em ${new Date(enrollment!.expiresAt!).toLocaleDateString('pt-BR')}. Renove para continuar praticando com as questões.`
+            : course
+              ? 'Adquira o acesso ao Banco de Questões para praticar com milhares de exercícios organizados por disciplina, banca e instituição.'
+              : 'O Banco de Questões ainda não está disponível para compra. Entre em contato com o administrador.'}
         </p>
         {course && (
           <button
@@ -50,7 +56,9 @@ function QuestionBankLocked() {
             className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium text-sm"
           >
             <ShoppingCart className="w-4 h-4" />
-            {course.price > 0 ? `Comprar acesso — R$ ${course.price.toFixed(2)}` : 'Liberar acesso'}
+            {course.price > 0
+              ? `${expired ? 'Renovar acesso' : 'Comprar acesso'} — R$ ${course.price.toFixed(2)}`
+              : 'Liberar acesso'}
           </button>
         )}
       </div>

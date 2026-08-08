@@ -136,6 +136,8 @@ export interface Enrollment {
   progress: number
   completedLessons: string[]
   createdAt: string
+  // Preenchido só em cursos com acesso por tempo limitado (ex: Banco de Questões)
+  expiresAt?: string
 }
 
 export interface SimuladoResult {

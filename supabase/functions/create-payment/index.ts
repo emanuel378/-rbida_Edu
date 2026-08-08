@@ -146,12 +146,16 @@ Deno.serve(async (req) => {
 
   const { data: existingEnrollment } = await admin
     .from('enrollments')
-    .select('id')
+    .select('id, expires_at')
     .eq('user_id', userId)
     .eq('course_id', courseId)
     .maybeSingle()
 
-  if (existingEnrollment) {
+  // Curso com acesso por tempo limitado (expires_at preenchido) permite comprar de
+  // novo depois de expirado, pra renovar — nos demais casos, mantém o bloqueio de sempre.
+  const enrollmentStillActive = existingEnrollment && (!existingEnrollment.expires_at || new Date(existingEnrollment.expires_at) > new Date())
+
+  if (enrollmentStillActive) {
     return jsonResponse({ error: 'Você já está matriculado neste curso' }, 409)
   }
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { X, Copy, Check, QrCode, Loader2, AlertCircle, PartyPopper, CreditCard } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../../../lib/supabase'
+import { isQuestionBankCourse } from '../data/courseStore'
 import type { Course, User } from '../data/mock'
 
 interface CheckoutModalProps {
@@ -281,7 +282,7 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
   }
 
   const showForm = step === 'form' || step === 'loading' || step === 'error'
-  const isBancoDeQuestoes = course.title.trim().toUpperCase() === 'BANCO DE QUESTÕES'
+  const isBancoDeQuestoes = isQuestionBankCourse(course)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

@@ -20,6 +20,9 @@ export const isQuestionBankCourse = (course: Course) => normalizeTitle(course.ti
 
 export const getQuestionBankCourse = (courses: Course[]) => courses.find(isQuestionBankCourse)
 
+export const isEnrollmentExpired = (enrollment: Enrollment | undefined): boolean =>
+  !!enrollment?.expiresAt && new Date(enrollment.expiresAt) <= new Date()
+
 export const hasQuestionBankAccess = (
   user: { id: string; role: string } | null,
   courses: Course[],
@@ -29,7 +32,9 @@ export const hasQuestionBankAccess = (
   if (user.role !== 'aluno') return true
   const course = getQuestionBankCourse(courses)
   if (!course) return false
-  return !!getEnrollment(user.id, course.id)
+  const enrollment = getEnrollment(user.id, course.id)
+  if (!enrollment) return false
+  return !isEnrollmentExpired(enrollment)
 }
 
 const initData = <T>(key: string, mockData: T[]): T[] => {
@@ -713,6 +718,7 @@ function mapRowToModel(key: string, row: any): any {
         progress: row.progress ?? 0,
         completedLessons: row.completed_lessons ?? [],
         createdAt: row.created_at ?? '',
+        expiresAt: row.expires_at ?? undefined,
       }
     case 'comments':
       return {
