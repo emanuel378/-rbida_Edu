@@ -5,12 +5,12 @@ import TermsModal from '../components/TermsModal'
 import type { LegalDoc } from '../data/legalDocs'
 import { LogIn, Loader2, AlertCircle, Mail } from 'lucide-react'
 
-export default function Login() {
+export default function Login({ defaultSignUp = false }: { defaultSignUp?: boolean }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [signUpName, setSignUpName] = useState('')
   const [signUpRole, setSignUpRole] = useState<'aluno' | 'professor'>('aluno')
-  const [isSigningUp, setIsSigningUp] = useState(false)
+  const [isSigningUp, setIsSigningUp] = useState(defaultSignUp)
   const [loading, setLoading] = useState(false)
   const [realError, setRealError] = useState<string | null>(null)
   const [pendingConfirmation, setPendingConfirmation] = useState(false)

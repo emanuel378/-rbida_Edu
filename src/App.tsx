@@ -28,8 +28,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Landing />} />
+        <Route path="/" element={<Login defaultSignUp />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/landing" element={<Landing />} />
         <Route path="/pending" element={<Pending />} />
 
         {/* Rotas do Aluno */}
