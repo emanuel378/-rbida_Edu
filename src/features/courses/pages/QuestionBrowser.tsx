@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuestionStore } from '../data/questionStore'
 import { useInstitutionStore } from '../data/institutionStore'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
-import { Search, X, HelpCircle, BookOpen, Landmark, Edit2, RefreshCw, AlertCircle, Loader2 } from 'lucide-react'
+import { Search, X, HelpCircle, BookOpen, Landmark, Edit2, RefreshCw, AlertCircle, Loader2, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react'
 
 export default function QuestionBrowser() {
   const { questions, loading, loadQuestions } = useQuestionStore()
@@ -30,6 +30,7 @@ export default function QuestionBrowser() {
     ano: '',
   })
   const [appliedFilters, setAppliedFilters] = useState<Record<string, string>>({})
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const handleRefresh = async () => {
     setLocalError(null)
@@ -335,7 +336,7 @@ export default function QuestionBrowser() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-3">
-                        <p className="text-gray-900 font-medium leading-relaxed line-clamp-2">
+                        <p className={`text-gray-900 font-medium leading-relaxed ${expandedId === q.id ? '' : 'line-clamp-2'}`}>
                           {q.question}
                         </p>
                         <button
@@ -385,6 +386,65 @@ export default function QuestionBrowser() {
                         )}
                       </div>
                     </div>
+                  </div>
+
+                  {expandedId === q.id && (
+                    <div className="mt-4 pl-14 border-t border-gray-100 pt-4">
+                      {q.imageUrl && (
+                        <div className="mb-4">
+                          <img src={q.imageUrl} alt="Imagem da questão" className="max-w-md rounded-lg border border-gray-200" />
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        {q.options.map((opt, oi) => {
+                          const isCorrect = oi === q.correctAnswer
+                          return (
+                            <div
+                              key={oi}
+                              className={`flex items-start gap-3 px-4 py-2.5 rounded-xl text-sm border ${
+                                isCorrect
+                                  ? 'bg-green-50 border-green-200 text-green-800'
+                                  : 'bg-gray-50 border-gray-100 text-gray-700'
+                              }`}
+                            >
+                              <span className="font-semibold flex-shrink-0">{(oi + 1)}.</span>
+                              <span className="flex-1 leading-relaxed whitespace-pre-wrap">{opt}</span>
+                              {isCorrect && (
+                                <span className="flex items-center gap-1 text-xs font-medium text-green-700 flex-shrink-0">
+                                  <CheckCircle2 className="w-4 h-4" />
+                                  Gabarito
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                      {q.gabaritoComentado && (
+                        <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                          <p className="text-sm font-semibold text-blue-800 mb-1">Comentário do professor</p>
+                          <p className="text-sm text-blue-700 leading-relaxed whitespace-pre-wrap">{q.gabaritoComentado}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="mt-3 pl-14">
+                    <button
+                      onClick={() => setExpandedId(expandedId === q.id ? null : q.id)}
+                      className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                    >
+                      {expandedId === q.id ? (
+                        <>
+                          <ChevronUp className="w-4 h-4" />
+                          Ver menos
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="w-4 h-4" />
+                          Ver mais
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               ))}
