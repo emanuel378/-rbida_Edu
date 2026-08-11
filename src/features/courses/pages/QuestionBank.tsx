@@ -7,7 +7,8 @@ import { uploadQuestionMaterial } from '../../../lib/supabase-storage'
 import type { Question } from '../data/mock'
 import {
   Plus, CheckCircle, Upload, X as XIcon, FileText, Image as ImageIcon,
-  Edit2, Trash2, Eye, ChevronLeft, Save, AlertCircle, Loader2, Send, Search
+  Edit2, Trash2, Eye, ChevronLeft, Save, AlertCircle, Loader2, Send, Search,
+  ChevronDown, ChevronUp, CheckCircle2
 } from 'lucide-react'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 import { DISCIPLINAS, TOPICOS_POR_DISCIPLINA } from '../data/taxonomy'
@@ -55,6 +56,8 @@ function QuestionListPanel({ questions, filteredQuestions, searchTerm, onSearchC
   onEdit: (question: Question) => void
   onDelete: (id: string) => void
 }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
   return (
     <div className="space-y-4">
       {questions.length > 0 && (
@@ -89,38 +92,93 @@ function QuestionListPanel({ questions, filteredQuestions, searchTerm, onSearchC
           <p>Nenhuma questão encontrada para "{searchTerm}".</p>
         </div>
       ) : (
-        filteredQuestions.map((q, index) => (
-          <div key={q.id} className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-all">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 line-clamp-2">
-                  {index + 1}. {q.question}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {q.banca && <span className="px-2 py-1 rounded-md bg-blue-100 text-blue-700 text-xs">{q.banca}</span>}
-                  {q.ano && <span className="px-2 py-1 rounded-md bg-purple-100 text-purple-700 text-xs">{q.ano}</span>}
-                  {q.moduleId && (
-                    <span className="px-2 py-1 rounded-md bg-green-100 text-green-700 text-xs">
-                      {DISCIPLINAS.find(d => d.value === q.moduleId)?.label || q.moduleId}
-                    </span>
+        filteredQuestions.map((q, index) => {
+          const isExpanded = expandedId === q.id
+          return (
+            <div key={q.id} className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-all">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium text-gray-900 ${isExpanded ? '' : 'line-clamp-2'}`}>
+                    {index + 1}. {q.question}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {q.banca && <span className="px-2 py-1 rounded-md bg-blue-100 text-blue-700 text-xs">{q.banca}</span>}
+                    {q.ano && <span className="px-2 py-1 rounded-md bg-purple-100 text-purple-700 text-xs">{q.ano}</span>}
+                    {q.moduleId && (
+                      <span className="px-2 py-1 rounded-md bg-green-100 text-green-700 text-xs">
+                        {DISCIPLINAS.find(d => d.value === q.moduleId)?.label || q.moduleId}
+                      </span>
+                    )}
+                    {q.nivel && <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-600 text-xs">{q.nivel}</span>}
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    Gabarito: {getCorrectLetter(q.correctAnswer)}
+                  </div>
+                </div>
+                <div className="flex gap-1 flex-shrink-0">
+                  <button onClick={() => onEdit(q)} className="p-1.5 hover:bg-blue-100 rounded-lg text-blue-600" title="Editar">
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => onDelete(q.id)} className="p-1.5 hover:bg-red-100 rounded-lg text-red-600" title="Excluir">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {isExpanded && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <div className="space-y-2">
+                    {q.options.map((opt, oi) => {
+                      const isCorrect = oi === q.correctAnswer
+                      return (
+                        <div
+                          key={oi}
+                          className={`flex items-start gap-2.5 px-3 py-2 rounded-lg text-sm border ${
+                            isCorrect
+                              ? 'bg-green-50 border-green-200 text-green-800'
+                              : 'bg-white border-gray-200 text-gray-700'
+                          }`}
+                        >
+                          <span className="font-semibold flex-shrink-0">{getCorrectLetter(oi)}</span>
+                          <span className="flex-1 leading-relaxed whitespace-pre-wrap">{opt}</span>
+                          {isCorrect && (
+                            <span className="flex items-center gap-1 text-xs font-medium text-green-700 flex-shrink-0">
+                              <CheckCircle2 className="w-4 h-4" />
+                              Gabarito
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {q.gabaritoComentado && (
+                    <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                      <p className="text-xs font-semibold text-blue-800 mb-0.5">Comentário do professor</p>
+                      <p className="text-sm text-blue-700 leading-relaxed whitespace-pre-wrap">{q.gabaritoComentado}</p>
+                    </div>
                   )}
-                  {q.nivel && <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-600 text-xs">{q.nivel}</span>}
                 </div>
-                <div className="mt-2 text-xs text-gray-500">
-                  Gabarito: {getCorrectLetter(q.correctAnswer)}
-                </div>
-              </div>
-              <div className="flex gap-1 flex-shrink-0">
-                <button onClick={() => onEdit(q)} className="p-1.5 hover:bg-blue-100 rounded-lg text-blue-600" title="Editar">
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button onClick={() => onDelete(q.id)} className="p-1.5 hover:bg-red-100 rounded-lg text-red-600" title="Excluir">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+              )}
+
+              <button
+                onClick={() => setExpandedId(isExpanded ? null : q.id)}
+                className="mt-2 flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
+              >
+                {isExpanded ? (
+                  <>
+                    <ChevronUp className="w-3.5 h-3.5" />
+                    Ver menos
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-3.5 h-3.5" />
+                    Ver mais
+                  </>
+                )}
+              </button>
             </div>
-          </div>
-        ))
+          )
+        })
       )}
     </div>
   )
