@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useAuthStore } from '../../auth/services/authStore'
 import { useThemeStore } from '../../../shared/store/themeStore'
 import { formatCPF, formatPhone, isValidCPF } from '../../../lib/cpf'
+import { validatePassword, passwordRuleErrors } from '../../../lib/password'
 import { Settings, User, Bell, Shield, Save, Mail, Phone, IdCard, Camera, Loader2, CheckCircle2, AlertCircle, Lock, Moon } from 'lucide-react'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 
@@ -120,8 +121,9 @@ export default function Configuracoes() {
 
   const handleChangePassword = async () => {
     setPasswordFeedback(null)
-    if (newPassword.length < 6) {
-      setPasswordFeedback({ type: 'error', message: 'A senha deve ter pelo menos 6 caracteres.' })
+    const validationError = validatePassword(newPassword)
+    if (validationError) {
+      setPasswordFeedback({ type: 'error', message: validationError })
       return
     }
     if (newPassword !== confirmPassword) {
@@ -272,6 +274,19 @@ export default function Configuracoes() {
                   onChange={e => setNewPassword(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a3a5c] focus:border-transparent"
                 />
+                <ul className="mt-2 space-y-1">
+                  {passwordRuleErrors(newPassword).map(({ rule, met }) => (
+                    <li
+                      key={rule}
+                      className={`flex items-center gap-1.5 text-xs ${
+                        met ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'
+                      }`}
+                    >
+                      {met ? <CheckCircle2 className="w-3.5 h-3.5" /> : <span className="w-3.5 h-3.5 flex items-center justify-center text-gray-400">•</span>}
+                      {rule}
+                    </li>
+                  ))}
+                </ul>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirmar senha</label>

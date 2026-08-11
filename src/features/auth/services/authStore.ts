@@ -23,7 +23,7 @@ interface AuthState {
   rejectTeacher: (userId: string) => Promise<{ error: string | null }>
   loadUsers: () => void
   loginWithEmail: (email: string, password: string) => Promise<{ error: string | null }>
-  signUp: (name: string, email: string, password: string, role: 'aluno' | 'professor', acceptedTerms: boolean) => Promise<{ error: string | null }>
+  signUp: (name: string, email: string, password: string, role: 'aluno' | 'professor', acceptedTerms: boolean, cpf: string) => Promise<{ error: string | null }>
   logoutFromSupabase: () => Promise<void>
   loadFromSupabase: () => Promise<void>
   updateProfile: (updates: { name?: string; phone?: string; cpf?: string; avatarUrl?: string }) => Promise<{ error: string | null }>
@@ -145,12 +145,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // criado no signUp (não havia sessão real naquele momento). Cria aqui,
       // no primeiro login com sessão de verdade, usando os metadados salvos.
       if (!profile) {
-        const meta = data.user.user_metadata as { name?: string; role?: 'aluno' | 'professor'; terms_accepted_at?: string } | null
+        const meta = data.user.user_metadata as { name?: string; role?: 'aluno' | 'professor'; cpf?: string; terms_accepted_at?: string } | null
         const role = meta?.role ?? 'aluno'
         const approved = role === 'aluno'
         const { data: created, error: profileError } = await supabase
           .from('profiles')
-          .insert({ id: data.user.id, name: meta?.name ?? email, email, role, approved, terms_accepted_at: meta?.terms_accepted_at ?? null })
+          .insert({ id: data.user.id, name: meta?.name ?? email, email, role, approved, cpf: meta?.cpf ?? null, terms_accepted_at: meta?.terms_accepted_at ?? null })
           .select('*')
           .single()
         if (profileError) return { error: profileError.message }
@@ -177,7 +177,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return { error: null }
   },
 
-  signUp: async (name, email, password, role, acceptedTerms) => {
+  signUp: async (name, email, password, role, acceptedTerms, cpf) => {
     if (!isSupabaseConfigured()) {
       return { error: 'Supabase não configurado.' }
     }
@@ -188,7 +188,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name, role, terms_accepted_at: termsAcceptedAt } },
+      options: { data: { name, role, cpf, terms_accepted_at: termsAcceptedAt } },
     })
     if (error) return { error: error.message }
 
@@ -205,6 +205,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           email,
           role,
           approved,
+          cpf,
           terms_accepted_at: termsAcceptedAt,
         })
         if (profileError) return { error: profileError.message }
@@ -217,6 +218,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         role,
         approved,
         lastLogin: new Date().toISOString(),
+        cpf,
       }
       if (data.session) {
         localStorage.setItem('user', JSON.stringify(user))

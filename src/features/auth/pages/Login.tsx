@@ -3,12 +3,15 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../services/authStore'
 import TermsModal from '../components/TermsModal'
 import type { LegalDoc } from '../data/legalDocs'
-import { LogIn, Loader2, AlertCircle, Mail } from 'lucide-react'
+import { validatePassword, passwordRuleErrors } from '../../../lib/password'
+import { formatCPF, isValidCPF } from '../../../lib/cpf'
+import { LogIn, Loader2, AlertCircle, Mail, CheckCircle2, IdCard } from 'lucide-react'
 
 export default function Login({ defaultSignUp = false }: { defaultSignUp?: boolean }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [signUpName, setSignUpName] = useState('')
+  const [signUpCpf, setSignUpCpf] = useState('')
   const [signUpRole, setSignUpRole] = useState<'aluno' | 'professor'>('aluno')
   const [isSigningUp, setIsSigningUp] = useState(defaultSignUp)
   const [loading, setLoading] = useState(false)
@@ -41,7 +44,16 @@ export default function Login({ defaultSignUp = false }: { defaultSignUp?: boole
     setLoading(true)
     try {
       if (isSigningUp) {
-        const { error } = await signUp(signUpName, email, password, signUpRole, acceptedTerms)
+        if (!signUpCpf || !isValidCPF(signUpCpf)) {
+          setRealError('CPF inválido.')
+          return
+        }
+        const validationError = validatePassword(password)
+        if (validationError) {
+          setRealError(validationError)
+          return
+        }
+        const { error } = await signUp(signUpName, email, password, signUpRole, acceptedTerms, signUpCpf.replace(/\D/g, ''))
         if (error) {
           setRealError(error)
           return
@@ -119,6 +131,22 @@ export default function Login({ defaultSignUp = false }: { defaultSignUp?: boole
                 </div>
               )}
 
+              {isSigningUp && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">CPF</label>
+                  <div className="relative">
+                    <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={signUpCpf}
+                      onChange={e => setSignUpCpf(formatCPF(e.target.value))}
+                      placeholder="000.000.000-00"
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
                 <input
@@ -137,6 +165,21 @@ export default function Login({ defaultSignUp = false }: { defaultSignUp?: boole
                   onChange={e => setPassword(e.target.value)}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                {isSigningUp && (
+                  <ul className="mt-2 space-y-1">
+                    {passwordRuleErrors(password).map(({ rule, met }) => (
+                      <li
+                        key={rule}
+                        className={`flex items-center gap-1.5 text-xs ${
+                          met ? 'text-green-600' : 'text-gray-400'
+                        }`}
+                      >
+                        {met ? <CheckCircle2 className="w-3.5 h-3.5" /> : <span className="w-3.5 h-3.5 flex items-center justify-center">•</span>}
+                        {rule}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               {isSigningUp && (
@@ -193,7 +236,7 @@ export default function Login({ defaultSignUp = false }: { defaultSignUp?: boole
 
               <button
                 onClick={handleRealSubmit}
-                disabled={loading || !email || !password || (isSigningUp && (!signUpName || !acceptedTerms))}
+                disabled={loading || !email || !password || (isSigningUp && (!signUpName || !signUpCpf || !acceptedTerms))}
                 className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
               >
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
