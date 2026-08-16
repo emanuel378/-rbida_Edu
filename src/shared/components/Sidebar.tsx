@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useUiStore } from '../../features/dashboard/store/uiStore'
 import { useAuthStore } from '../../features/auth/services/authStore'
-import { useCourseStore, hasQuestionBankAccess } from '../../features/courses/data/courseStore'
 import {
   LayoutDashboard,
   BookOpen,
@@ -89,7 +88,6 @@ const adminNavItems: NavEntry[] = [
 export default function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUiStore()
   const { user, logout } = useAuthStore()
-  const { courses, getEnrollment } = useCourseStore()
   const navigate = useNavigate()
   const location = useLocation()
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set())
@@ -99,15 +97,7 @@ export default function Sidebar() {
     navigate('/login')
   }
 
-  const canAccessQuestionBank = hasQuestionBankAccess(user, courses, getEnrollment)
-
-  const rawNavItems = user?.role === 'professor' ? teacherNavItems : user?.role === 'admin' ? adminNavItems : studentNavItems
-
-  const navItems: NavEntry[] = rawNavItems
-    .map(entry => isNavGroup(entry)
-      ? { ...entry, children: entry.children.filter(c => canAccessQuestionBank || c.to !== '/dashboard/questions') }
-      : entry)
-    .filter(entry => isNavGroup(entry) ? entry.children.length > 0 : canAccessQuestionBank || entry.to !== '/dashboard/questions')
+  const navItems: NavEntry[] = user?.role === 'professor' ? teacherNavItems : user?.role === 'admin' ? adminNavItems : studentNavItems
 
   useEffect(() => {
     const activeGroup = navItems.find(entry => isNavGroup(entry) && entry.children.some(c => location.pathname === c.to))
