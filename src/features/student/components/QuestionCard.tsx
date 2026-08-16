@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuestionStore, DAILY_FREE_QUESTION_LIMIT, getAnsweredTodayCount, wasAnsweredToday } from '../../courses/data/questionStore'
+import { useQuestionStore, DAILY_FREE_QUESTION_LIMIT, getAnsweredTodayCount } from '../../courses/data/questionStore'
 import { useInstitutionStore } from '../../courses/data/institutionStore'
 import { useAuthStore } from '../../auth/services/authStore'
 import type { Question } from '../../courses/data/mock'
@@ -112,14 +112,15 @@ export default function QuestionCard({ question, index, onAnswered, hasUnlimited
   const institutionName = useInstitutionStore(s => s.institutions.find(i => i.id === question.institutionId)?.name)
 
   const answeredTodayCount = user ? getAnsweredTodayCount(answerHistory, user.id) : 0
-  const questionAlreadyCountsToday = user ? wasAnsweredToday(answerHistory, user.id, question.id) : false
-  const limitReached = !!user && !hasUnlimitedAccess && !questionAlreadyCountsToday && answeredTodayCount >= DAILY_FREE_QUESTION_LIMIT
+  const previousAnswer = answerHistory.find(r => r.questionId === question.id && r.userId === user?.id)
+  // Ao bater o limite diário, só as questões que o aluno já resolveu (em qualquer dia)
+  // continuam abertas — as demais ficam borradas até ele assinar.
+  const dailyLimitReached = !!user && !hasUnlimitedAccess && answeredTodayCount >= DAILY_FREE_QUESTION_LIMIT
+  const isBlurred = dailyLimitReached && !previousAnswer
 
   const [showAuthGate, setShowAuthGate] = useState(false)
   const [showLimitReached, setShowLimitReached] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
-
-  const previousAnswer = answerHistory.find(r => r.questionId === question.id && r.userId === user?.id)
 
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
   const [justAnswered, setJustAnswered] = useState(false)
@@ -161,10 +162,6 @@ export default function QuestionCard({ question, index, onAnswered, hasUnlimited
     if (selectedAnswer === null) return
     if (!user) {
       setShowAuthGate(true)
-      return
-    }
-    if (limitReached) {
-      setShowLimitReached(true)
       return
     }
     submitAnswer(selectedAnswer)
@@ -250,6 +247,47 @@ export default function QuestionCard({ question, index, onAnswered, hasUnlimited
         </div>
       </div>
 
+      {isBlurred ? (
+        /* Questão nova bloqueada: limite diário atingido, conteúdo escondido até assinar */
+        <div className="relative">
+          <div className="p-6 space-y-5 blur-sm select-none pointer-events-none" aria-hidden="true">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+              {question.ano && <span>Ano: <strong className="text-gray-700">{question.ano}</strong></span>}
+              {question.banca && <span>Banca: <strong className="text-gray-700">{question.banca}</strong></span>}
+              {institutionName && <span>Instituição: <strong className="text-gray-700">{institutionName}</strong></span>}
+              {question.nivel && <span>Nível: <strong className="text-gray-700">{question.nivel}</strong></span>}
+            </div>
+            <p className="text-gray-900 leading-relaxed whitespace-pre-wrap text-lg">{question.question}</p>
+            <div className="space-y-3">
+              {question.options.map((opt, i) => (
+                <div key={i} className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-200">
+                  <span className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 bg-gray-100 text-gray-600">
+                    {LETTERS[i]}
+                  </span>
+                  <span className="text-gray-700 flex-1">{opt}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="absolute inset-0 flex items-center justify-center bg-white/75">
+            <div className="text-center px-6 max-w-xs">
+              <Lock className="w-8 h-8 text-orange-600 mx-auto mb-3" />
+              <p className="text-sm font-semibold text-gray-900 mb-1">Limite diário grátis atingido</p>
+              <p className="text-xs text-gray-500 mb-4">
+                Você já respondeu {DAILY_FREE_QUESTION_LIMIT} questões grátis hoje. Assine para ver e responder sem limites.
+              </p>
+              <button
+                onClick={() => setShowLimitReached(true)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium text-sm"
+              >
+                <ShoppingCart className="w-4 h-4" />
+                Assinar acesso ilimitado
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+      <>
       {/* Body */}
       <div className="p-6 space-y-5">
         <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
@@ -581,6 +619,8 @@ export default function QuestionCard({ question, index, onAnswered, hasUnlimited
             </>
           )}
         </div>
+      )}
+      </>
       )}
 
       {/* Lightbox */}
