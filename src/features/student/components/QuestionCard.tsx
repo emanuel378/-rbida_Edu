@@ -119,7 +119,6 @@ export default function QuestionCard({ question, index, onAnswered, hasUnlimited
   const isBlurred = dailyLimitReached && !previousAnswer
 
   const [showAuthGate, setShowAuthGate] = useState(false)
-  const [showLimitReached, setShowLimitReached] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
 
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
@@ -277,7 +276,7 @@ export default function QuestionCard({ question, index, onAnswered, hasUnlimited
                 Você já respondeu {DAILY_FREE_QUESTION_LIMIT} questões grátis hoje. Assine para ver e responder sem limites.
               </p>
               <button
-                onClick={() => setShowLimitReached(true)}
+                onClick={() => setShowCheckout(true)}
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium text-sm"
               >
                 <ShoppingCart className="w-4 h-4" />
@@ -673,36 +672,6 @@ export default function QuestionCard({ question, index, onAnswered, hasUnlimited
                 Já tenho conta — Entrar
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Popup de limite diário atingido */}
-      {showLimitReached && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowLimitReached(false)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
-            <button
-              onClick={() => setShowLimitReached(false)}
-              className="absolute top-4 right-4 p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5 text-gray-500" />
-            </button>
-            <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Lock className="w-7 h-7 text-orange-600" />
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Limite diário grátis atingido</h3>
-            <p className="text-sm text-gray-500 mb-6">
-              Você já respondeu {DAILY_FREE_QUESTION_LIMIT} questões grátis hoje. Assine o Banco de Questões para
-              praticar sem limites.
-            </p>
-            <button
-              onClick={() => { setShowLimitReached(false); setShowCheckout(true) }}
-              className="w-full flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium text-sm"
-            >
-              <ShoppingCart className="w-4 h-4" />
-              Assinar acesso ilimitado
-            </button>
           </div>
         </div>
       )}
