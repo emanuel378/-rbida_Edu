@@ -21,6 +21,23 @@ const STATS_KEY = 'question_stats'
 const HISTORY_KEY = 'answer_history'
 const DELETED_KEY = 'deleted_questions'
 
+// Limite diário de questões gratuitas para quem não tem acesso ilimitado
+// (ver hasQuestionBankAccess em courseStore.ts).
+export const DAILY_FREE_QUESTION_LIMIT = 5
+
+const isSameLocalDay = (isoTimestamp: string, reference: Date) =>
+  new Date(isoTimestamp).toDateString() === reference.toDateString()
+
+// answerHistory guarda no máximo 1 registro por (questionId, userId) — retentativas
+// atualizam o registro existente em vez de criar um novo (ver recordAnswer abaixo).
+// Por isso contar quantos registros de hoje existem já dá o número de questões
+// distintas respondidas hoje, sem precisar de uma tabela de tentativas separada.
+export const getAnsweredTodayCount = (history: QuestionAnswerRecord[], userId: string) =>
+  history.filter(r => r.userId === userId && isSameLocalDay(r.timestamp, new Date())).length
+
+export const wasAnsweredToday = (history: QuestionAnswerRecord[], userId: string, questionId: string) =>
+  history.some(r => r.userId === userId && r.questionId === questionId && isSameLocalDay(r.timestamp, new Date()))
+
 const loadStats = (): QuestionStats[] => {
   const saved = localStorage.getItem(STATS_KEY)
   if (!saved) {

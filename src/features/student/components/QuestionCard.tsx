@@ -1,13 +1,15 @@
 import { useState } from 'react'
-import { useQuestionStore } from '../../courses/data/questionStore'
+import { useNavigate } from 'react-router-dom'
+import { useQuestionStore, DAILY_FREE_QUESTION_LIMIT, getAnsweredTodayCount, wasAnsweredToday } from '../../courses/data/questionStore'
 import { useInstitutionStore } from '../../courses/data/institutionStore'
 import { useAuthStore } from '../../auth/services/authStore'
 import type { Question } from '../../courses/data/mock'
 import { getDisciplinaLabel } from '../../courses/data/taxonomy'
-import { useCourseStore } from '../../courses/data/courseStore'
+import { useCourseStore, getQuestionBankCourse } from '../../courses/data/courseStore'
+import CheckoutModal from '../../courses/components/CheckoutModal'
 import {
   CheckCircle, XCircle, Play, FileText, BarChart3, MessageCircle,
-  Flag, Send, X, ZoomIn, HelpCircle,
+  Flag, Send, X, ZoomIn, HelpCircle, LogIn, UserPlus, Lock, ShoppingCart,
 } from 'lucide-react'
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E']
@@ -99,13 +101,23 @@ interface Props {
   question: Question
   index?: number
   onAnswered?: () => void
+  hasUnlimitedAccess?: boolean
 }
 
-export default function QuestionCard({ question, index, onAnswered }: Props) {
+export default function QuestionCard({ question, index, onAnswered, hasUnlimitedAccess = false }: Props) {
+  const navigate = useNavigate()
   const { user } = useAuthStore()
   const { questionStats, answerHistory, recordAnswer, getQuestionComments, addComment, reportQuestionError } = useQuestionStore()
-  const { askQuestionDoubt } = useCourseStore()
+  const { askQuestionDoubt, courses, loadFromSupabase } = useCourseStore()
   const institutionName = useInstitutionStore(s => s.institutions.find(i => i.id === question.institutionId)?.name)
+
+  const answeredTodayCount = user ? getAnsweredTodayCount(answerHistory, user.id) : 0
+  const questionAlreadyCountsToday = user ? wasAnsweredToday(answerHistory, user.id, question.id) : false
+  const limitReached = !!user && !hasUnlimitedAccess && !questionAlreadyCountsToday && answeredTodayCount >= DAILY_FREE_QUESTION_LIMIT
+
+  const [showAuthGate, setShowAuthGate] = useState(false)
+  const [showLimitReached, setShowLimitReached] = useState(false)
+  const [showCheckout, setShowCheckout] = useState(false)
 
   const previousAnswer = answerHistory.find(r => r.questionId === question.id && r.userId === user?.id)
 
@@ -147,6 +159,14 @@ export default function QuestionCard({ question, index, onAnswered }: Props) {
 
   const handleAnswer = () => {
     if (selectedAnswer === null) return
+    if (!user) {
+      setShowAuthGate(true)
+      return
+    }
+    if (limitReached) {
+      setShowLimitReached(true)
+      return
+    }
     submitAnswer(selectedAnswer)
   }
 
@@ -578,6 +598,86 @@ export default function QuestionCard({ question, index, onAnswered }: Props) {
           <img src={zoomImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" />
         </div>
       )}
+
+      {/* Gate de login */}
+      {showAuthGate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowAuthGate(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+            <button
+              onClick={() => setShowAuthGate(false)}
+              className="absolute top-4 right-4 p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+            <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-7 h-7 text-blue-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Faça login para responder</h3>
+            <p className="text-sm text-gray-500 mb-6">
+              Crie uma conta gratuita ou entre para responder às questões e acompanhar seu desempenho.
+            </p>
+            <div className="flex flex-col gap-2.5">
+              <button
+                onClick={() => navigate('/')}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium text-sm"
+              >
+                <UserPlus className="w-4 h-4" />
+                Criar conta grátis
+              </button>
+              <button
+                onClick={() => navigate('/login')}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium text-sm"
+              >
+                <LogIn className="w-4 h-4" />
+                Já tenho conta — Entrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Popup de limite diário atingido */}
+      {showLimitReached && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowLimitReached(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+            <button
+              onClick={() => setShowLimitReached(false)}
+              className="absolute top-4 right-4 p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+            <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-7 h-7 text-orange-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Limite diário grátis atingido</h3>
+            <p className="text-sm text-gray-500 mb-6">
+              Você já respondeu {DAILY_FREE_QUESTION_LIMIT} questões grátis hoje. Assine o Banco de Questões para
+              praticar sem limites.
+            </p>
+            <button
+              onClick={() => { setShowLimitReached(false); setShowCheckout(true) }}
+              className="w-full flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium text-sm"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              Assinar acesso ilimitado
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showCheckout && user && (() => {
+        const course = getQuestionBankCourse(courses)
+        return course ? (
+          <CheckoutModal
+            course={course}
+            user={user}
+            onClose={() => setShowCheckout(false)}
+            onPaid={() => loadFromSupabase()}
+          />
+        ) : null
+      })()}
     </div>
   )
 }

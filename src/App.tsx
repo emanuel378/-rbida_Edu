@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { ProtectedRoute, AppLayout } from './shared'
 import { Landing } from './features/landing'
 import { Login, Pending } from './features/auth'
-import { DashboardHome, MeusCursos, Cronograma, Desempenho, Configuracoes, StudentQuestionBank, QuestionDetail } from './features/student'
+import { DashboardHome, MeusCursos, Cronograma, Desempenho, Configuracoes, StudentQuestionBank, QuestionDetail, PublicQuestions } from './features/student'
 import { Course, Lesson, QuestionBank, QuestionBrowser, QuestionGeneratorAI, CourseMessages } from './features/courses'
 import { Simulado } from './features/simulado'
 import { TeacherDashboard, TeacherCourses, TeacherCourseDetail, TeacherSimulados, TeacherMessages } from './features/teacher'
@@ -32,6 +32,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/landing" element={<Landing />} />
         <Route path="/pending" element={<Pending />} />
+        <Route path="/questoes" element={<PublicQuestions />} />
 
         {/* Rotas do Aluno */}
         <Route path="/dashboard" element={

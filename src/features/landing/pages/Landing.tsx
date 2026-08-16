@@ -94,6 +94,7 @@ export default function Landing() {
               <a href="#features" className="text-gray-600 hover:text-blue-600 transition-colors text-sm font-medium">Recursos</a>
               <a href="#cursos" className="text-gray-600 hover:text-blue-600 transition-colors text-sm font-medium">Cursos</a>
               <a href="#faq" className="text-gray-600 hover:text-blue-600 transition-colors text-sm font-medium">FAQ</a>
+              <button onClick={() => navigate('/questoes')} className="text-gray-600 hover:text-blue-600 transition-colors text-sm font-medium">Praticar Grátis</button>
             </div>
             <div className="flex items-center gap-3">
               <button

@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuestionStore } from '../../courses/data/questionStore'
 import { useAuthStore } from '../../auth/services/authStore'
@@ -14,15 +13,9 @@ export default function QuestionDetail() {
   const { user } = useAuthStore()
   const { courses, getEnrollment } = useCourseStore()
 
-  const canAccess = hasQuestionBankAccess(user, courses, getEnrollment)
-
-  useEffect(() => {
-    if (!canAccess) navigate('/dashboard/questions', { replace: true })
-  }, [canAccess, navigate])
+  const hasUnlimitedAccess = hasQuestionBankAccess(user, courses, getEnrollment)
 
   const question = questions.find(q => q.id === id)
-
-  if (!canAccess) return null
 
   if (!question) {
     return (
@@ -54,7 +47,7 @@ export default function QuestionDetail() {
         Voltar ao Banco de Questões
       </button>
 
-      <QuestionCard question={question} />
+      <QuestionCard question={question} hasUnlimitedAccess={hasUnlimitedAccess} />
     </div>
   )
 }

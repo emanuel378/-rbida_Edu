@@ -13,7 +13,7 @@ interface BreadcrumbProps {
 
 export default function Breadcrumb({ items }: BreadcrumbProps) {
   const user = useAuthStore(s => s.user)
-  const homeLink = user?.role === 'professor' ? '/teacher' : user?.role === 'admin' ? '/admin' : '/dashboard'
+  const homeLink = user?.role === 'professor' ? '/teacher' : user?.role === 'admin' ? '/admin' : user ? '/dashboard' : '/landing'
 
   return (
     <nav className="flex items-center gap-1 text-sm text-gray-500 mb-6">
