@@ -80,27 +80,27 @@ export default function Login({ defaultSignUp = false }: { defaultSignUp?: boole
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4 py-8 sm:py-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <img src="/logo-full.png" alt="ÓrbitaEdu" className="w-80 mx-auto mb-6 rounded-2xl shadow-lg shadow-blue-200" />
+        <div className="text-center mb-6 sm:mb-8">
+          <img src="/logo-full.png" alt="ÓrbitaEdu" className="w-56 sm:w-80 mx-auto mb-6 rounded-2xl shadow-lg shadow-blue-200" />
         </div>
 
         <button
           onClick={() => navigate('/questoes')}
-          className="w-full flex items-center gap-4 mb-6 p-5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-lg shadow-blue-200 hover:shadow-xl transition-all text-left group"
+          className="w-full flex items-center gap-3 sm:gap-4 mb-6 p-4 sm:p-5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-lg shadow-blue-200 hover:shadow-xl transition-all text-left group"
         >
-          <div className="w-12 h-12 bg-white/15 rounded-xl flex items-center justify-center flex-shrink-0">
-            <BookOpen className="w-6 h-6 text-white" />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/15 rounded-xl flex items-center justify-center flex-shrink-0">
+            <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
           </div>
-          <div className="flex-1">
-            <p className="text-white font-bold">Conheça o Banco de Questões</p>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-bold text-sm sm:text-base">Conheça o Banco de Questões</p>
             <p className="text-blue-100 text-xs mt-0.5">Pratique gratuitamente antes mesmo de criar sua conta</p>
           </div>
           <ArrowRight className="w-5 h-5 text-white flex-shrink-0 group-hover:translate-x-1 transition-transform" />
         </button>
 
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-5 sm:p-8">
           <div className="flex items-center gap-2 mb-6">
             <LogIn className="w-5 h-5 text-blue-600" />
             <h2 className="text-xl font-bold text-gray-900">Acesso ao Sistema</h2>
@@ -204,7 +204,7 @@ export default function Login({ defaultSignUp = false }: { defaultSignUp?: boole
                       <button
                         key={r}
                         onClick={() => setSignUpRole(r)}
-                        className={`flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-colors ${
+                        className={`flex-1 py-2.5 rounded-lg text-sm font-medium border-2 transition-colors ${
                           signUpRole === r ? 'border-blue-500 bg-blue-50 text-blue-900' : 'border-gray-200 text-gray-600'
                         }`}
                       >
