@@ -12,6 +12,7 @@ import { useQuestionStore } from './features/courses/data/questionStore'
 import { useInstitutionStore } from './features/courses/data/institutionStore'
 import { useCourseStore } from './features/courses/data/courseStore'
 import { useTeacherSimuladoStore } from './features/teacher/data/teacherSimuladoStore'
+import { useAuthStore } from './features/auth/services/authStore'
 
 export default function App() {
   const loadQuestions = useQuestionStore(s => s.loadQuestions)
@@ -19,6 +20,7 @@ export default function App() {
   const loadInstitutions = useInstitutionStore(s => s.loadInstitutions)
   const loadCourses = useCourseStore(s => s.loadFromSupabase)
   const loadSimulados = useTeacherSimuladoStore(s => s.loadFromSupabase)
+  const restoreSession = useAuthStore(s => s.restoreSession)
 
   useEffect(() => {
     loadQuestions().catch(() => {})
@@ -26,6 +28,7 @@ export default function App() {
     loadInstitutions()
     loadCourses()
     loadSimulados()
+    restoreSession()
   }, [])
 
   return (

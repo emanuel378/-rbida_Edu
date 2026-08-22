@@ -38,6 +38,7 @@ interface AuthState {
   ) => Promise<{ error: string | null }>
   logoutFromSupabase: () => Promise<void>
   loadFromSupabase: () => Promise<void>
+  restoreSession: () => Promise<void>
   updateProfile: (
     updates: {
       name?: string
@@ -566,6 +567,58 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         await get().ensureSessionToken()
       }
     }
+  },
+
+  // Reconcilia o usuário salvo no localStorage com a sessão real do Supabase.
+  // Sem isso, um "user" salvo de uma visita antiga (ou de outra aba) pode
+  // sobreviver a um logout que não tenha passado por logoutFromSupabase,
+  // fazendo a UI achar que o visitante está logado quando não está mais.
+  restoreSession: async () => {
+    if (!isSupabaseConfigured()) return
+
+    const { data } = await supabase.auth.getSession()
+    const sessionUser = data.session?.user
+
+    if (!sessionUser) {
+      if (get().user) {
+        localStorage.removeItem('user')
+        localStorage.removeItem('sessionToken')
+        set({ user: null, sessionToken: null })
+      }
+      return
+    }
+
+    if (get().user?.id === sessionUser.id) return
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', sessionUser.id)
+      .maybeSingle()
+
+    if (!profile) {
+      localStorage.removeItem('user')
+      localStorage.removeItem('sessionToken')
+      set({ user: null, sessionToken: null })
+      return
+    }
+
+    const user: User = {
+      id: profile.id,
+      name: profile.name,
+      email: profile.email,
+      role: profile.role,
+      approved: profile.approved ?? false,
+      lastLogin: new Date().toISOString(),
+      phone: profile.phone ?? undefined,
+      cpf: profile.cpf ?? undefined,
+      avatarUrl: profile.avatar_url ?? undefined,
+    }
+
+    localStorage.setItem('user', JSON.stringify(user))
+    set({ user })
+
+    await get().ensureSessionToken()
   },
 
   updateProfile: async (updates) => {

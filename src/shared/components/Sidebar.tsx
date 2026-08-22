@@ -87,13 +87,13 @@ const adminNavItems: NavEntry[] = [
 
 export default function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUiStore()
-  const { user, logout } = useAuthStore()
+  const { user, logoutFromSupabase } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set())
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logoutFromSupabase()
     navigate('/login')
   }
 
