@@ -94,9 +94,15 @@ export default function Landing() {
               <a href="#features" className="text-gray-600 hover:text-blue-600 transition-colors text-sm font-medium">Recursos</a>
               <a href="#cursos" className="text-gray-600 hover:text-blue-600 transition-colors text-sm font-medium">Cursos</a>
               <a href="#faq" className="text-gray-600 hover:text-blue-600 transition-colors text-sm font-medium">FAQ</a>
-              <button onClick={() => navigate('/questoes')} className="text-gray-600 hover:text-blue-600 transition-colors text-sm font-medium">Praticar Grátis</button>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate('/questoes')}
+                className="hidden sm:flex items-center gap-1.5 text-blue-600 hover:text-blue-700 transition-colors text-sm font-semibold px-4 py-2 rounded-xl hover:bg-blue-50"
+              >
+                <FileText className="w-4 h-4" />
+                Conheça o Banco de Questões
+              </button>
               <button
                 onClick={() => navigate('/login')}
                 className="text-gray-700 hover:text-blue-600 transition-colors text-sm font-medium px-4 py-2"
@@ -153,6 +159,13 @@ export default function Landing() {
                   Ver Cursos
                 </a>
               </div>
+              <button
+                onClick={() => navigate('/questoes')}
+                className="inline-flex items-center gap-2 mt-4 text-blue-100 hover:text-white transition-colors text-sm font-medium underline decoration-blue-300/50 underline-offset-4"
+              >
+                <FileText className="w-4 h-4" />
+                Ou conheça o Banco de Questões gratuitamente
+              </button>
               <div className="flex items-center gap-6 mt-10">
                 <div className="flex items-center gap-2">
                   <Users className="w-5 h-5 text-blue-200" />

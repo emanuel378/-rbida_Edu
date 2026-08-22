@@ -5,7 +5,7 @@ import TermsModal from '../components/TermsModal'
 import type { LegalDoc } from '../data/legalDocs'
 import { validatePassword, passwordRuleErrors } from '../../../lib/password'
 import { formatCPF, isValidCPF } from '../../../lib/cpf'
-import { LogIn, Loader2, AlertCircle, Mail, CheckCircle2, IdCard } from 'lucide-react'
+import { LogIn, Loader2, AlertCircle, Mail, CheckCircle2, IdCard, BookOpen, ArrowRight } from 'lucide-react'
 
 export default function Login({ defaultSignUp = false }: { defaultSignUp?: boolean }) {
   const [email, setEmail] = useState('')
@@ -85,6 +85,20 @@ export default function Login({ defaultSignUp = false }: { defaultSignUp?: boole
         <div className="text-center mb-8">
           <img src="/logo-full.png" alt="ÓrbitaEdu" className="w-80 mx-auto mb-6 rounded-2xl shadow-lg shadow-blue-200" />
         </div>
+
+        <button
+          onClick={() => navigate('/questoes')}
+          className="w-full flex items-center gap-4 mb-6 p-5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-lg shadow-blue-200 hover:shadow-xl transition-all text-left group"
+        >
+          <div className="w-12 h-12 bg-white/15 rounded-xl flex items-center justify-center flex-shrink-0">
+            <BookOpen className="w-6 h-6 text-white" />
+          </div>
+          <div className="flex-1">
+            <p className="text-white font-bold">Conheça o Banco de Questões</p>
+            <p className="text-blue-100 text-xs mt-0.5">Pratique gratuitamente antes mesmo de criar sua conta</p>
+          </div>
+          <ArrowRight className="w-5 h-5 text-white flex-shrink-0 group-hover:translate-x-1 transition-transform" />
+        </button>
 
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
           <div className="flex items-center gap-2 mb-6">
