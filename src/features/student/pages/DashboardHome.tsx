@@ -7,7 +7,14 @@ import ProgressBar from '../../../shared/components/ProgressBar'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 import CheckoutModal from '../../courses/components/CheckoutModal'
 import type { Course } from '../../courses/data/mock'
-import { BookOpen, ArrowRight, Clock, AlertCircle, ShoppingCart } from 'lucide-react'
+import { BookOpen, ArrowRight, Clock, AlertCircle, ShoppingCart, Mail, Phone } from 'lucide-react'
+import {
+  CONTACT_EMAIL,
+  CONTACT_WHATSAPP_DISPLAY,
+  CONTACT_WHATSAPP_LINK,
+  CONTACT_INSTAGRAM_HANDLE,
+  CONTACT_INSTAGRAM_LINK,
+} from '../../../shared/constants/contact'
 
 export default function DashboardHome() {
   const navigate = useNavigate()
@@ -161,6 +168,58 @@ export default function DashboardHome() {
           onPaid={() => loadFromSupabase()}
         />
       )}
+
+      <section className="mt-12 pt-8 border-t border-gray-100">
+        <h2 className="text-lg font-bold text-gray-800 mb-4">Precisa de ajuda? Fale com a gente</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <a
+            href={`mailto:${CONTACT_EMAIL}`}
+            className="flex items-center gap-3 bg-white hover:bg-gray-50 rounded-xl p-4 border border-gray-100 transition-colors"
+          >
+            <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+              <Mail className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900">E-mail</p>
+              <p className="text-xs text-gray-500 truncate">{CONTACT_EMAIL}</p>
+            </div>
+          </a>
+
+          <a
+            href={CONTACT_WHATSAPP_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 bg-white hover:bg-gray-50 rounded-xl p-4 border border-gray-100 transition-colors"
+          >
+            <div className="w-10 h-10 rounded-lg bg-green-50 text-green-600 flex items-center justify-center flex-shrink-0">
+              <Phone className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900">WhatsApp</p>
+              <p className="text-xs text-gray-500 truncate">{CONTACT_WHATSAPP_DISPLAY}</p>
+            </div>
+          </a>
+
+          <a
+            href={CONTACT_INSTAGRAM_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 bg-white hover:bg-gray-50 rounded-xl p-4 border border-gray-100 transition-colors"
+          >
+            <div className="w-10 h-10 rounded-lg bg-pink-50 text-pink-600 flex items-center justify-center flex-shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900">Instagram</p>
+              <p className="text-xs text-gray-500 truncate">{CONTACT_INSTAGRAM_HANDLE}</p>
+            </div>
+          </a>
+        </div>
+      </section>
     </div>
   )
 }

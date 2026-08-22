@@ -1,0 +1,5 @@
+export const CONTACT_EMAIL = 'orbitaeduoficial@gmail.com'
+export const CONTACT_WHATSAPP_DISPLAY = '(88) 98870-7236'
+export const CONTACT_WHATSAPP_LINK = 'https://wa.me/5588988707236'
+export const CONTACT_INSTAGRAM_HANDLE = '@orbitaeduoficial'
+export const CONTACT_INSTAGRAM_LINK = 'https://www.instagram.com/orbitaeduoficial/'

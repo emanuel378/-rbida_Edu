@@ -21,7 +21,16 @@ import {
   BarChart3,
   GraduationCap,
   DollarSign,
+  Mail,
+  Phone,
 } from 'lucide-react'
+import {
+  CONTACT_EMAIL,
+  CONTACT_WHATSAPP_DISPLAY,
+  CONTACT_WHATSAPP_LINK,
+  CONTACT_INSTAGRAM_HANDLE,
+  CONTACT_INSTAGRAM_LINK,
+} from '../../../shared/constants/contact'
 
 const faqData = [
   {
@@ -389,6 +398,66 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Contact Section */}
+      <section id="contato" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <span className="inline-block bg-blue-50 text-blue-600 text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
+              Atendimento
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+              Fale com a gente
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Nossos canais oficiais de atendimento. Fique atento a golpes: só usamos os contatos abaixo.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            <a
+              href={`mailto:${CONTACT_EMAIL}`}
+              className="flex flex-col items-center text-center bg-gray-50 hover:bg-gray-100 rounded-2xl p-8 border border-gray-100 transition-colors"
+            >
+              <div className="w-14 h-14 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4">
+                <Mail className="w-7 h-7" />
+              </div>
+              <h3 className="text-base font-bold text-gray-900 mb-1">E-mail</h3>
+              <p className="text-sm text-gray-600 break-all">{CONTACT_EMAIL}</p>
+            </a>
+
+            <a
+              href={CONTACT_WHATSAPP_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center text-center bg-gray-50 hover:bg-gray-100 rounded-2xl p-8 border border-gray-100 transition-colors"
+            >
+              <div className="w-14 h-14 rounded-xl bg-green-50 text-green-600 flex items-center justify-center mb-4">
+                <Phone className="w-7 h-7" />
+              </div>
+              <h3 className="text-base font-bold text-gray-900 mb-1">WhatsApp</h3>
+              <p className="text-sm text-gray-600">{CONTACT_WHATSAPP_DISPLAY}</p>
+            </a>
+
+            <a
+              href={CONTACT_INSTAGRAM_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center text-center bg-gray-50 hover:bg-gray-100 rounded-2xl p-8 border border-gray-100 transition-colors"
+            >
+              <div className="w-14 h-14 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center mb-4">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
+                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                  <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+                </svg>
+              </div>
+              <h3 className="text-base font-bold text-gray-900 mb-1">Instagram</h3>
+              <p className="text-sm text-gray-600">{CONTACT_INSTAGRAM_HANDLE}</p>
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* FAQ Section */}
       <section id="faq" className="py-20 bg-gray-50">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -491,9 +560,10 @@ export default function Landing() {
             <div>
               <h4 className="text-white font-semibold mb-4">Suporte</h4>
               <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:text-white transition-colors">Central de Ajuda</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Contato</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">WhatsApp</a></li>
+                <li><a href="#contato" className="hover:text-white transition-colors">Contato</a></li>
+                <li><a href={`mailto:${CONTACT_EMAIL}`} className="hover:text-white transition-colors">{CONTACT_EMAIL}</a></li>
+                <li><a href={CONTACT_WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">WhatsApp: {CONTACT_WHATSAPP_DISPLAY}</a></li>
+                <li><a href={CONTACT_INSTAGRAM_LINK} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Instagram: {CONTACT_INSTAGRAM_HANDLE}</a></li>
               </ul>
             </div>
             <div>

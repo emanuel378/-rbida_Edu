@@ -5,7 +5,14 @@ import TermsModal from '../components/TermsModal'
 import type { LegalDoc } from '../data/legalDocs'
 import { validatePassword, passwordRuleErrors } from '../../../lib/password'
 import { formatCPF, isValidCPF } from '../../../lib/cpf'
-import { LogIn, Loader2, AlertCircle, Mail, CheckCircle2, IdCard, BookOpen, ArrowRight } from 'lucide-react'
+import { LogIn, Loader2, AlertCircle, Mail, CheckCircle2, IdCard, BookOpen, ArrowRight, Phone } from 'lucide-react'
+import {
+  CONTACT_EMAIL,
+  CONTACT_WHATSAPP_DISPLAY,
+  CONTACT_WHATSAPP_LINK,
+  CONTACT_INSTAGRAM_HANDLE,
+  CONTACT_INSTAGRAM_LINK,
+} from '../../../shared/constants/contact'
 
 export default function Login({ defaultSignUp = false }: { defaultSignUp?: boolean }) {
   const [email, setEmail] = useState('')
@@ -265,6 +272,41 @@ export default function Login({ defaultSignUp = false }: { defaultSignUp?: boole
               </button>
             </div>
           )}
+        </div>
+
+        <div className="mt-6">
+          <p className="text-center text-xs text-gray-500 mb-3">Precisa de ajuda? Fale com a gente</p>
+          <div className="flex items-center justify-center gap-4 flex-wrap">
+            <a
+              href={`mailto:${CONTACT_EMAIL}`}
+              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-blue-600 transition-colors"
+            >
+              <Mail className="w-3.5 h-3.5" />
+              {CONTACT_EMAIL}
+            </a>
+            <a
+              href={CONTACT_WHATSAPP_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-blue-600 transition-colors"
+            >
+              <Phone className="w-3.5 h-3.5" />
+              {CONTACT_WHATSAPP_DISPLAY}
+            </a>
+            <a
+              href={CONTACT_INSTAGRAM_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-blue-600 transition-colors"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+              </svg>
+              {CONTACT_INSTAGRAM_HANDLE}
+            </a>
+          </div>
         </div>
       </div>
 
