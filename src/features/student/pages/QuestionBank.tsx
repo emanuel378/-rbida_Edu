@@ -17,6 +17,9 @@ function QuestionBankContent() {
   const { user } = useAuthStore()
   const { courses, getEnrollment, loadFromSupabase } = useCourseStore()
   const hasUnlimitedAccess = hasQuestionBankAccess(user, courses, getEnrollment)
+  // Sem acesso completo (visitante ou aluno sem assinatura) = modo de teste:
+  // só pode ver/responder uma amostra de DAILY_FREE_QUESTION_LIMIT questões.
+  const limitedAccess = !hasUnlimitedAccess
   const [localError, setLocalError] = useState<string | null>(null)
 
   const answeredTodayCount = user ? getAnsweredTodayCount(answerHistory, user.id) : 0
@@ -131,6 +134,13 @@ function QuestionBankContent() {
     })
   }, [questions, appliedFilters, resolvedQuestionIds, correctQuestionIds, incorrectQuestionIds, justAnsweredIds])
 
+  // No modo de teste o usuário vê no máximo DAILY_FREE_QUESTION_LIMIT questões,
+  // independentemente dos filtros — o restante do banco fica reservado para assinantes.
+  const visibleQuestions = useMemo(
+    () => (limitedAccess ? filteredQuestions.slice(0, DAILY_FREE_QUESTION_LIMIT) : filteredQuestions),
+    [filteredQuestions, limitedAccess]
+  )
+
   const applyFilters = () => setAppliedFilters(filterValues)
 
   const clearFilters = () => {
@@ -187,6 +197,20 @@ function QuestionBankContent() {
           Atualizar
         </button>
       </div>
+
+      {/* Aviso do modo de teste (amostra limitada do banco) */}
+      {limitedAccess && (
+        <div className="mb-6 flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl">
+          <Lock className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 text-sm">
+            <p className="font-semibold">Modo de teste — amostra grátis</p>
+            <p className="opacity-90">
+              Você pode ver e responder até {DAILY_FREE_QUESTION_LIMIT} questões de demonstração.
+              Assine o Banco de Questões para liberar o banco completo.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Uso diário grátis */}
       {user && !hasUnlimitedAccess && (
@@ -409,7 +433,7 @@ function QuestionBankContent() {
             </div>
           )}
 
-          {activeFilterEntries.length === 0 ? (
+          {!limitedAccess && activeFilterEntries.length === 0 ? (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
               <Search className="w-12 h-12 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-500 text-lg font-medium">Use os filtros acima para buscar questões</p>
@@ -419,12 +443,21 @@ function QuestionBankContent() {
             <>
               {/* Contador */}
               <p className="text-sm text-gray-500 mb-4">
-                Foram encontradas <strong className="text-gray-800">{filteredQuestions.length}</strong>{' '}
-                {filteredQuestions.length === 1 ? 'questão' : 'questões'}
+                {limitedAccess ? (
+                  <>
+                    Amostra grátis: <strong className="text-gray-800">{visibleQuestions.length}</strong>{' '}
+                    {visibleQuestions.length === 1 ? 'questão disponível' : 'questões disponíveis'} para teste
+                  </>
+                ) : (
+                  <>
+                    Foram encontradas <strong className="text-gray-800">{filteredQuestions.length}</strong>{' '}
+                    {filteredQuestions.length === 1 ? 'questão' : 'questões'}
+                  </>
+                )}
               </p>
 
               {/* Lista de questões */}
-              {filteredQuestions.length === 0 ? (
+              {visibleQuestions.length === 0 ? (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
                   <HelpCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500 text-lg font-medium">Nenhuma questão encontrada</p>
@@ -440,7 +473,7 @@ function QuestionBankContent() {
                 </div>
               ) : (
                 <div className="space-y-5">
-                  {filteredQuestions.map((q, idx) => (
+                  {visibleQuestions.map((q, idx) => (
                     <QuestionCard
                       key={`${q.id}-${refreshKey}`}
                       question={q}
