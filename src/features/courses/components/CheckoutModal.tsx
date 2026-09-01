@@ -117,10 +117,22 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
     return () => window.clearInterval(id)
   }, [order])
 
+  // O QR do Asaas pode ser válido por muito tempo (dias/meses, conforme a
+  // configuração de expiração da conta). Nesse caso não faz sentido uma
+  // contagem regressiva em minutos — mostra a data limite.
   const timeLabel = useMemo(() => {
+    if (secondsLeft >= 24 * 3600) {
+      const limit = new Date(Date.now() + secondsLeft * 1000)
+      return `Válido até ${limit.toLocaleDateString('pt-BR')}`
+    }
+    if (secondsLeft >= 3600) {
+      const h = Math.floor(secondsLeft / 3600)
+      const min = Math.floor((secondsLeft % 3600) / 60)
+      return `Expira em ${h}h${min.toString().padStart(2, '0')}`
+    }
     const m = Math.floor(secondsLeft / 60)
     const s = secondsLeft % 60
-    return `${m}:${s.toString().padStart(2, '0')}`
+    return `Expira em ${m}:${s.toString().padStart(2, '0')}`
   }, [secondsLeft])
 
   const checkOrderStatus = async (orderId: string) => {
@@ -552,7 +564,7 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
                     {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
                     {copied ? 'Copiado!' : 'Copiar código Pix'}
                   </button>
-                  <p className="text-xs text-gray-400">Expira em {timeLabel}</p>
+                  <p className="text-xs text-gray-400">{timeLabel}</p>
                   <div className="flex items-center justify-center gap-2 text-sm text-blue-600 pt-2">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Aguardando confirmação do pagamento...

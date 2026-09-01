@@ -159,9 +159,15 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Você já está matriculado neste curso' }, 409)
   }
 
-  // Reaproveita um pedido Pix ainda válido em vez de gerar cobranças duplicadas no Asaas
-  // (não se aplica a cartão: a cobrança é síncrona, então cada tentativa é uma cobrança nova)
+  // Reaproveita um pedido Pix recente em vez de gerar cobranças duplicadas no Asaas
+  // (não se aplica a cartão: a cobrança é síncrona, então cada tentativa é uma cobrança nova).
+  //
+  // Só reaproveita se foi criado nos últimos REUSE_WINDOW_MIN minutos: o QR do Asaas
+  // pode ficar válido por meses, então sem essa janela um checkout abandonado
+  // prenderia o aluno no mesmo QR "para sempre", sem conseguir gerar um novo.
+  const REUSE_WINDOW_MIN = 30
   if (paymentMethod === 'pix') {
+    const reuseSince = new Date(Date.now() - REUSE_WINDOW_MIN * 60 * 1000).toISOString()
     const { data: existingOrder } = await admin
       .from('orders')
       .select('id, amount, asaas_payment_id, pix_qr_code, pix_payload, pix_expires_at')
@@ -169,6 +175,7 @@ Deno.serve(async (req) => {
       .eq('course_id', courseId)
       .eq('status', 'pending')
       .gt('pix_expires_at', new Date().toISOString())
+      .gt('created_at', reuseSince)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
