@@ -46,6 +46,23 @@ async function functionErrorMessage(fnError: { message?: string; context?: { jso
   return fnError.message || 'Falha ao processar o pagamento. Tente novamente.'
 }
 
+// A create-payment valida a sessão com auth.getUser(token). Se não houver
+// sessão real (login mockado, refresh token expirado), o supabase-js manda a
+// chave publishable no lugar do JWT e a function volta 401 "Sessão inválida ou
+// expirada" — confuso pra quem está comprando. Aqui a gente checa a sessão
+// antes, dá uma mensagem clara, e manda o access_token explicitamente no
+// header (prioridade sobre o default do client).
+async function invokeCreatePayment(body: Record<string, unknown>) {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) {
+    throw new Error('Sua sessão expirou. Saia e entre novamente para continuar a compra.')
+  }
+  return supabase.functions.invoke('create-payment', {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    body,
+  })
+}
+
 function isValidCPF(value: string): boolean {
   const digits = value.replace(/\D/g, '')
   if (digits.length !== 11 || /^(\d)\1{10}$/.test(digits)) return false
@@ -244,8 +261,8 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
     setStep('loading')
     try {
       const digits = cpf.replace(/\D/g, '')
-      const { data, error: fnError } = await supabase.functions.invoke('create-payment', {
-        body: { courseId: course.id, name: user.name, cpf: digits, paymentMethod: 'pix' },
+      const { data, error: fnError } = await invokeCreatePayment({
+        courseId: course.id, name: user.name, cpf: digits, paymentMethod: 'pix',
       })
       if (fnError) throw new Error(await functionErrorMessage(fnError))
       if (data?.error) throw new Error(data.error)
@@ -268,8 +285,8 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
     setStep('loading')
     try {
       const digits = cpf.replace(/\D/g, '')
-      const { data, error: fnError } = await supabase.functions.invoke('create-payment', {
-        body: { courseId: course.id, name: user.name, cpf: digits, paymentMethod: 'boleto' },
+      const { data, error: fnError } = await invokeCreatePayment({
+        courseId: course.id, name: user.name, cpf: digits, paymentMethod: 'boleto',
       })
       if (fnError) throw new Error(await functionErrorMessage(fnError))
       if (data?.error) throw new Error(data.error)
@@ -296,25 +313,23 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
     setStep('loading')
     try {
       const digits = cpf.replace(/\D/g, '')
-      const { data, error: fnError } = await supabase.functions.invoke('create-payment', {
-        body: {
-          courseId: course.id,
-          name: user.name,
-          cpf: digits,
-          paymentMethod: 'credit_card',
-          installmentCount: installments,
-          card: {
-            holderName: cardHolderName.trim(),
-            number: cardDigits,
-            expiryMonth: expMonth,
-            expiryYear: `20${expYear}`,
-            ccv: cardCvv,
-          },
-          holderInfo: {
-            postalCode: cepDigits,
-            addressNumber: addressNumber.trim(),
-            phone: phoneDigits,
-          },
+      const { data, error: fnError } = await invokeCreatePayment({
+        courseId: course.id,
+        name: user.name,
+        cpf: digits,
+        paymentMethod: 'credit_card',
+        installmentCount: installments,
+        card: {
+          holderName: cardHolderName.trim(),
+          number: cardDigits,
+          expiryMonth: expMonth,
+          expiryYear: `20${expYear}`,
+          ccv: cardCvv,
+        },
+        holderInfo: {
+          postalCode: cepDigits,
+          addressNumber: addressNumber.trim(),
+          phone: phoneDigits,
         },
       })
       if (fnError) throw new Error(await functionErrorMessage(fnError))
