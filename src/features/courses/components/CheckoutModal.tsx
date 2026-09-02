@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { X, Copy, Check, QrCode, Loader2, AlertCircle, PartyPopper, CreditCard } from 'lucide-react'
+import { X, Copy, Check, QrCode, Loader2, AlertCircle, PartyPopper, CreditCard, Barcode, ExternalLink } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../../../lib/supabase'
 import { isQuestionBankCourse } from '../data/courseStore'
 import type { Course, User } from '../data/mock'
@@ -17,10 +17,20 @@ interface Order {
   qrCodeImage?: string
   payload?: string
   expiresAt?: string
+  boletoUrl?: string
+  boletoLine?: string
+  dueDate?: string
 }
 
-type PaymentMethod = 'pix' | 'credit_card'
-type Step = 'form' | 'loading' | 'qrcode' | 'analyzing' | 'paid' | 'error'
+type PaymentMethod = 'pix' | 'credit_card' | 'boleto'
+type Step = 'form' | 'loading' | 'qrcode' | 'boleto' | 'analyzing' | 'paid' | 'error'
+
+// Taxa fixa de emissão do boleto repassada ao aluno — espelha
+// supabase/functions/_shared/boletoFee.ts (lá é quem calcula o valor real).
+const BOLETO_FEE = 1.99
+function grossBoletoAmount(netAmount: number): number {
+  return Math.round((netAmount + BOLETO_FEE) * 100) / 100
+}
 
 function isValidCPF(value: string): boolean {
   const digits = value.replace(/\D/g, '')
@@ -144,7 +154,7 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
   }
 
   useEffect(() => {
-    if ((step !== 'qrcode' && step !== 'analyzing') || !order || !isSupabaseConfigured()) return
+    if ((step !== 'qrcode' && step !== 'analyzing' && step !== 'boleto') || !order || !isSupabaseConfigured()) return
 
     const channel = supabase
       .channel(`order-${order.orderId}`)
@@ -235,6 +245,30 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
     }
   }
 
+  const generateBoleto = async () => {
+    if (!cpfValid) {
+      setError('CPF inválido. Confira os números digitados.')
+      return
+    }
+    setError(null)
+    setStep('loading')
+    try {
+      const digits = cpf.replace(/\D/g, '')
+      const { data, error: fnError } = await supabase.functions.invoke('create-payment', {
+        body: { courseId: course.id, name: user.name, cpf: digits, paymentMethod: 'boleto' },
+      })
+      if (fnError) throw new Error(fnError.message)
+      if (data?.error) throw new Error(data.error)
+
+      localStorage.setItem(`cpf_${user.id}`, digits)
+      setOrder(data as Order)
+      setStep('boleto')
+    } catch (err) {
+      setError((err as Error).message || 'Não foi possível emitir o boleto. Tente novamente.')
+      setStep('error')
+    }
+  }
+
   const payWithCard = async () => {
     if (!cpfValid) {
       setError('CPF inválido. Confira os números digitados.')
@@ -289,6 +323,13 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
   const copyPayload = async () => {
     if (!order?.payload) return
     await navigator.clipboard.writeText(order.payload)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const copyBoletoLine = async () => {
+    if (!order?.boletoLine) return
+    await navigator.clipboard.writeText(order.boletoLine)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -352,12 +393,12 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
           )}
 
           {showForm && (
-            <div className="flex gap-2 mb-4">
+            <div className="grid grid-cols-3 gap-2 mb-4">
               <button
                 type="button"
                 onClick={() => setMethod('pix')}
                 disabled={step === 'loading'}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                className={`flex flex-col items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium border transition-colors ${
                   method === 'pix' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                 }`}
               >
@@ -367,11 +408,21 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
                 type="button"
                 onClick={() => setMethod('credit_card')}
                 disabled={step === 'loading'}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                className={`flex flex-col items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium border transition-colors ${
                   method === 'credit_card' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                 }`}
               >
-                <CreditCard className="w-4 h-4" /> Cartão de crédito
+                <CreditCard className="w-4 h-4" /> Cartão
+              </button>
+              <button
+                type="button"
+                onClick={() => setMethod('boleto')}
+                disabled={step === 'loading'}
+                className={`flex flex-col items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium border transition-colors ${
+                  method === 'boleto' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <Barcode className="w-4 h-4" /> Boleto
               </button>
             </div>
           )}
@@ -389,9 +440,19 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
                 />
                 <p className="text-xs text-gray-400 mt-1.5">
-                  Necessário para gerar a cobrança {method === 'pix' ? 'Pix' : 'do cartão'} no Asaas.
+                  Necessário para gerar a cobrança {method === 'pix' ? 'Pix' : method === 'boleto' ? 'do boleto' : 'do cartão'} no Asaas.
                 </p>
               </div>
+
+              {method === 'boleto' && (
+                <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-xs text-amber-800 space-y-1">
+                  <p>
+                    Total no boleto: <span className="font-semibold">R$ {grossBoletoAmount(course.price).toFixed(2)}</span>{' '}
+                    <span className="text-amber-700/70">(inclui R$ {BOLETO_FEE.toFixed(2)} de taxa de emissão)</span>
+                  </p>
+                  <p>Vencimento em 3 dias. O acesso é liberado de 1 a 3 dias úteis após o pagamento (prazo de compensação bancária).</p>
+                </div>
+              )}
 
               {method === 'credit_card' && (
                 <div className="space-y-4">
@@ -511,17 +572,22 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
               )}
 
               <button
-                onClick={method === 'pix' ? generatePix : payWithCard}
-                disabled={step === 'loading' || (method === 'pix' ? !cpfValid : !cardFormValid)}
+                onClick={method === 'pix' ? generatePix : method === 'boleto' ? generateBoleto : payWithCard}
+                disabled={step === 'loading' || (method === 'credit_card' ? !cardFormValid : !cpfValid)}
                 className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-3 rounded-xl font-medium transition-colors"
               >
                 {step === 'loading' ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> {method === 'pix' ? 'Gerando Pix...' : 'Processando pagamento...'}
+                    <Loader2 className="w-4 h-4 animate-spin" />{' '}
+                    {method === 'pix' ? 'Gerando Pix...' : method === 'boleto' ? 'Emitindo boleto...' : 'Processando pagamento...'}
                   </>
                 ) : method === 'pix' ? (
                   <>
                     <QrCode className="w-4 h-4" /> Gerar QR Code Pix
+                  </>
+                ) : method === 'boleto' ? (
+                  <>
+                    <Barcode className="w-4 h-4" /> Emitir boleto de R$ {grossBoletoAmount(course.price).toFixed(2)}
                   </>
                 ) : (
                   <>
@@ -571,6 +637,52 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {step === 'boleto' && order && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                <Barcode className="w-4 h-4 text-blue-600" /> Boleto gerado
+              </div>
+
+              {order.dueDate && (
+                <p className="text-xs text-gray-500">
+                  Vence em {new Date(order.dueDate + 'T00:00:00').toLocaleDateString('pt-BR')} · Valor R$ {order.amount.toFixed(2)}
+                </p>
+              )}
+
+              {order.boletoLine && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-1.5">Linha digitável</p>
+                  <p className="text-xs font-mono break-all bg-gray-50 border border-gray-100 rounded-xl p-3 text-gray-700">
+                    {order.boletoLine}
+                  </p>
+                  <button
+                    onClick={copyBoletoLine}
+                    className="mt-2 w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-800 py-2.5 rounded-xl text-sm font-medium transition-colors"
+                  >
+                    {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                    {copied ? 'Copiado!' : 'Copiar linha digitável'}
+                  </button>
+                </div>
+              )}
+
+              {order.boletoUrl && (
+                <a
+                  href={order.boletoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-medium transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" /> Abrir boleto
+                </a>
+              )}
+
+              <div className="flex items-start gap-2 p-3 bg-blue-50 text-blue-700 rounded-xl text-xs">
+                <Loader2 className="w-4 h-4 flex-shrink-0 mt-0.5 animate-spin" />
+                <span>Aguardando o pagamento. O acesso é liberado automaticamente de 1 a 3 dias úteis após você pagar o boleto — você pode fechar esta janela.</span>
+              </div>
             </div>
           )}
 

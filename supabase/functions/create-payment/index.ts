@@ -3,6 +3,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { isValidCPF } from '../_shared/cpf.ts'
 import { ensureEnrollment } from '../_shared/enroll.ts'
 import { grossCardAmount } from '../_shared/cardFee.ts'
+import { grossBoletoAmount } from '../_shared/boletoFee.ts'
 
 const ASAAS_API_KEY = Deno.env.get('ASAAS_API_KEY') ?? ''
 const ASAAS_BASE_URL = (Deno.env.get('ASAAS_BASE_URL') ?? 'https://api-sandbox.asaas.com/v3').replace(/\/$/, '')
@@ -39,6 +40,15 @@ async function asaasFetch(path: string, init?: RequestInit) {
 function tomorrowDate(): string {
   const d = new Date()
   d.setDate(d.getDate() + 1)
+  return d.toISOString().slice(0, 10)
+}
+
+// Vencimento do boleto: alguns dias à frente pra dar tempo de o aluno pagar
+// (boleto não compensa no mesmo instante como o Pix).
+const BOLETO_DUE_DAYS = 3
+function boletoDueDate(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + BOLETO_DUE_DAYS)
   return d.toISOString().slice(0, 10)
 }
 
@@ -79,7 +89,7 @@ Deno.serve(async (req) => {
     courseId?: string
     name?: string
     cpf?: string
-    paymentMethod?: 'pix' | 'credit_card'
+    paymentMethod?: 'pix' | 'credit_card' | 'boleto'
     installmentCount?: number
     card?: { holderName?: string; number?: string; expiryMonth?: string; expiryYear?: string; ccv?: string }
     holderInfo?: { postalCode?: string; addressNumber?: string; phone?: string; addressComplement?: string }
@@ -94,7 +104,12 @@ Deno.serve(async (req) => {
   // pode mais gerar cobrança em nome de outro usuário.
   const { courseId, name } = body
   const cpf = (body.cpf ?? '').replace(/\D/g, '')
-  const paymentMethod: 'pix' | 'credit_card' = body.paymentMethod === 'credit_card' ? 'credit_card' : 'pix'
+  const paymentMethod: 'pix' | 'credit_card' | 'boleto' =
+    body.paymentMethod === 'credit_card'
+      ? 'credit_card'
+      : body.paymentMethod === 'boleto'
+        ? 'boleto'
+        : 'pix'
   // Parcelamento fixo no cartão: só à vista (1x) ou 3x
   const installmentCount = body.installmentCount === 3 ? 3 : 1
 
@@ -144,6 +159,12 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'O valor de cada parcela deve ser de pelo menos R$ 5,00' }, 400)
   }
 
+  // Valor cobrado no boleto = preço do curso + taxa de emissão repassada ao aluno.
+  const boletoGrossAmount = paymentMethod === 'boleto' ? grossBoletoAmount(course.price) : 0
+  if (paymentMethod === 'boleto' && boletoGrossAmount < 5) {
+    return jsonResponse({ error: 'O valor mínimo para pagamento via boleto é de R$ 5,00' }, 400)
+  }
+
   const { data: existingEnrollment } = await admin
     .from('enrollments')
     .select('id, expires_at')
@@ -187,6 +208,33 @@ Deno.serve(async (req) => {
         qrCodeImage: `data:image/png;base64,${existingOrder.pix_qr_code}`,
         payload: existingOrder.pix_payload,
         expiresAt: existingOrder.pix_expires_at,
+      })
+    }
+  }
+
+  // Reaproveita um boleto pendente e ainda no prazo em vez de emitir outro
+  // (cada boleto emitido é uma cobrança nova no Asaas). A janela aqui é o
+  // próprio vencimento — enquanto não vencer, é o mesmo boleto.
+  if (paymentMethod === 'boleto') {
+    const { data: existingBoleto } = await admin
+      .from('orders')
+      .select('id, gross_amount, boleto_url, boleto_line, boleto_due_date')
+      .eq('user_id', userId)
+      .eq('course_id', courseId)
+      .eq('payment_method', 'boleto')
+      .eq('status', 'pending')
+      .gte('boleto_due_date', todayDate())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (existingBoleto) {
+      return jsonResponse({
+        orderId: existingBoleto.id,
+        amount: existingBoleto.gross_amount,
+        boletoUrl: existingBoleto.boleto_url,
+        boletoLine: existingBoleto.boleto_line,
+        dueDate: existingBoleto.boleto_due_date,
       })
     }
   }
@@ -294,6 +342,56 @@ Deno.serve(async (req) => {
       return jsonResponse({ orderId, amount: cardGrossAmount, status: 'pending' })
     }
 
+    if (paymentMethod === 'boleto') {
+      const payment = await asaasFetch('/payments', {
+        method: 'POST',
+        body: JSON.stringify({
+          customer: customerId,
+          billingType: 'BOLETO',
+          value: boletoGrossAmount,
+          dueDate: boletoDueDate(),
+          description: `Acesso ao curso: ${course.title}`,
+          externalReference: orderId,
+        }),
+      })
+
+      // Linha digitável / código de barras — melhor esforço: o boleto pode
+      // levar alguns segundos pra ser registrado no banco. Se falhar, o aluno
+      // paga pelo link do boleto (boleto_url) mesmo assim.
+      let identificationField: string | null = null
+      try {
+        const idField = await asaasFetch(`/payments/${payment.id}/identificationField`)
+        identificationField = idField?.identificationField ?? null
+      } catch { /* segue sem a linha digitável */ }
+
+      const { error: insertError } = await admin.from('orders').insert({
+        id: orderId,
+        user_id: userId,
+        course_id: courseId,
+        amount: course.price,
+        gross_amount: boletoGrossAmount,
+        status: 'pending',
+        payment_method: 'boleto',
+        asaas_customer_id: customerId,
+        asaas_payment_id: payment.id,
+        boleto_url: payment.bankSlipUrl ?? payment.invoiceUrl ?? null,
+        boleto_line: identificationField,
+        boleto_due_date: payment.dueDate ?? boletoDueDate(),
+      })
+
+      if (insertError) {
+        return jsonResponse({ error: `Falha ao salvar pedido: ${insertError.message}` }, 500)
+      }
+
+      return jsonResponse({
+        orderId,
+        amount: boletoGrossAmount,
+        boletoUrl: payment.bankSlipUrl ?? payment.invoiceUrl,
+        boletoLine: identificationField,
+        dueDate: payment.dueDate ?? boletoDueDate(),
+      })
+    }
+
     const payment = await asaasFetch('/payments', {
       method: 'POST',
       body: JSON.stringify({
@@ -333,7 +431,12 @@ Deno.serve(async (req) => {
       expiresAt: pixData.expirationDate,
     })
   } catch (err) {
-    const label = paymentMethod === 'credit_card' ? 'Falha ao processar pagamento no cartão' : 'Falha ao criar cobrança Pix no Asaas'
+    const label =
+      paymentMethod === 'credit_card'
+        ? 'Falha ao processar pagamento no cartão'
+        : paymentMethod === 'boleto'
+          ? 'Falha ao emitir boleto no Asaas'
+          : 'Falha ao criar cobrança Pix no Asaas'
     return jsonResponse({ error: `${label}: ${(err as Error).message}` }, 502)
   }
 })
