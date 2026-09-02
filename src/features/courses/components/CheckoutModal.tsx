@@ -32,6 +32,20 @@ function grossBoletoAmount(netAmount: number): number {
   return Math.round((netAmount + BOLETO_FEE) * 100) / 100
 }
 
+// supabase.functions.invoke devolve só "Edge Function returned a non-2xx
+// status code" quando a function responde com erro — a mensagem real vem no
+// corpo JSON ({ error: ... }), acessível via error.context. Mesmo padrão de
+// src/lib/bunny-upload.ts.
+async function functionErrorMessage(fnError: { message?: string; context?: { json?: () => Promise<{ error?: string }> } }): Promise<string> {
+  try {
+    const body = await fnError.context?.json?.()
+    if (body?.error) return body.error
+  } catch {
+    // resposta não era JSON — mantém a mensagem genérica
+  }
+  return fnError.message || 'Falha ao processar o pagamento. Tente novamente.'
+}
+
 function isValidCPF(value: string): boolean {
   const digits = value.replace(/\D/g, '')
   if (digits.length !== 11 || /^(\d)\1{10}$/.test(digits)) return false
@@ -233,7 +247,7 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
       const { data, error: fnError } = await supabase.functions.invoke('create-payment', {
         body: { courseId: course.id, name: user.name, cpf: digits, paymentMethod: 'pix' },
       })
-      if (fnError) throw new Error(fnError.message)
+      if (fnError) throw new Error(await functionErrorMessage(fnError))
       if (data?.error) throw new Error(data.error)
 
       localStorage.setItem(`cpf_${user.id}`, digits)
@@ -257,7 +271,7 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
       const { data, error: fnError } = await supabase.functions.invoke('create-payment', {
         body: { courseId: course.id, name: user.name, cpf: digits, paymentMethod: 'boleto' },
       })
-      if (fnError) throw new Error(fnError.message)
+      if (fnError) throw new Error(await functionErrorMessage(fnError))
       if (data?.error) throw new Error(data.error)
 
       localStorage.setItem(`cpf_${user.id}`, digits)
@@ -303,7 +317,7 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
           },
         },
       })
-      if (fnError) throw new Error(fnError.message)
+      if (fnError) throw new Error(await functionErrorMessage(fnError))
       if (data?.error) throw new Error(data.error)
 
       localStorage.setItem(`cpf_${user.id}`, digits)
