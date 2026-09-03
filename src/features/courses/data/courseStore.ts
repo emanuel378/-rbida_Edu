@@ -421,7 +421,9 @@ export const useCourseStore = create<CourseState>((set, get) => {
   },
 
   getEnrollment: (userId, courseId) => {
-    return get().enrollments.find(e => e.userId === userId && e.courseId === courseId)
+    // Matrícula bloqueada pelo admin (revokedAt) conta como "sem acesso" — a
+    // linha continua no banco só para preservar o progresso caso religue.
+    return get().enrollments.find(e => e.userId === userId && e.courseId === courseId && !e.revokedAt)
   },
 
   addMessage: (message) => {
@@ -719,6 +721,8 @@ function mapRowToModel(key: string, row: any): any {
         completedLessons: row.completed_lessons ?? [],
         createdAt: row.created_at ?? '',
         expiresAt: row.expires_at ?? undefined,
+        revokedAt: row.revoked_at ?? undefined,
+        source: row.source ?? undefined,
       }
     case 'comments':
       return {

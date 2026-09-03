@@ -7,7 +7,7 @@ import { DashboardHome, MeusCursos, Cronograma, Desempenho, Configuracoes, Stude
 import { Course, Lesson, QuestionBank, QuestionBrowser, QuestionGeneratorAI, CourseMessages } from './features/courses'
 import { Simulado } from './features/simulado'
 import { TeacherDashboard, TeacherCourses, TeacherCourseDetail, TeacherSimulados, TeacherMessages } from './features/teacher'
-import { Admin, AdminAnalytics, AdminMessages, AdminInstitutions } from './features/admin'
+import { Admin, AdminAnalytics, AdminMessages, AdminInstitutions, AdminCourseAccess } from './features/admin'
 import { useQuestionStore } from './features/courses/data/questionStore'
 import { useInstitutionStore } from './features/courses/data/institutionStore'
 import { useCourseStore } from './features/courses/data/courseStore'
@@ -84,6 +84,7 @@ export default function App() {
           </ProtectedRoute>
         }>
           <Route index element={<Admin />} />
+          <Route path="access" element={<AdminCourseAccess />} />
           <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="institutions" element={<AdminInstitutions />} />
           <Route path="questions" element={<QuestionBank />} />

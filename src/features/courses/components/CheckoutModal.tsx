@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { X, Copy, Check, QrCode, Loader2, AlertCircle, PartyPopper, CreditCard, Barcode, ExternalLink } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../../../lib/supabase'
+import { functionErrorMessage } from '../../../lib/edgeFn'
 import { isQuestionBankCourse } from '../data/courseStore'
 import type { Course, User } from '../data/mock'
 
@@ -30,20 +31,6 @@ type Step = 'form' | 'loading' | 'qrcode' | 'boleto' | 'analyzing' | 'paid' | 'e
 const BOLETO_FEE = 1.99
 function grossBoletoAmount(netAmount: number): number {
   return Math.round((netAmount + BOLETO_FEE) * 100) / 100
-}
-
-// supabase.functions.invoke devolve só "Edge Function returned a non-2xx
-// status code" quando a function responde com erro — a mensagem real vem no
-// corpo JSON ({ error: ... }), acessível via error.context. Mesmo padrão de
-// src/lib/bunny-upload.ts.
-async function functionErrorMessage(fnError: { message?: string; context?: { json?: () => Promise<{ error?: string }> } }): Promise<string> {
-  try {
-    const body = await fnError.context?.json?.()
-    if (body?.error) return body.error
-  } catch {
-    // resposta não era JSON — mantém a mensagem genérica
-  }
-  return fnError.message || 'Falha ao processar o pagamento. Tente novamente.'
 }
 
 // A create-payment valida a sessão com auth.getUser(token). Se não houver

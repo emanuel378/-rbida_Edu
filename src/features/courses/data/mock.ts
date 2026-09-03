@@ -138,6 +138,10 @@ export interface Enrollment {
   createdAt: string
   // Preenchido só em cursos com acesso por tempo limitado (ex: Banco de Questões)
   expiresAt?: string
+  // Preenchido quando o admin bloqueia o acesso (mantém progresso p/ religar)
+  revokedAt?: string
+  // Como a matrícula foi criada: 'payment' | 'admin_grant' | 'free'
+  source?: string
 }
 
 export interface SimuladoResult {

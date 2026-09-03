@@ -23,6 +23,7 @@ import {
   Landmark,
   Wrench,
   ClipboardList,
+  KeyRound,
 } from 'lucide-react'
 
 interface NavItem {
@@ -69,6 +70,7 @@ const teacherNavItems: NavEntry[] = [
 
 const adminNavItems: NavEntry[] = [
   { to: '/admin', icon: ShieldCheck, label: 'Painel', end: true },
+  { to: '/admin/access', icon: KeyRound, label: 'Cursos & Pagamentos', end: false },
   { to: '/admin/institutions', icon: Landmark, label: 'Instituições', end: false },
   { to: '/admin/question-bank', icon: Database, label: 'Banco de Questões', end: false },
   {
