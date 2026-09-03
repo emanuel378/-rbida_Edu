@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   KeyRound, RefreshCw, Search, Ban, RotateCcw, DollarSign, CreditCard, QrCode,
   Barcode, CheckCircle, Clock, AlertCircle, History, BookOpen, ExternalLink,
-  Loader2, X, ShieldCheck,
+  Loader2, X, ShieldCheck, Trash2,
 } from 'lucide-react'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 import {
@@ -60,12 +60,13 @@ const AUDIT_LABEL: Record<string, string> = {
   sync_order: 'Sincronizou pedido',
   sync_pending: 'Sincronizou pendentes',
   mark_paid_manual: 'Marcou como pago',
+  delete_order: 'Excluiu pedido',
 }
 
 export default function AdminCourseAccess() {
   const {
     orders, enrollments, students, courses, audit, loading, acting, error, lastLoadedAt,
-    loadOverview, grantAccess, revokeAccess, restoreAccess, syncOrder, syncPending, markPaidManual,
+    loadOverview, grantAccess, revokeAccess, restoreAccess, syncOrder, syncPending, markPaidManual, deleteOrder,
   } = useAdminManageStore()
 
   const [tab, setTab] = useState<Tab>('access')
@@ -127,7 +128,7 @@ export default function AdminCourseAccess() {
       ) : tab === 'payments' ? (
         <PaymentsTab
           orders={orders} acting={acting}
-          onSync={syncOrder} onSyncPending={syncPending} onMarkPaid={markPaidManual}
+          onSync={syncOrder} onSyncPending={syncPending} onMarkPaid={markPaidManual} onDelete={deleteOrder}
         />
       ) : (
         <HistoryTab audit={audit} />
@@ -261,6 +262,7 @@ function AccessTab({
                     ) : (
                       <button
                         onClick={() => {
+                          if (!window.confirm(`Bloquear o acesso de ${selected.name} ao curso "${c.title}"? O progresso é mantido e você pode reativar depois.`)) return
                           const note = window.prompt('Motivo do bloqueio (opcional):') ?? undefined
                           onRevoke(selected.id, c.id, note)
                         }}
@@ -376,13 +378,14 @@ function GrantModal({
 // ABA: PAGAMENTOS
 // =====================================================================
 function PaymentsTab({
-  orders, acting, onSync, onSyncPending, onMarkPaid,
+  orders, acting, onSync, onSyncPending, onMarkPaid, onDelete,
 }: {
   orders: AdminOrder[]
   acting: boolean
   onSync: (id: string) => Promise<void>
   onSyncPending: () => Promise<{ checked: number; changed: number; errors: string[] }>
   onMarkPaid: (id: string, note?: string) => Promise<void>
+  onDelete: (id: string) => Promise<void>
 }) {
   const [status, setStatus] = useState<'all' | AdminOrder['status']>('all')
   const [method, setMethod] = useState<'all' | AdminOrder['payment_method']>('all')
@@ -549,6 +552,17 @@ function PaymentsTab({
                             <ExternalLink className="w-4 h-4" />
                           </a>
                         )}
+                        <button
+                          onClick={() => {
+                            if (!window.confirm(`Excluir este pedido (${money(o.gross_amount ?? o.amount)} · ${o.user_name ?? o.user_id})? Não afeta a matrícula — o acesso é gerido na aba "Liberar acesso".`)) return
+                            onDelete(o.id)
+                          }}
+                          disabled={acting}
+                          title="Excluir pedido"
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 disabled:opacity-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>

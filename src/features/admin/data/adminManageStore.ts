@@ -88,6 +88,7 @@ interface AdminManageState extends Overview {
   syncOrder: (orderId: string) => Promise<void>
   syncPending: () => Promise<{ checked: number; changed: number; errors: string[] }>
   markPaidManual: (orderId: string, note?: string) => Promise<void>
+  deleteOrder: (orderId: string) => Promise<void>
 }
 
 export const useAdminManageStore = create<AdminManageState>((set, get) => {
@@ -153,6 +154,9 @@ export const useAdminManageStore = create<AdminManageState>((set, get) => {
     },
     markPaidManual: async (orderId, note) => {
       await runAction('mark_paid_manual', { orderId, note })
+    },
+    deleteOrder: async (orderId) => {
+      await runAction('delete_order', { orderId })
     },
   }
 })

@@ -35,6 +35,8 @@ export default function Admin() {
   }, [loadFromSupabase])
 
   const handleRejectTeacher = async (userId: string) => {
+    const teacher = (users || []).find(u => u.id === userId)
+    if (!window.confirm(`Tem certeza que deseja rejeitar e excluir o cadastro de ${teacher?.name || 'este professor'}? Esta ação não pode ser desfeita.`)) return
     setRejectingId(userId)
     const { error } = await rejectTeacher(userId)
     if (error) alert(`Não foi possível rejeitar: ${error}`)
@@ -216,7 +218,10 @@ export default function Admin() {
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
-                        onClick={() => adminApproveDeletion(msg.id)}
+                        onClick={() => {
+                          if (!window.confirm(`Tem certeza que deseja excluir "${msg.targetName || 'este conteúdo'}"? Esta ação não pode ser desfeita.`)) return
+                          adminApproveDeletion(msg.id)
+                        }}
                         className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors text-sm font-medium"
                       >
                         <CheckCircle className="w-4 h-4" />

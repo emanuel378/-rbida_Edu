@@ -432,6 +432,35 @@ Deno.serve(async (req) => {
       return jsonResponse({ ok: true })
     }
 
+    // ----------------------------------------------------------
+    // DELETE ORDER — remove um pedido (ex.: cobrança de teste). NÃO mexe
+    // em matrícula: acesso é gerido na aba "Liberar acesso".
+    // ----------------------------------------------------------
+    if (action === 'delete_order') {
+      const orderId = String(body.orderId ?? '')
+      if (!orderId) return jsonResponse({ error: 'orderId é obrigatório' }, 400)
+
+      const { data: order } = await admin
+        .from('orders')
+        .select('id, status, user_id, course_id, amount, payment_method')
+        .eq('id', orderId)
+        .maybeSingle()
+      if (!order) return jsonResponse({ error: 'Pedido não encontrado' }, 404)
+
+      const { error } = await admin.from('orders').delete().eq('id', orderId)
+      if (error) return jsonResponse({ error: `Falha ao excluir pedido: ${error.message}` }, 500)
+
+      const { data: course } = await admin.from('courses').select('title').eq('id', order.course_id).maybeSingle()
+      const { data: student } = await admin.from('profiles').select('name').eq('id', order.user_id).maybeSingle()
+      await writeAudit({
+        adminId, adminName, action: 'delete_order',
+        targetUserId: order.user_id, targetUserName: student?.name ?? null,
+        courseId: order.course_id, courseTitle: course?.title ?? null, orderId,
+        detail: { status: order.status, amount: order.amount, method: order.payment_method },
+      })
+      return jsonResponse({ ok: true })
+    }
+
     return jsonResponse({ error: `Ação desconhecida: ${action}` }, 400)
   } catch (err) {
     return jsonResponse({ error: (err as Error).message || 'Erro inesperado no painel do admin' }, 500)
