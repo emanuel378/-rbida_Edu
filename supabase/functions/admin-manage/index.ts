@@ -493,6 +493,48 @@ Deno.serve(async (req) => {
     }
 
     // ----------------------------------------------------------
+    // SET ENROLLMENT EXPIRY — define a data exata de expiração de UMA
+    // matrícula (ou null = vitalício). Só mexe em expires_at.
+    // ----------------------------------------------------------
+    if (action === 'set_enrollment_expiry') {
+      const userId = String(body.userId ?? '')
+      const courseId = String(body.courseId ?? '')
+      const note = body.note ? String(body.note) : null
+      const rawExpires = body.expiresAt
+      let expiresAt: string | null = null
+      if (rawExpires != null && rawExpires !== '') {
+        const d = new Date(String(rawExpires))
+        if (Number.isNaN(d.getTime())) return jsonResponse({ error: 'Data de validade inválida' }, 400)
+        expiresAt = d.toISOString()
+      }
+      if (!userId || !courseId) return jsonResponse({ error: 'userId e courseId são obrigatórios' }, 400)
+
+      const { data: existing } = await admin
+        .from('enrollments')
+        .select('id, expires_at')
+        .eq('user_id', userId)
+        .eq('course_id', courseId)
+        .maybeSingle()
+      if (!existing) return jsonResponse({ error: 'Matrícula não encontrada' }, 404)
+
+      const { error } = await admin
+        .from('enrollments')
+        .update({ expires_at: expiresAt, granted_by: adminId, admin_note: note })
+        .eq('id', existing.id)
+      if (error) return jsonResponse({ error: `Falha ao salvar a validade: ${error.message}` }, 500)
+
+      const { data: course } = await admin.from('courses').select('title').eq('id', courseId).maybeSingle()
+      const { data: student } = await admin.from('profiles').select('name').eq('id', userId).maybeSingle()
+      await writeAudit({
+        adminId, adminName, action: 'set_enrollment_expiry',
+        targetUserId: userId, targetUserName: student?.name ?? null,
+        courseId, courseTitle: course?.title ?? null,
+        detail: { previous: existing.expires_at, expiresAt, note },
+      })
+      return jsonResponse({ ok: true })
+    }
+
+    // ----------------------------------------------------------
     // SET COURSE DURATION — define o prazo de acesso do curso
     // (courses.access_duration_days). null = vitalício.
     // applyToActive: recalcula expires_at das matrículas ativas do curso.

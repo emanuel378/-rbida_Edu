@@ -91,6 +91,7 @@ interface AdminManageState extends Overview {
   deleteOrder: (orderId: string) => Promise<void>
   deleteEnrollment: (userId: string, courseId: string) => Promise<void>
   setCourseDuration: (courseId: string, days: number | null, applyToActive: boolean) => Promise<void>
+  setEnrollmentExpiry: (userId: string, courseId: string, expiresAt: string | null, note?: string) => Promise<void>
 }
 
 export const useAdminManageStore = create<AdminManageState>((set, get) => {
@@ -165,6 +166,9 @@ export const useAdminManageStore = create<AdminManageState>((set, get) => {
     },
     setCourseDuration: async (courseId, days, applyToActive) => {
       await runAction('set_course_duration', { courseId, days, applyToActive })
+    },
+    setEnrollmentExpiry: async (userId, courseId, expiresAt, note) => {
+      await runAction('set_enrollment_expiry', { userId, courseId, expiresAt, note })
     },
   }
 })

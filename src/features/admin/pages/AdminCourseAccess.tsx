@@ -66,13 +66,14 @@ const AUDIT_LABEL: Record<string, string> = {
   delete_order: 'Excluiu pedido',
   delete_enrollment: 'Excluiu matrícula',
   set_course_duration: 'Definiu prazo do curso',
+  set_enrollment_expiry: 'Ajustou validade',
 }
 
 export default function AdminCourseAccess() {
   const {
     orders, enrollments, students, courses, audit, loading, acting, error, lastLoadedAt,
     loadOverview, grantAccess, revokeAccess, restoreAccess, syncOrder, syncPending, markPaidManual, deleteOrder,
-    deleteEnrollment, setCourseDuration,
+    deleteEnrollment, setCourseDuration, setEnrollmentExpiry,
   } = useAdminManageStore()
 
   const [tab, setTab] = useState<Tab>('access')
@@ -139,8 +140,8 @@ export default function AdminCourseAccess() {
       ) : tab === 'vigencias' ? (
         <VigenciasTab
           students={students} courses={courses} enrollments={enrollments} orders={orders} acting={acting}
-          onGrant={grantAccess} onRevoke={revokeAccess} onDeleteEnrollment={deleteEnrollment}
-          onSetCourseDuration={setCourseDuration}
+          onRevoke={revokeAccess} onDeleteEnrollment={deleteEnrollment}
+          onSetCourseDuration={setCourseDuration} onSetExpiry={setEnrollmentExpiry}
         />
       ) : (
         <HistoryTab audit={audit} />
@@ -390,6 +391,99 @@ function GrantModal({
         >
           {acting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
           Confirmar liberação
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Editor da data exata de validade de uma matrícula.
+function ExpiryModal({
+  studentName, courseTitle, currentExpiresAt, acting, onClose, onConfirm,
+}: {
+  studentName: string
+  courseTitle: string
+  currentExpiresAt: string | null
+  acting: boolean
+  onClose: () => void
+  onConfirm: (expiresAt: string | null, note?: string) => Promise<void>
+}) {
+  const today = new Date().toISOString().slice(0, 10)
+  const [mode, setMode] = useState<'date' | 'lifetime'>(currentExpiresAt ? 'date' : 'lifetime')
+  const [date, setDate] = useState(
+    currentExpiresAt ? new Date(currentExpiresAt).toISOString().slice(0, 10)
+      : new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 10),
+  )
+  const [note, setNote] = useState('')
+
+  const valid = mode === 'lifetime' || /^\d{4}-\d{2}-\d{2}$/.test(date)
+
+  const submit = () => {
+    if (mode === 'lifetime') return onConfirm(null, note.trim() || undefined)
+    // Acesso vale até o fim do dia escolhido (23:59:59 no horário local).
+    return onConfirm(new Date(`${date}T23:59:59`).toISOString(), note.trim() || undefined)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900">Editar validade do acesso</h2>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4 text-gray-500" /></button>
+        </div>
+        <p className="text-sm text-gray-500">
+          <span className="font-medium text-gray-700">{studentName}</span> → <span className="font-medium text-gray-700">{courseTitle}</span>
+        </p>
+        <p className="text-xs text-gray-400">
+          Validade atual: {currentExpiresAt ? new Date(currentExpiresAt).toLocaleDateString('pt-BR') : 'vitalício'}
+        </p>
+
+        <div className="flex gap-2">
+          {([['date', 'Até uma data'], ['lifetime', 'Vitalício']] as const).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setMode(id)}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                mode === id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {mode === 'date' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Acesso liberado até</label>
+            <input
+              type="date"
+              value={date}
+              min={today}
+              onChange={e => setDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-400 mt-1">O aluno perde o acesso automaticamente no dia seguinte a esta data.</p>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Nota (opcional)</label>
+          <input
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            placeholder="Ex.: prazo combinado com o aluno"
+            className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <button
+          onClick={submit}
+          disabled={!valid || acting}
+          className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2.5 rounded-xl font-medium transition-colors"
+        >
+          {acting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+          Salvar validade
         </button>
       </div>
     </div>
@@ -716,21 +810,21 @@ function CourseDurationSection({
 }
 
 function VigenciasTab({
-  students, courses, enrollments, orders, acting, onGrant, onRevoke, onDeleteEnrollment, onSetCourseDuration,
+  students, courses, enrollments, orders, acting, onRevoke, onDeleteEnrollment, onSetCourseDuration, onSetExpiry,
 }: {
   students: ReturnType<typeof useAdminManageStore.getState>['students']
   courses: AdminCourseLite[]
   enrollments: AdminEnrollment[]
   orders: AdminOrder[]
   acting: boolean
-  onGrant: (u: string, c: string, d: number | null, note?: string) => Promise<void>
   onRevoke: (u: string, c: string, note?: string) => Promise<void>
   onDeleteEnrollment: (u: string, c: string) => Promise<void>
   onSetCourseDuration: (courseId: string, days: number | null, applyToActive: boolean) => Promise<void>
+  onSetExpiry: (u: string, c: string, expiresAt: string | null, note?: string) => Promise<void>
 }) {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<'all' | VigState>('all')
-  const [renewFor, setRenewFor] = useState<{ studentId: string; studentName: string; course: AdminCourseLite; currentExpiresAt: string | null } | null>(null)
+  const [editFor, setEditFor] = useState<{ userId: string; courseId: string; studentName: string; courseTitle: string; currentExpiresAt: string | null } | null>(null)
 
   const studentsById = useMemo(() => new Map(students.map(s => [s.id, s])), [students])
   const coursesById = useMemo(() => new Map(courses.map(c => [c.id, c])), [courses])
@@ -863,13 +957,13 @@ function VigenciasTab({
                     <td className="p-3"><span className={`text-xs font-medium px-2 py-1 rounded-full ${badge.cls}`}>{badge.label}</span></td>
                     <td className="p-3">
                       <div className="flex items-center justify-end gap-1.5">
-                        {r.course && r.state !== 'blocked' && (
+                        {r.state !== 'blocked' && (
                           <button
-                            onClick={() => setRenewFor({ studentId: r.e.user_id, studentName: r.studentName, course: r.course!, currentExpiresAt: r.expiresAt })}
+                            onClick={() => setEditFor({ userId: r.e.user_id, courseId: r.e.course_id, studentName: r.studentName, courseTitle: r.courseTitle, currentExpiresAt: r.expiresAt })}
                             disabled={acting}
                             className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors text-xs font-medium disabled:opacity-50"
                           >
-                            <CalendarClock className="w-3.5 h-3.5" /> {r.state === 'expired' ? 'Renovar' : 'Estender'}
+                            <CalendarClock className="w-3.5 h-3.5" /> Editar validade
                           </button>
                         )}
                         {r.state !== 'blocked' && (
@@ -907,16 +1001,16 @@ function VigenciasTab({
         </div>
       </div>
 
-      {renewFor && (
-        <GrantModal
-          course={renewFor.course}
-          studentName={renewFor.studentName}
+      {editFor && (
+        <ExpiryModal
+          studentName={editFor.studentName}
+          courseTitle={editFor.courseTitle}
+          currentExpiresAt={editFor.currentExpiresAt}
           acting={acting}
-          currentExpiresAt={renewFor.currentExpiresAt}
-          onClose={() => setRenewFor(null)}
-          onConfirm={async (days, note) => {
-            await onGrant(renewFor.studentId, renewFor.course.id, days, note)
-            setRenewFor(null)
+          onClose={() => setEditFor(null)}
+          onConfirm={async (expiresAt, note) => {
+            await onSetExpiry(editFor.userId, editFor.courseId, expiresAt, note)
+            setEditFor(null)
           }}
         />
       )}
