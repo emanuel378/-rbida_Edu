@@ -2,14 +2,17 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   KeyRound, RefreshCw, Search, Ban, RotateCcw, DollarSign, CreditCard, QrCode,
   Barcode, CheckCircle, Clock, AlertCircle, History, BookOpen, ExternalLink,
-  Loader2, X, ShieldCheck, Trash2,
+  Loader2, X, ShieldCheck, Trash2, CalendarClock, Infinity as InfinityIcon,
 } from 'lucide-react'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 import {
   useAdminManageStore, type AdminOrder, type AdminEnrollment, type AdminCourseLite,
 } from '../data/adminManageStore'
 
-type Tab = 'access' | 'payments' | 'history'
+type Tab = 'access' | 'payments' | 'vigencias' | 'history'
+
+const daysLeftFrom = (expiresAt: string | null | undefined): number | null =>
+  expiresAt ? Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86_400_000) : null
 
 const money = (v: number | null | undefined) =>
   v == null ? '—' : `R$ ${Number(v).toFixed(2)}`
@@ -103,7 +106,7 @@ export default function AdminCourseAccess() {
       )}
 
       <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
-        {([['access', 'Liberar acesso'], ['payments', 'Pagamentos'], ['history', 'Histórico']] as [Tab, string][]).map(([id, label]) => (
+        {([['access', 'Liberar acesso'], ['payments', 'Pagamentos'], ['vigencias', 'Vigências'], ['history', 'Histórico']] as [Tab, string][]).map(([id, label]) => (
           <button
             key={id}
             onClick={() => setTab(id)}
@@ -129,6 +132,11 @@ export default function AdminCourseAccess() {
         <PaymentsTab
           orders={orders} acting={acting}
           onSync={syncOrder} onSyncPending={syncPending} onMarkPaid={markPaidManual} onDelete={deleteOrder}
+        />
+      ) : tab === 'vigencias' ? (
+        <VigenciasTab
+          students={students} courses={courses} enrollments={enrollments} orders={orders} acting={acting}
+          onGrant={grantAccess} onRevoke={revokeAccess}
         />
       ) : (
         <HistoryTab audit={audit} />
@@ -297,13 +305,14 @@ function AccessTab({
 }
 
 function GrantModal({
-  course, studentName, acting, onClose, onConfirm,
+  course, studentName, acting, onClose, onConfirm, currentExpiresAt,
 }: {
   course: AdminCourseLite
   studentName: string
   acting: boolean
   onClose: () => void
   onConfirm: (days: number | null, note?: string) => Promise<void>
+  currentExpiresAt?: string | null
 }) {
   const [preset, setPreset] = useState<'lifetime' | '30' | '90' | 'custom'>(
     course.access_duration_days ? 'custom' : 'lifetime',
@@ -325,6 +334,15 @@ function GrantModal({
         <p className="text-sm text-gray-500">
           <span className="font-medium text-gray-700">{studentName}</span> → <span className="font-medium text-gray-700">{course.title}</span>
         </p>
+        {currentExpiresAt !== undefined && (
+          <div className="flex items-start gap-2 p-2.5 bg-amber-50 text-amber-800 rounded-xl text-xs">
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            <span>
+              Validade atual: {currentExpiresAt ? dateOnly(currentExpiresAt) : 'vitalício'}. A nova validade
+              é contada a partir de hoje e <strong>substitui</strong> a atual (não soma).
+            </span>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Duração do acesso</label>
@@ -587,6 +605,217 @@ function SummaryCard({ label, value, icon: Icon, tone }: { label: string; value:
         <span className="text-xs font-medium text-gray-500">{label}</span>
       </div>
       <p className="text-2xl font-bold text-gray-900">{value}</p>
+    </div>
+  )
+}
+
+// =====================================================================
+// ABA: VIGÊNCIAS — validade da assinatura de cada aluno por curso
+// =====================================================================
+type VigState = 'lifetime' | 'active' | 'soon' | 'expired' | 'blocked'
+
+const VIG_BADGE: Record<VigState, { label: string; cls: string }> = {
+  lifetime: { label: 'Vitalício', cls: 'bg-sky-100 text-sky-700' },
+  active: { label: 'Ativa', cls: 'bg-green-100 text-green-700' },
+  soon: { label: 'Expira em breve', cls: 'bg-amber-100 text-amber-700' },
+  expired: { label: 'Expirada', cls: 'bg-red-100 text-red-700' },
+  blocked: { label: 'Bloqueada', cls: 'bg-gray-200 text-gray-600' },
+}
+
+const SOURCE_LABEL: Record<string, string> = {
+  payment: 'Pagamento', admin_grant: 'Liberado pelo admin', free: 'Gratuito',
+}
+
+function VigenciasTab({
+  students, courses, enrollments, orders, acting, onGrant, onRevoke,
+}: {
+  students: ReturnType<typeof useAdminManageStore.getState>['students']
+  courses: AdminCourseLite[]
+  enrollments: AdminEnrollment[]
+  orders: AdminOrder[]
+  acting: boolean
+  onGrant: (u: string, c: string, d: number | null, note?: string) => Promise<void>
+  onRevoke: (u: string, c: string, note?: string) => Promise<void>
+}) {
+  const [q, setQ] = useState('')
+  const [filter, setFilter] = useState<'all' | VigState>('all')
+  const [renewFor, setRenewFor] = useState<{ studentId: string; studentName: string; course: AdminCourseLite; currentExpiresAt: string | null } | null>(null)
+
+  const studentsById = useMemo(() => new Map(students.map(s => [s.id, s])), [students])
+  const coursesById = useMemo(() => new Map(courses.map(c => [c.id, c])), [courses])
+  const paidAtByPair = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const o of orders) {
+      if (o.status !== 'paid' || !o.paid_at) continue
+      const k = `${o.user_id}::${o.course_id}`
+      if (!m.has(k) || new Date(o.paid_at) > new Date(m.get(k)!)) m.set(k, o.paid_at)
+    }
+    return m
+  }, [orders])
+
+  const rows = useMemo(() => {
+    return enrollments.map(e => {
+      const course = coursesById.get(e.course_id)
+      const student = studentsById.get(e.user_id)
+      const paidAt = paidAtByPair.get(`${e.user_id}::${e.course_id}`) ?? e.created_at ?? null
+      const dl = daysLeftFrom(e.expires_at)
+      const state: VigState = e.revoked_at ? 'blocked'
+        : !e.expires_at ? 'lifetime'
+        : (dl ?? 0) <= 0 ? 'expired'
+        : (dl ?? 0) <= 7 ? 'soon'
+        : 'active'
+      return {
+        e,
+        courseTitle: course?.title ?? e.course_id,
+        course,
+        studentName: student?.name ?? e.user_id,
+        studentEmail: student?.email ?? '',
+        paidAt,
+        expiresAt: e.expires_at,
+        daysLeft: dl,
+        source: e.source,
+        state,
+      }
+    }).sort((a, b) => {
+      const rank: Record<VigState, number> = { expired: 0, soon: 1, active: 2, lifetime: 3, blocked: 4 }
+      if (rank[a.state] !== rank[b.state]) return rank[a.state] - rank[b.state]
+      return (a.daysLeft ?? Infinity) - (b.daysLeft ?? Infinity)
+    })
+  }, [enrollments, coursesById, studentsById, paidAtByPair])
+
+  const filtered = useMemo(() => {
+    const t = q.trim().toLowerCase()
+    return rows.filter(r => {
+      if (filter !== 'all' && r.state !== filter) return false
+      if (!t) return true
+      return r.studentName.toLowerCase().includes(t) || r.studentEmail.toLowerCase().includes(t) || r.courseTitle.toLowerCase().includes(t)
+    })
+  }, [rows, filter, q])
+
+  const summary = useMemo(() => ({
+    active: rows.filter(r => r.state === 'active').length,
+    soon: rows.filter(r => r.state === 'soon').length,
+    expired: rows.filter(r => r.state === 'expired').length,
+    lifetime: rows.filter(r => r.state === 'lifetime').length,
+  }), [rows])
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <SummaryCard label="Assinaturas ativas" value={String(summary.active)} icon={CheckCircle} tone="green" />
+        <SummaryCard label="Expiram em ≤ 7 dias" value={String(summary.soon)} icon={CalendarClock} tone="amber" />
+        <SummaryCard label="Expiradas" value={String(summary.expired)} icon={Clock} tone="purple" />
+        <SummaryCard label="Acesso vitalício" value={String(summary.lifetime)} icon={InfinityIcon} tone="blue" />
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-4 border-b border-gray-100 flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              placeholder="Buscar por aluno ou curso"
+              className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <select value={filter} onChange={e => setFilter(e.target.value as any)} className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="all">Todas</option>
+            <option value="active">Ativas</option>
+            <option value="soon">Expiram em breve</option>
+            <option value="expired">Expiradas</option>
+            <option value="lifetime">Vitalícias</option>
+            <option value="blocked">Bloqueadas</option>
+          </select>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="p-3 text-left font-medium text-gray-600">Aluno</th>
+                <th className="p-3 text-left font-medium text-gray-600">Curso</th>
+                <th className="p-3 text-left font-medium text-gray-600">Origem</th>
+                <th className="p-3 text-left font-medium text-gray-600">Início</th>
+                <th className="p-3 text-left font-medium text-gray-600">Expira</th>
+                <th className="p-3 text-left font-medium text-gray-600">Restante</th>
+                <th className="p-3 text-left font-medium text-gray-600">Status</th>
+                <th className="p-3 text-right font-medium text-gray-600">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filtered.length === 0 && (
+                <tr><td colSpan={8} className="p-8 text-center text-gray-400">Nenhuma matrícula encontrada.</td></tr>
+              )}
+              {filtered.map(r => {
+                const badge = VIG_BADGE[r.state]
+                return (
+                  <tr key={r.e.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="p-3">
+                      <p className="font-medium text-gray-900">{r.studentName}</p>
+                      <p className="text-xs text-gray-500">{r.studentEmail}</p>
+                    </td>
+                    <td className="p-3 text-gray-700">{r.courseTitle}</td>
+                    <td className="p-3 text-gray-500">{SOURCE_LABEL[r.source ?? ''] ?? '—'}</td>
+                    <td className="p-3 text-gray-500 whitespace-nowrap">{dateOnly(r.paidAt)}</td>
+                    <td className="p-3 text-gray-500 whitespace-nowrap">
+                      {r.expiresAt ? dateOnly(r.expiresAt) : <span className="inline-flex items-center gap-1 text-sky-600"><InfinityIcon className="w-3.5 h-3.5" /> vitalício</span>}
+                    </td>
+                    <td className="p-3 whitespace-nowrap">
+                      {r.state === 'blocked' ? '—'
+                        : r.daysLeft == null ? '—'
+                        : r.daysLeft <= 0 ? <span className="text-red-600 font-medium">expirou há {Math.abs(r.daysLeft)}d</span>
+                        : <span className={r.daysLeft <= 7 ? 'text-amber-600 font-medium' : 'text-gray-700'}>{r.daysLeft} dia{r.daysLeft !== 1 ? 's' : ''}</span>}
+                    </td>
+                    <td className="p-3"><span className={`text-xs font-medium px-2 py-1 rounded-full ${badge.cls}`}>{badge.label}</span></td>
+                    <td className="p-3">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {r.course && r.state !== 'blocked' && (
+                          <button
+                            onClick={() => setRenewFor({ studentId: r.e.user_id, studentName: r.studentName, course: r.course!, currentExpiresAt: r.expiresAt })}
+                            disabled={acting}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors text-xs font-medium disabled:opacity-50"
+                          >
+                            <CalendarClock className="w-3.5 h-3.5" /> {r.state === 'expired' ? 'Renovar' : 'Estender'}
+                          </button>
+                        )}
+                        {r.state !== 'blocked' && (
+                          <button
+                            onClick={() => {
+                              if (!window.confirm(`Bloquear o acesso de ${r.studentName} ao curso "${r.courseTitle}"? O progresso é mantido.`)) return
+                              const note = window.prompt('Motivo do bloqueio (opcional):') ?? undefined
+                              onRevoke(r.e.user_id, r.e.course_id, note)
+                            }}
+                            disabled={acting}
+                            title="Bloquear acesso"
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 disabled:opacity-50"
+                          >
+                            <Ban className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {renewFor && (
+        <GrantModal
+          course={renewFor.course}
+          studentName={renewFor.studentName}
+          acting={acting}
+          currentExpiresAt={renewFor.currentExpiresAt}
+          onClose={() => setRenewFor(null)}
+          onConfirm={async (days, note) => {
+            await onGrant(renewFor.studentId, renewFor.course.id, days, note)
+            setRenewFor(null)
+          }}
+        />
+      )}
     </div>
   )
 }
