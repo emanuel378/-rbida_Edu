@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, type Dispatch, type SetStateAction } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuestionStore } from '../data/questionStore'
 import { useInstitutionStore } from '../data/institutionStore'
@@ -45,6 +45,58 @@ const EMPTY_FORM = {
 }
 
 const getCorrectLetter = (index: number) => String.fromCharCode(65 + index)
+
+const MIN_OPTIONS = 2
+const MAX_OPTIONS = 8
+type QForm = typeof EMPTY_FORM
+const fitLen = <T,>(a: T[], len: number, fill: T): T[] => Array.from({ length: len }, (_, k) => (a[k] ?? fill))
+
+// Adiciona / remove uma alternativa mantendo em sincronia os arrays paralelos
+// (options / optionTypes / optionImages + arquivos e previews pendentes) e
+// corrigindo o índice da resposta correta.
+const addOptionTo = (
+  setForm: Dispatch<SetStateAction<QForm>>,
+  setPending: Dispatch<SetStateAction<(File | null)[]>>,
+  setPreviews: Dispatch<SetStateAction<string[]>>,
+) => {
+  setForm(prev => {
+    if (prev.options.length >= MAX_OPTIONS) return prev
+    const n = prev.options.length
+    return {
+      ...prev,
+      options: [...prev.options, ''],
+      optionTypes: [...fitLen(prev.optionTypes, n, 'text' as const), 'text' as const],
+      optionImages: [...fitLen(prev.optionImages, n, '' as string | undefined), '' as string | undefined],
+    }
+  })
+  setPending(p => [...p, null])
+  setPreviews(p => [...p, ''])
+}
+
+const removeOptionFrom = (
+  idx: number,
+  setForm: Dispatch<SetStateAction<QForm>>,
+  setPending: Dispatch<SetStateAction<(File | null)[]>>,
+  setPreviews: Dispatch<SetStateAction<string[]>>,
+) => {
+  setForm(prev => {
+    if (prev.options.length <= MIN_OPTIONS) return prev
+    const n = prev.options.length
+    const drop = <T,>(a: T[], fill: T) => fitLen(a, n, fill).filter((_, k) => k !== idx)
+    let correctAnswer = prev.correctAnswer
+    if (idx === correctAnswer) correctAnswer = 0
+    else if (idx < correctAnswer) correctAnswer -= 1
+    return {
+      ...prev,
+      options: drop(prev.options, ''),
+      optionTypes: drop(prev.optionTypes, 'text' as const),
+      optionImages: drop(prev.optionImages, '' as string | undefined),
+      correctAnswer,
+    }
+  })
+  setPending(p => p.filter((_, k) => k !== idx))
+  setPreviews(p => p.filter((_, k) => k !== idx))
+}
 
 // --- Painel com busca e lista de questões criadas (usado no conteúdo principal da rota de edição e na sidebar da rota de criação) ---
 // Definido fora do componente para não perder o foco do campo de busca a cada re-render.
@@ -358,7 +410,7 @@ export default function QuestionBank() {
         const type = form.optionTypes[i] || 'text'
         return type === 'image' ? '' : opt
       })
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < form.options.length; i++) {
         if (pendingOptionImages[i]) {
           const url = await uploadImageFile(pendingOptionImages[i]!)
           optionImages.push(url)
@@ -414,9 +466,13 @@ export default function QuestionBank() {
   // --- Abre edição na sidebar ---
   const handleEdit = (question: Question) => {
     setEditingQuestion(question)
+    const savedOptions = question.options ?? []
+    const options = savedOptions.length >= MIN_OPTIONS ? savedOptions : [...savedOptions, '', ''].slice(0, MIN_OPTIONS)
+    const savedImages = question.optionImages ?? []
+    const optionImages = fitLen(savedImages, options.length, '')
     setEditForm({
       question: question.question || '',
-      options: question.options?.length === 5 ? question.options : [...(question.options ?? []), ...['', '', '', '', '']].slice(0, 5),
+      options,
       correctAnswer: question.correctAnswer || 0,
       moduleId: question.moduleId || '',
       topicId: question.topicId || '',
@@ -429,17 +485,17 @@ export default function QuestionBank() {
       materialType: question.materialType || ''|| undefined,
       aulaRelacionada: question.aulaRelacionada || '',
       questionImageUrl: question.questionImageUrl || '',
-      optionImages: question.optionImages?.length === 5 ? question.optionImages : [...(question.optionImages ?? []), ...['', '', '', '', '']].slice(0, 5),
-      optionTypes: question.optionImages?.length === 5
-        ? question.optionImages.map((img, i) => img && question.options[i]?.trim() ? 'both' : img ? 'image' : 'text')
-        : ['text', 'text', 'text', 'text', 'text'],
+      optionImages,
+      optionTypes: savedImages.length === options.length
+        ? optionImages.map((img, i) => (img && options[i]?.trim() ? 'both' : img ? 'image' : 'text'))
+        : options.map(() => 'text' as const),
     })
     setEditMaterialPreview(question.materialType === 'image' ? question.materialUrl || '' : '')
     setEditMaterialFileName('')
     setEditQuestionImagePreview('')
     setEditPendingQuestionImage(null)
-    setEditPendingOptionImages([null, null, null, null, null])
-    setEditOptionImagePreviews(['', '', '', '', ''])
+    setEditPendingOptionImages(options.map(() => null))
+    setEditOptionImagePreviews(options.map(() => ''))
     setIsEditBancaCustom(false)
     setEditBancaCustom('')
     setIsEditAnoCustom(false)
@@ -479,7 +535,7 @@ export default function QuestionBank() {
         const type = editForm.optionTypes[i] || 'text'
         return type === 'image' ? '' : opt
       })
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < editForm.options.length; i++) {
         if (editPendingOptionImages[i]) {
           const url = await uploadImageFile(editPendingOptionImages[i]!)
           optionImages.push(url)
@@ -895,7 +951,17 @@ export default function QuestionBank() {
 
             {/* Alternativas */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">ALTERNATIVAS</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-medium text-gray-700">ALTERNATIVAS</label>
+                <button
+                  type="button"
+                  onClick={() => addOptionTo(setForm, setPendingOptionImages, setOptionImagePreviews)}
+                  disabled={form.options.length >= MAX_OPTIONS}
+                  className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors disabled:opacity-40"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Adicionar alternativa
+                </button>
+              </div>
               <div className="space-y-3">
                 {form.options.map((opt, i) => {
                   const optType = form.optionTypes[i] || 'text'
@@ -1008,6 +1074,15 @@ export default function QuestionBank() {
                           }`}
                         >
                           {i === form.correctAnswer ? 'Correta ✓' : 'Marcar'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeOptionFrom(i, setForm, setPendingOptionImages, setOptionImagePreviews)}
+                          disabled={form.options.length <= MIN_OPTIONS}
+                          title="Remover alternativa"
+                          className="flex-shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                       {optType === 'both' && (
@@ -1230,7 +1305,17 @@ export default function QuestionBank() {
               <QuestionImageField isEdit={true} />
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">ALTERNATIVAS</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-sm font-medium text-gray-700">ALTERNATIVAS</label>
+                  <button
+                    type="button"
+                    onClick={() => addOptionTo(setEditForm, setEditPendingOptionImages, setEditOptionImagePreviews)}
+                    disabled={editForm.options.length >= MAX_OPTIONS}
+                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors disabled:opacity-40"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Adicionar alternativa
+                  </button>
+                </div>
                 <div className="space-y-3">
                   {editForm.options.map((opt, i) => {
                     const optType = editForm.optionTypes[i] || 'text'
@@ -1343,6 +1428,15 @@ export default function QuestionBank() {
                             }`}
                           >
                             {i === editForm.correctAnswer ? 'Correta ✓' : 'Marcar'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeOptionFrom(i, setEditForm, setEditPendingOptionImages, setEditOptionImagePreviews)}
+                            disabled={editForm.options.length <= MIN_OPTIONS}
+                            title="Remover alternativa"
+                            className="flex-shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                         {optType === 'both' && (

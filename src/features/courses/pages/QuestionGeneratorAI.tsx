@@ -9,8 +9,12 @@ import { DISCIPLINAS, TOPICOS_POR_DISCIPLINA } from '../data/taxonomy'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 import {
   Sparkles, Upload, FileText, AlertCircle, Loader2, CheckCircle,
-  Edit2, Trash2, Save, X as XIcon, Wand2, Image as ImageIcon,
+  Edit2, Trash2, Save, X as XIcon, Wand2, Image as ImageIcon, Plus,
 } from 'lucide-react'
+
+const MIN_OPTIONS = 2
+const MAX_OPTIONS = 8
+const fitLen = <T,>(a: T[], len: number, fill: T): T[] => Array.from({ length: len }, (_, k) => (a[k] ?? fill))
 
 interface ReviewForm {
   question: string
@@ -168,9 +172,13 @@ export default function QuestionGeneratorAI() {
         return {
           key: generateId(),
           saved: false,
-          form: {
+          form: (() => {
+            const genOptions = Array.isArray(g.options) && g.options.length >= MIN_OPTIONS
+              ? g.options
+              : [...(g.options ?? []), '', ''].slice(0, MIN_OPTIONS)
+            return {
             question: g.question,
-            options: g.options.length === 5 ? g.options : [...g.options, '', '', '', '', ''].slice(0, 5),
+            options: genOptions,
             correctAnswer: g.correctAnswer ?? 0,
             moduleId,
             topicId,
@@ -183,9 +191,10 @@ export default function QuestionGeneratorAI() {
             materialType: undefined,
             aulaRelacionada: '',
             questionImageUrl: '',
-            optionImages: ['', '', '', '', ''],
-            optionTypes: ['text', 'text', 'text', 'text', 'text'],
-          },
+            optionImages: genOptions.map(() => ''),
+            optionTypes: genOptions.map(() => 'text' as const),
+            }
+          })(),
         }
       })
       setReviewList(prev => [...prev, ...items])
@@ -225,8 +234,43 @@ export default function QuestionGeneratorAI() {
     setMaterialFileName('')
     setPendingQuestionImageFile(item.pendingQuestionImageFile ?? null)
     setQuestionImagePreview('')
-    setPendingOptionImageFiles(item.pendingOptionImageFiles ?? [null, null, null, null, null])
-    setOptionImagePreviews(['', '', '', '', ''])
+    setPendingOptionImageFiles(fitLen(item.pendingOptionImageFiles ?? [], item.form.options.length, null))
+    setOptionImagePreviews(item.form.options.map(() => ''))
+  }
+
+  // --- Adicionar / remover alternativas no formulário de edição ---
+  const addEditOption = () => {
+    setEditForm(prev => {
+      if (prev.options.length >= MAX_OPTIONS) return prev
+      const n = prev.options.length
+      return {
+        ...prev,
+        options: [...prev.options, ''],
+        optionTypes: [...fitLen(prev.optionTypes, n, 'text' as const), 'text' as const],
+        optionImages: [...fitLen(prev.optionImages, n, ''), ''],
+      }
+    })
+    setPendingOptionImageFiles(p => [...p, null])
+    setOptionImagePreviews(p => [...p, ''])
+  }
+  const removeEditOption = (idx: number) => {
+    setEditForm(prev => {
+      if (prev.options.length <= MIN_OPTIONS) return prev
+      const n = prev.options.length
+      const drop = <T,>(a: T[], fill: T) => fitLen(a, n, fill).filter((_, k) => k !== idx)
+      let correctAnswer = prev.correctAnswer
+      if (idx === correctAnswer) correctAnswer = 0
+      else if (idx < correctAnswer) correctAnswer -= 1
+      return {
+        ...prev,
+        options: drop(prev.options, ''),
+        optionTypes: drop(prev.optionTypes, 'text' as const),
+        optionImages: drop(prev.optionImages, ''),
+        correctAnswer,
+      }
+    })
+    setPendingOptionImageFiles(p => p.filter((_, k) => k !== idx))
+    setOptionImagePreviews(p => p.filter((_, k) => k !== idx))
   }
 
   const closeEdit = () => {
@@ -292,7 +336,7 @@ export default function QuestionGeneratorAI() {
         const type = form.optionTypes[i] || 'text'
         return type === 'image' ? '' : opt
       })
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < form.options.length; i++) {
         const pendingFile = item.pendingOptionImageFiles?.[i]
         if (pendingFile) {
           optionImages.push(await uploadImageFile(pendingFile))
@@ -761,7 +805,17 @@ export default function QuestionGeneratorAI() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">ALTERNATIVAS</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-sm font-medium text-gray-700">ALTERNATIVAS</label>
+                  <button
+                    type="button"
+                    onClick={addEditOption}
+                    disabled={editForm.options.length >= MAX_OPTIONS}
+                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors disabled:opacity-40"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Adicionar alternativa
+                  </button>
+                </div>
                 <div className="space-y-3">
                   {editForm.options.map((opt, i) => {
                     const optType = editForm.optionTypes[i] || 'text'
@@ -871,6 +925,15 @@ export default function QuestionGeneratorAI() {
                             }`}
                           >
                             {i === editForm.correctAnswer ? 'Correta ✓' : 'Marcar'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeEditOption(i)}
+                            disabled={editForm.options.length <= MIN_OPTIONS}
+                            title="Remover alternativa"
+                            className="flex-shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                         {optType === 'both' && (
