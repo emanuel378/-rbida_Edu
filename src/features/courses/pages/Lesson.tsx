@@ -11,7 +11,7 @@ import { fetchBunnyVideoStatus } from '../../../lib/bunny-status'
 export default function Lesson() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { lessons, completeLesson, modules, courses, enrollments, updateLesson } = useCourseStore()
+  const { lessons, completeLesson, modules, courses, enrollments, getEnrollment, updateLesson } = useCourseStore()
   const { comments, addComment, getComments } = useQuestionStore()
   const user = useAuthStore(s => s.user)
 
@@ -80,6 +80,19 @@ export default function Lesson() {
       </Link>
     </div>
   )
+
+  // Aluno só acessa aula de curso pago com matrícula ativa (não expirada/bloqueada).
+  if (user?.role === 'aluno' && course && course.price > 0 && !getEnrollment(user.id, course.id)) {
+    return (
+      <div className="p-6 lg:p-8 max-w-4xl mx-auto text-center py-20">
+        <p className="text-gray-900 text-lg font-semibold mb-1">Seu acesso a este curso não está ativo</p>
+        <p className="text-gray-500 mb-4">Renove ou adquira o curso para assistir às aulas.</p>
+        <Link to="/dashboard" className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-medium transition-colors">
+          Ver cursos disponíveis
+        </Link>
+      </div>
+    )
+  }
 
   const currentIndex = courseLessons.findIndex(l => l.id === lesson.id)
   const prevLesson = currentIndex > 0 ? courseLessons[currentIndex - 1] : null

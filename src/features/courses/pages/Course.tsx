@@ -12,7 +12,7 @@ export default function Course() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const { courses, modules, lessons, enrollments, getTeacherName } = useCourseStore()
+  const { courses, modules, lessons, enrollments, getEnrollment, getTeacherName } = useCourseStore()
   const { questions } = useQuestionStore()
 
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null)
@@ -33,6 +33,25 @@ export default function Course() {
       </Link>
     </div>
   )
+
+  // Aluno só acessa curso pago com matrícula ativa (não expirada/bloqueada).
+  const activeEnrollment = user && id ? getEnrollment(user.id, id) : null
+  if (user?.role === 'aluno' && course.price > 0 && !activeEnrollment) {
+    const wasEnrolled = !!enrollment
+    return (
+      <div className="p-6 lg:p-8 max-w-5xl mx-auto text-center py-20">
+        <p className="text-gray-900 text-lg font-semibold mb-1">
+          {wasEnrolled ? 'Seu acesso a este curso expirou' : 'Você ainda não tem acesso a este curso'}
+        </p>
+        <p className="text-gray-500 mb-4">
+          {wasEnrolled ? 'Renove o acesso para continuar de onde parou.' : 'Adquira o curso para começar a estudar.'}
+        </p>
+        <Link to="/dashboard" className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-medium transition-colors">
+          Ver cursos disponíveis
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 lg:p-8 max-w-5xl mx-auto">

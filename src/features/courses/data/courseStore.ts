@@ -421,9 +421,12 @@ export const useCourseStore = create<CourseState>((set, get) => {
   },
 
   getEnrollment: (userId, courseId) => {
-    // Matrícula bloqueada pelo admin (revokedAt) conta como "sem acesso" — a
-    // linha continua no banco só para preservar o progresso caso religue.
-    return get().enrollments.find(e => e.userId === userId && e.courseId === courseId && !e.revokedAt)
+    // Só conta como acesso ativo: não bloqueada pelo admin (revokedAt) e dentro
+    // do prazo (expiresAt). A linha continua no banco quando expira/bloqueia
+    // para preservar o progresso caso o acesso seja renovado.
+    const enrollment = get().enrollments.find(e => e.userId === userId && e.courseId === courseId)
+    if (!enrollment || enrollment.revokedAt || isEnrollmentExpired(enrollment)) return undefined
+    return enrollment
   },
 
   addMessage: (message) => {

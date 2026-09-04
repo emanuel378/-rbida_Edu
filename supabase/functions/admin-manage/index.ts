@@ -461,6 +461,102 @@ Deno.serve(async (req) => {
       return jsonResponse({ ok: true })
     }
 
+    // ----------------------------------------------------------
+    // DELETE ENROLLMENT — remove a matrícula de vez (limpeza de teste).
+    // Diferente de revoke_access (que só bloqueia mantendo o progresso).
+    // ----------------------------------------------------------
+    if (action === 'delete_enrollment') {
+      const userId = String(body.userId ?? '')
+      const courseId = String(body.courseId ?? '')
+      if (!userId || !courseId) return jsonResponse({ error: 'userId e courseId são obrigatórios' }, 400)
+
+      const { data: existing } = await admin
+        .from('enrollments')
+        .select('id, source, created_at')
+        .eq('user_id', userId)
+        .eq('course_id', courseId)
+        .maybeSingle()
+      if (!existing) return jsonResponse({ error: 'Matrícula não encontrada' }, 404)
+
+      const { error } = await admin.from('enrollments').delete().eq('id', existing.id)
+      if (error) return jsonResponse({ error: `Falha ao excluir matrícula: ${error.message}` }, 500)
+
+      const { data: course } = await admin.from('courses').select('title').eq('id', courseId).maybeSingle()
+      const { data: student } = await admin.from('profiles').select('name').eq('id', userId).maybeSingle()
+      await writeAudit({
+        adminId, adminName, action: 'delete_enrollment',
+        targetUserId: userId, targetUserName: student?.name ?? null,
+        courseId, courseTitle: course?.title ?? null,
+        detail: { source: existing.source, createdAt: existing.created_at },
+      })
+      return jsonResponse({ ok: true })
+    }
+
+    // ----------------------------------------------------------
+    // SET COURSE DURATION — define o prazo de acesso do curso
+    // (courses.access_duration_days). null = vitalício.
+    // applyToActive: recalcula expires_at das matrículas ativas do curso.
+    // ----------------------------------------------------------
+    if (action === 'set_course_duration') {
+      const courseId = String(body.courseId ?? '')
+      const rawDays = body.days
+      const days = rawDays == null || rawDays === '' ? null : Number(rawDays)
+      const applyToActive = body.applyToActive === true
+      if (!courseId) return jsonResponse({ error: 'courseId é obrigatório' }, 400)
+      if (days != null && (!Number.isInteger(days) || days <= 0)) {
+        return jsonResponse({ error: 'days deve ser um inteiro positivo ou vazio (vitalício)' }, 400)
+      }
+
+      const { data: course } = await admin.from('courses').select('id, title').eq('id', courseId).maybeSingle()
+      if (!course) return jsonResponse({ error: 'Curso não encontrado' }, 404)
+
+      const { error: upErr } = await admin
+        .from('courses')
+        .update({ access_duration_days: days })
+        .eq('id', courseId)
+      if (upErr) return jsonResponse({ error: `Falha ao salvar o prazo: ${upErr.message}` }, 500)
+
+      let recalculated = 0
+      if (applyToActive) {
+        const { data: enr } = await admin
+          .from('enrollments')
+          .select('id, user_id, created_at')
+          .eq('course_id', courseId)
+          .is('revoked_at', null)
+
+        // Conta o prazo a partir do pagamento (paid_at do pedido pago mais
+        // recente do aluno); sem pedido pago, a partir da criação da matrícula.
+        const { data: paidOrders } = await admin
+          .from('orders')
+          .select('user_id, paid_at')
+          .eq('course_id', courseId)
+          .eq('status', 'paid')
+          .not('paid_at', 'is', null)
+
+        const paidAtByUser = new Map<string, string>()
+        for (const o of paidOrders ?? []) {
+          const prev = paidAtByUser.get(o.user_id)
+          if (!prev || new Date(o.paid_at) > new Date(prev)) paidAtByUser.set(o.user_id, o.paid_at)
+        }
+
+        for (const e of enr ?? []) {
+          const base = paidAtByUser.get(e.user_id) ?? e.created_at ?? new Date().toISOString()
+          const newExpires = days == null
+            ? null
+            : new Date(new Date(base).getTime() + days * 24 * 60 * 60 * 1000).toISOString()
+          await admin.from('enrollments').update({ expires_at: newExpires }).eq('id', e.id)
+          recalculated++
+        }
+      }
+
+      await writeAudit({
+        adminId, adminName, action: 'set_course_duration',
+        courseId, courseTitle: course.title,
+        detail: { days, applyToActive, recalculated },
+      })
+      return jsonResponse({ ok: true, recalculated })
+    }
+
     return jsonResponse({ error: `Ação desconhecida: ${action}` }, 400)
   } catch (err) {
     return jsonResponse({ error: (err as Error).message || 'Erro inesperado no painel do admin' }, 500)

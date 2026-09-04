@@ -64,12 +64,15 @@ const AUDIT_LABEL: Record<string, string> = {
   sync_pending: 'Sincronizou pendentes',
   mark_paid_manual: 'Marcou como pago',
   delete_order: 'Excluiu pedido',
+  delete_enrollment: 'Excluiu matrícula',
+  set_course_duration: 'Definiu prazo do curso',
 }
 
 export default function AdminCourseAccess() {
   const {
     orders, enrollments, students, courses, audit, loading, acting, error, lastLoadedAt,
     loadOverview, grantAccess, revokeAccess, restoreAccess, syncOrder, syncPending, markPaidManual, deleteOrder,
+    deleteEnrollment, setCourseDuration,
   } = useAdminManageStore()
 
   const [tab, setTab] = useState<Tab>('access')
@@ -136,7 +139,8 @@ export default function AdminCourseAccess() {
       ) : tab === 'vigencias' ? (
         <VigenciasTab
           students={students} courses={courses} enrollments={enrollments} orders={orders} acting={acting}
-          onGrant={grantAccess} onRevoke={revokeAccess}
+          onGrant={grantAccess} onRevoke={revokeAccess} onDeleteEnrollment={deleteEnrollment}
+          onSetCourseDuration={setCourseDuration}
         />
       ) : (
         <HistoryTab audit={audit} />
@@ -626,8 +630,93 @@ const SOURCE_LABEL: Record<string, string> = {
   payment: 'Pagamento', admin_grant: 'Liberado pelo admin', free: 'Gratuito',
 }
 
+// Editor do prazo de acesso por curso (courses.access_duration_days).
+function CourseDurationSection({
+  courses, acting, onSave,
+}: {
+  courses: AdminCourseLite[]
+  acting: boolean
+  onSave: (courseId: string, days: number | null, applyToActive: boolean) => Promise<void>
+}) {
+  const [open, setOpen] = useState(false)
+  const [edits, setEdits] = useState<Record<string, string>>({})
+  const [applyToActive, setApplyToActive] = useState<Record<string, boolean>>({})
+  const [savingId, setSavingId] = useState<string | null>(null)
+
+  const sorted = [...courses].sort((a, b) => a.title.localeCompare(b.title))
+  const currentStr = (c: AdminCourseLite) => (c.access_duration_days == null ? '' : String(c.access_duration_days))
+  const editedStr = (c: AdminCourseLite) => edits[c.id] ?? currentStr(c)
+  const changed = (c: AdminCourseLite) => editedStr(c).trim() !== currentStr(c)
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <button onClick={() => setOpen(o => !o)} className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+        <span className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+          <CalendarClock className="w-4 h-4 text-blue-600" />
+          Prazo de acesso por curso
+        </span>
+        <span className="text-xs text-gray-400">{open ? 'ocultar' : 'ajustar'}</span>
+      </button>
+      {open && (
+        <div className="border-t border-gray-100 divide-y divide-gray-100">
+          <p className="px-4 py-2.5 text-xs text-gray-500">
+            Defina em quantos dias o acesso ao curso expira após a compra. Deixe em branco para acesso vitalício.
+            Vale para novas matrículas; marque "recalcular ativas" para aplicar também às matrículas em andamento.
+          </p>
+          {sorted.map(c => (
+            <div key={c.id} className="px-4 py-3 flex flex-wrap items-center gap-3">
+              <div className="flex-1 min-w-[160px]">
+                <p className="text-sm font-medium text-gray-900">{c.title}</p>
+                <p className="text-xs text-gray-500">{c.price > 0 ? money(c.price) : 'Gratuito'}</p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number" min="1"
+                  value={editedStr(c)}
+                  onChange={e => setEdits(p => ({ ...p, [c.id]: e.target.value }))}
+                  placeholder="vitalício"
+                  className="w-24 px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-xs text-gray-400">dias</span>
+              </div>
+              <label className="flex items-center gap-1.5 text-xs text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={applyToActive[c.id] ?? false}
+                  onChange={e => setApplyToActive(p => ({ ...p, [c.id]: e.target.checked }))}
+                  className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                recalcular ativas
+              </label>
+              <button
+                onClick={async () => {
+                  const raw = editedStr(c).trim()
+                  const days = raw === '' ? null : parseInt(raw, 10)
+                  if (days != null && (!Number.isInteger(days) || days <= 0)) { window.alert('Informe um número de dias positivo ou deixe em branco.'); return }
+                  if (applyToActive[c.id] && !window.confirm(`Recalcular a validade de TODAS as matrículas ativas de "${c.title}"? As datas de expiração serão sobrescritas.`)) return
+                  setSavingId(c.id)
+                  try {
+                    await onSave(c.id, days, applyToActive[c.id] ?? false)
+                    setEdits(p => { const n = { ...p }; delete n[c.id]; return n })
+                    setApplyToActive(p => ({ ...p, [c.id]: false }))
+                  } finally { setSavingId(null) }
+                }}
+                disabled={acting || (!changed(c) && !(applyToActive[c.id] ?? false))}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs font-medium disabled:opacity-40"
+              >
+                {savingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                Salvar
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function VigenciasTab({
-  students, courses, enrollments, orders, acting, onGrant, onRevoke,
+  students, courses, enrollments, orders, acting, onGrant, onRevoke, onDeleteEnrollment, onSetCourseDuration,
 }: {
   students: ReturnType<typeof useAdminManageStore.getState>['students']
   courses: AdminCourseLite[]
@@ -636,6 +725,8 @@ function VigenciasTab({
   acting: boolean
   onGrant: (u: string, c: string, d: number | null, note?: string) => Promise<void>
   onRevoke: (u: string, c: string, note?: string) => Promise<void>
+  onDeleteEnrollment: (u: string, c: string) => Promise<void>
+  onSetCourseDuration: (courseId: string, days: number | null, applyToActive: boolean) => Promise<void>
 }) {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<'all' | VigState>('all')
@@ -707,6 +798,8 @@ function VigenciasTab({
         <SummaryCard label="Expiradas" value={String(summary.expired)} icon={Clock} tone="purple" />
         <SummaryCard label="Acesso vitalício" value={String(summary.lifetime)} icon={InfinityIcon} tone="blue" />
       </div>
+
+      <CourseDurationSection courses={courses} acting={acting} onSave={onSetCourseDuration} />
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-4 border-b border-gray-100 flex flex-wrap items-center gap-2">
@@ -793,6 +886,17 @@ function VigenciasTab({
                             <Ban className="w-4 h-4" />
                           </button>
                         )}
+                        <button
+                          onClick={() => {
+                            if (!window.confirm(`Excluir DEFINITIVAMENTE a matrícula de ${r.studentName} no curso "${r.courseTitle}"? O progresso é perdido. Use "Bloquear" se quiser poder reativar depois.`)) return
+                            onDeleteEnrollment(r.e.user_id, r.e.course_id)
+                          }}
+                          disabled={acting}
+                          title="Excluir matrícula (limpeza de teste)"
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-600 disabled:opacity-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
