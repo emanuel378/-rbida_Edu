@@ -7,6 +7,7 @@ import { DISCIPLINAS, TOPICOS_POR_DISCIPLINA } from '../../courses/data/taxonomy
 import QuestionCard from '../components/QuestionCard'
 import CheckoutModal from '../../courses/components/CheckoutModal'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
+import MultiSelectDropdown from '../../../shared/components/MultiSelectDropdown'
 import { Search, X, HelpCircle, RefreshCw, AlertCircle, Loader2, Lock, ShoppingCart } from 'lucide-react'
 
 type Situacao = '' | 'resolvidas' | 'nao_resolvidas' | 'acertei' | 'errei'
@@ -45,12 +46,13 @@ function QuestionBankContent() {
   }, [loadInstitutions])
 
   const [filterValues, setFilterValues] = useState({
-    moduleId: '',
-    topicId: '',
-    banca: '',
-    institutionId: '',
-    nivel: '',
-    ano: '',
+    moduleId: [] as string[],
+    topicId: [] as string[],
+    banca: [] as string[],
+    institutionId: [] as string[],
+    cargo: [] as string[],
+    nivel: [] as string[],
+    ano: [] as string[],
     situacao: '' as Situacao,
     palavraChave: '',
   })
@@ -73,7 +75,12 @@ function QuestionBankContent() {
     setJustAnsweredIds(prev => (prev.has(questionId) ? prev : new Set(prev).add(questionId)))
   }
 
-  const assuntoOptions = TOPICOS_POR_DISCIPLINA[filterValues.moduleId] ?? []
+  const assuntoOptions = useMemo(() => {
+    const set = new Set<string>()
+    const modules = filterValues.moduleId.length ? filterValues.moduleId : Object.keys(TOPICOS_POR_DISCIPLINA)
+    modules.forEach(m => (TOPICOS_POR_DISCIPLINA[m] ?? []).forEach(t => set.add(t)))
+    return Array.from(set).sort()
+  }, [filterValues.moduleId])
 
   const bancaOptions = useMemo(() => {
     const set = new Set<string>()
@@ -84,6 +91,12 @@ function QuestionBankContent() {
   const nivelOptions = useMemo(() => {
     const set = new Set<string>()
     questions.forEach(q => { if (q.nivel) set.add(q.nivel) })
+    return Array.from(set).sort()
+  }, [questions])
+
+  const cargoOptions = useMemo(() => {
+    const set = new Set<string>()
+    questions.forEach(q => { if (q.cargo) set.add(q.cargo) })
     return Array.from(set).sort()
   }, [questions])
 
@@ -114,12 +127,13 @@ function QuestionBankContent() {
   const filteredQuestions = useMemo(() => {
     const keyword = appliedFilters.palavraChave.trim().toLowerCase()
     return questions.filter(q => {
-      if (appliedFilters.moduleId && q.moduleId !== appliedFilters.moduleId) return false
-      if (appliedFilters.topicId && q.topicId !== appliedFilters.topicId) return false
-      if (appliedFilters.banca && q.banca !== appliedFilters.banca) return false
-      if (appliedFilters.institutionId && q.institutionId !== appliedFilters.institutionId) return false
-      if (appliedFilters.nivel && q.nivel !== appliedFilters.nivel) return false
-      if (appliedFilters.ano && q.ano !== appliedFilters.ano) return false
+      if (appliedFilters.moduleId.length && !appliedFilters.moduleId.includes(q.moduleId ?? '')) return false
+      if (appliedFilters.topicId.length && !appliedFilters.topicId.includes(q.topicId ?? '')) return false
+      if (appliedFilters.banca.length && !appliedFilters.banca.includes(q.banca ?? '')) return false
+      if (appliedFilters.institutionId.length && !appliedFilters.institutionId.includes(q.institutionId ?? '')) return false
+      if (appliedFilters.cargo.length && !appliedFilters.cargo.includes(q.cargo ?? '')) return false
+      if (appliedFilters.nivel.length && !appliedFilters.nivel.includes(q.nivel ?? '')) return false
+      if (appliedFilters.ano.length && !appliedFilters.ano.includes(q.ano ?? '')) return false
       if (!justAnsweredIds.has(q.id)) {
         if (appliedFilters.situacao === 'resolvidas' && !resolvedQuestionIds.has(q.id)) return false
         if (appliedFilters.situacao === 'nao_resolvidas' && resolvedQuestionIds.has(q.id)) return false
@@ -143,40 +157,60 @@ function QuestionBankContent() {
 
   const applyFilters = () => setAppliedFilters(filterValues)
 
+  const emptyFilters: typeof filterValues = {
+    moduleId: [], topicId: [], banca: [], institutionId: [], cargo: [], nivel: [], ano: [], situacao: '', palavraChave: '',
+  }
+
   const clearFilters = () => {
-    const empty: typeof filterValues = { moduleId: '', topicId: '', banca: '', institutionId: '', nivel: '', ano: '', situacao: '', palavraChave: '' }
-    setFilterValues(empty)
-    setAppliedFilters(empty)
+    setFilterValues(emptyFilters)
+    setAppliedFilters(emptyFilters)
   }
 
   const getInstitutionName = (id?: string) => institutions.find(i => i.id === id)?.name || ''
 
-  const removeFilter = (key: keyof typeof filterValues) => {
-    const next = { ...filterValues, [key]: key === 'moduleId' ? '' : filterValues[key] }
-    if (key === 'moduleId') next.topicId = ''
+  const multiFilterKeys = ['moduleId', 'topicId', 'banca', 'institutionId', 'cargo', 'nivel', 'ano'] as const
+  type MultiFilterKey = (typeof multiFilterKeys)[number]
+
+  const setMultiFilter = (key: MultiFilterKey, values: string[]) => {
+    setFilterValues(prev => ({ ...prev, [key]: values }))
+  }
+
+  const removeMultiFilterValue = (key: MultiFilterKey, value: string) => {
+    const next = { ...filterValues, [key]: filterValues[key].filter(v => v !== value) }
     setFilterValues(next)
     setAppliedFilters(next)
   }
 
-  const filterLabel = (key: keyof typeof filterValues, value: string): string => {
+  const removeSingleFilter = (key: 'situacao' | 'palavraChave') => {
+    const next = { ...filterValues, [key]: '' }
+    setFilterValues(next)
+    setAppliedFilters(next)
+  }
+
+  const valueLabel = (key: MultiFilterKey, value: string): string => {
     switch (key) {
-      case 'moduleId': return `Disciplina: ${DISCIPLINAS.find(d => d.value === value)?.label || value}`
-      case 'topicId': return `Assunto: ${value}`
-      case 'banca': return `Banca: ${value}`
-      case 'institutionId': return `Instituição: ${getInstitutionName(value) || value}`
-      case 'nivel': return `Nível: ${value}`
-      case 'ano': return `Ano: ${value}`
-      case 'palavraChave': return `Palavra-chave: ${value}`
-      case 'situacao':
-        if (value === 'resolvidas') return 'Já resolvi'
-        if (value === 'nao_resolvidas') return 'Não resolvi'
-        if (value === 'acertei') return 'Acertei'
-        return 'Errei'
-      default: return `${key}: ${value}`
+      case 'moduleId': return DISCIPLINAS.find(d => d.value === value)?.label || value
+      case 'institutionId': return getInstitutionName(value) || value
+      default: return value
     }
   }
 
-  const activeFilterEntries = (Object.entries(appliedFilters) as [keyof typeof filterValues, string][]).filter(([, v]) => v)
+  const filterKeyLabel: Record<MultiFilterKey, string> = {
+    moduleId: 'Disciplina', topicId: 'Assunto', banca: 'Banca', institutionId: 'Instituição', cargo: 'Cargo', nivel: 'Nível', ano: 'Ano',
+  }
+
+  const activeMultiFilterEntries = multiFilterKeys.flatMap(key =>
+    appliedFilters[key].map(value => ({ key, value, label: `${filterKeyLabel[key]}: ${valueLabel(key, value)}` }))
+  )
+
+  const hasActiveFilters = activeMultiFilterEntries.length > 0 || !!appliedFilters.situacao || !!appliedFilters.palavraChave
+
+  const situacaoLabel = (value: Situacao): string => {
+    if (value === 'resolvidas') return 'Já resolvi'
+    if (value === 'nao_resolvidas') return 'Não resolvi'
+    if (value === 'acertei') return 'Acertei'
+    return 'Errei'
+  }
 
   return (
     <div className="p-6 lg:p-8 max-w-4xl mx-auto">
@@ -270,7 +304,7 @@ function QuestionBankContent() {
       {!loading && (
         <>
           {/* Painel de filtros */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-6">
             <div className="p-6 space-y-5">
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Filtros</h2>
 
@@ -291,92 +325,61 @@ function QuestionBankContent() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">DISCIPLINA</label>
-                  <select
-                    value={filterValues.moduleId}
-                    onChange={e => setFilterValues({ ...filterValues, moduleId: e.target.value, topicId: '' })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="">Todas as disciplinas</option>
-                    {DISCIPLINAS.map(d => (
-                      <option key={d.value} value={d.value}>{d.label}</option>
-                    ))}
-                  </select>
-                </div>
+                <MultiSelectDropdown
+                  label="DISCIPLINA"
+                  options={DISCIPLINAS}
+                  selected={filterValues.moduleId}
+                  onChange={values => setMultiFilter('moduleId', values)}
+                  placeholder="Todas as disciplinas"
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">ASSUNTO</label>
-                  <select
-                    value={filterValues.topicId}
-                    onChange={e => setFilterValues({ ...filterValues, topicId: e.target.value })}
-                    disabled={!filterValues.moduleId}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <option value="">
-                      {!filterValues.moduleId ? 'Primeiro selecione a disciplina' : 'Todos os assuntos'}
-                    </option>
-                    {assuntoOptions.map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
+                <MultiSelectDropdown
+                  label="ASSUNTO"
+                  options={assuntoOptions.map(t => ({ value: t, label: t }))}
+                  selected={filterValues.topicId}
+                  onChange={values => setMultiFilter('topicId', values)}
+                  placeholder="Todos os assuntos"
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">BANCA</label>
-                  <select
-                    value={filterValues.banca}
-                    onChange={e => setFilterValues({ ...filterValues, banca: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="">Todas as bancas</option>
-                    {bancaOptions.map(v => (
-                      <option key={v} value={v}>{v}</option>
-                    ))}
-                  </select>
-                </div>
+                <MultiSelectDropdown
+                  label="BANCA"
+                  options={bancaOptions.map(v => ({ value: v, label: v }))}
+                  selected={filterValues.banca}
+                  onChange={values => setMultiFilter('banca', values)}
+                  placeholder="Todas as bancas"
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">INSTITUIÇÃO</label>
-                  <select
-                    value={filterValues.institutionId}
-                    onChange={e => setFilterValues({ ...filterValues, institutionId: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="">Todas as instituições</option>
-                    {institutions.map(i => (
-                      <option key={i.id} value={i.id}>{i.name}</option>
-                    ))}
-                  </select>
-                </div>
+                <MultiSelectDropdown
+                  label="INSTITUIÇÃO"
+                  options={institutions.map(i => ({ value: i.id, label: i.name }))}
+                  selected={filterValues.institutionId}
+                  onChange={values => setMultiFilter('institutionId', values)}
+                  placeholder="Todas as instituições"
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">NÍVEL</label>
-                  <select
-                    value={filterValues.nivel}
-                    onChange={e => setFilterValues({ ...filterValues, nivel: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="">Todos os níveis</option>
-                    {nivelOptions.map(v => (
-                      <option key={v} value={v}>{v}</option>
-                    ))}
-                  </select>
-                </div>
+                <MultiSelectDropdown
+                  label="CARGO"
+                  options={cargoOptions.map(v => ({ value: v, label: v }))}
+                  selected={filterValues.cargo}
+                  onChange={values => setMultiFilter('cargo', values)}
+                  placeholder="Todos os cargos"
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">ANO</label>
-                  <select
-                    value={filterValues.ano}
-                    onChange={e => setFilterValues({ ...filterValues, ano: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="">Todos os anos</option>
-                    {anoOptions.map(v => (
-                      <option key={v} value={v}>{v}</option>
-                    ))}
-                  </select>
-                </div>
+                <MultiSelectDropdown
+                  label="NÍVEL"
+                  options={nivelOptions.map(v => ({ value: v, label: v }))}
+                  selected={filterValues.nivel}
+                  onChange={values => setMultiFilter('nivel', values)}
+                  placeholder="Todos os níveis"
+                />
+
+                <MultiSelectDropdown
+                  label="ANO"
+                  options={anoOptions.map(v => ({ value: v, label: v }))}
+                  selected={filterValues.ano}
+                  onChange={values => setMultiFilter('ano', values)}
+                  placeholder="Todos os anos"
+                />
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">SITUAÇÃO</label>
@@ -414,26 +417,48 @@ function QuestionBankContent() {
           </div>
 
           {/* Tags dos filtros aplicados */}
-          {activeFilterEntries.length > 0 && (
+          {hasActiveFilters && (
             <div className="flex flex-wrap items-center gap-2 mb-4">
-              {activeFilterEntries.map(([key, val]) => (
+              {activeMultiFilterEntries.map(({ key, value, label }) => (
                 <span
-                  key={key}
+                  key={`${key}-${value}`}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-full text-sm"
                 >
-                  {filterLabel(key, val)}
+                  {label}
                   <button
-                    onClick={() => removeFilter(key)}
+                    onClick={() => removeMultiFilterValue(key, value)}
                     className="p-0.5 hover:bg-blue-100 rounded-full transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </span>
               ))}
+              {appliedFilters.situacao && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-full text-sm">
+                  Situação: {situacaoLabel(appliedFilters.situacao)}
+                  <button
+                    onClick={() => removeSingleFilter('situacao')}
+                    className="p-0.5 hover:bg-blue-100 rounded-full transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </span>
+              )}
+              {appliedFilters.palavraChave && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-full text-sm">
+                  Palavra-chave: {appliedFilters.palavraChave}
+                  <button
+                    onClick={() => removeSingleFilter('palavraChave')}
+                    className="p-0.5 hover:bg-blue-100 rounded-full transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </span>
+              )}
             </div>
           )}
 
-          {!limitedAccess && activeFilterEntries.length === 0 ? (
+          {!limitedAccess && !hasActiveFilters ? (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
               <Search className="w-12 h-12 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-500 text-lg font-medium">Use os filtros acima para buscar questões</p>

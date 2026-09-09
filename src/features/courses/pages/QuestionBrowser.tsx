@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuestionStore } from '../data/questionStore'
 import { useInstitutionStore } from '../data/institutionStore'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
+import MultiSelectDropdown from '../../../shared/components/MultiSelectDropdown'
 import { Search, X, HelpCircle, BookOpen, Landmark, Edit2, RefreshCw, AlertCircle, Loader2, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react'
 
 export default function QuestionBrowser() {
@@ -22,15 +23,22 @@ export default function QuestionBrowser() {
   }
 
   const [filterValues, setFilterValues] = useState({
-    moduleId: '',
-    topicId: '',
-    banca: '',
-    institutionId: '',
-    nivel: '',
-    ano: '',
+    moduleId: [] as string[],
+    topicId: [] as string[],
+    banca: [] as string[],
+    institutionId: [] as string[],
+    cargo: [] as string[],
+    nivel: [] as string[],
+    ano: [] as string[],
   })
-  const [appliedFilters, setAppliedFilters] = useState<Record<string, string>>({})
+  const [appliedFilters, setAppliedFilters] = useState(filterValues)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  type FilterKey = keyof typeof filterValues
+
+  const setMultiFilter = (key: FilterKey, values: string[]) => {
+    setFilterValues(prev => ({ ...prev, [key]: values }))
+  }
 
   const handleRefresh = async () => {
     setLocalError(null)
@@ -58,7 +66,7 @@ export default function QuestionBrowser() {
   const assuntoOptions = useMemo(() => {
     const set = new Set<string>()
     questions.forEach(q => {
-      if (q.topicId && q.moduleId === filterValues.moduleId) set.add(q.topicId)
+      if (q.topicId && (filterValues.moduleId.length === 0 || filterValues.moduleId.includes(q.moduleId ?? ''))) set.add(q.topicId)
     })
     return Array.from(set).sort()
   }, [questions, filterValues.moduleId])
@@ -75,6 +83,12 @@ export default function QuestionBrowser() {
     return Array.from(set).sort()
   }, [questions])
 
+  const cargoOptions = useMemo(() => {
+    const set = new Set<string>()
+    questions.forEach(q => { if (q.cargo) set.add(q.cargo) })
+    return Array.from(set).sort()
+  }, [questions])
+
   const anoOptions = useMemo(() => {
     const set = new Set<string>()
     questions.forEach(q => { if (q.ano) set.add(q.ano) })
@@ -83,45 +97,32 @@ export default function QuestionBrowser() {
 
   const filteredQuestions = useMemo(() => {
     return questions.filter(q => {
-      return Object.entries(appliedFilters).every(([key, val]) => {
-        if (!val) return true
-        return (q as unknown as Record<string, unknown>)[key] === val
+      return (Object.entries(appliedFilters) as [FilterKey, string[]][]).every(([key, values]) => {
+        if (values.length === 0) return true
+        return values.includes((q as unknown as Record<string, unknown>)[key] as string ?? '')
       })
     })
   }, [questions, appliedFilters])
 
-  const applyFilters = () => {
-    const applied: Record<string, string> = {}
-    Object.entries(filterValues).forEach(([key, val]) => {
-      if (val) applied[key] = val
-    })
-    setAppliedFilters(applied)
-  }
+  const applyFilters = () => setAppliedFilters(filterValues)
+
+  const emptyFilters: typeof filterValues = { moduleId: [], topicId: [], banca: [], institutionId: [], cargo: [], nivel: [], ano: [] }
 
   const clearFilters = () => {
-    setFilterValues({ moduleId: '', topicId: '', banca: '', institutionId: '', nivel: '', ano: '' })
-    setAppliedFilters({})
+    setFilterValues(emptyFilters)
+    setAppliedFilters(emptyFilters)
   }
 
   const getInstitutionName = (id?: string) => institutions.find(i => i.id === id)?.name || ''
 
-  const removeFilter = (key: string) => {
-    const next = { ...appliedFilters }
-    delete next[key]
+  const removeFilterValue = (key: FilterKey, value: string) => {
+    const next = { ...filterValues, [key]: filterValues[key].filter(v => v !== value) }
+    setFilterValues(next)
     setAppliedFilters(next)
-    setFilterValues(prev => ({ ...prev, [key]: '' }))
   }
 
-  const filterLabel = (key: string, value: string): string => {
-    switch (key) {
-      case 'moduleId': return `Disciplina: ${value}`
-      case 'topicId': return `Assunto: ${value}`
-      case 'banca': return `Banca: ${value}`
-      case 'institutionId': return `Instituição: ${getInstitutionName(value) || value}`
-      case 'nivel': return `Nível: ${value}`
-      case 'ano': return `Ano: ${value}`
-      default: return `${key}: ${value}`
-    }
+  const filterKeyLabel: Record<FilterKey, string> = {
+    moduleId: 'Disciplina', topicId: 'Assunto', banca: 'Banca', institutionId: 'Instituição', cargo: 'Cargo', nivel: 'Nível', ano: 'Ano',
   }
 
   const getModuleLabel = (moduleId?: string) => {
@@ -129,6 +130,16 @@ export default function QuestionBrowser() {
     const found = disciplinaOptions.find(d => d.value === moduleId)
     return found?.label || moduleId
   }
+
+  const valueLabel = (key: FilterKey, value: string): string => {
+    if (key === 'moduleId') return getModuleLabel(value)
+    if (key === 'institutionId') return getInstitutionName(value) || value
+    return value
+  }
+
+  const activeFilterEntries = (Object.keys(filterValues) as FilterKey[]).flatMap(key =>
+    appliedFilters[key].map(value => ({ key, value, label: `${filterKeyLabel[key]}: ${valueLabel(key, value)}` }))
+  )
 
   return (
     <div className="p-6 lg:p-8 max-w-6xl">
@@ -175,96 +186,65 @@ export default function QuestionBrowser() {
 
       {!loading && (
         <>
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-6">
             <div className="p-6 space-y-5">
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Filtros</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">DISCIPLINA</label>
-                  <select
-                    value={filterValues.moduleId}
-                    onChange={e => setFilterValues({ ...filterValues, moduleId: e.target.value, topicId: '' })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="">Todas as disciplinas</option>
-                    {disciplinaOptions.map(d => (
-                      <option key={d.value} value={d.value}>{d.label}</option>
-                    ))}
-                  </select>
-                </div>
+                <MultiSelectDropdown
+                  label="DISCIPLINA"
+                  options={disciplinaOptions}
+                  selected={filterValues.moduleId}
+                  onChange={values => setMultiFilter('moduleId', values)}
+                  placeholder="Todas as disciplinas"
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">BANCA</label>
-                  <select
-                    value={filterValues.banca}
-                    onChange={e => setFilterValues({ ...filterValues, banca: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="">Todas as bancas</option>
-                    {bancaOptions.map(v => (
-                      <option key={v} value={v}>{v}</option>
-                    ))}
-                  </select>
-                </div>
+                <MultiSelectDropdown
+                  label="BANCA"
+                  options={bancaOptions.map(v => ({ value: v, label: v }))}
+                  selected={filterValues.banca}
+                  onChange={values => setMultiFilter('banca', values)}
+                  placeholder="Todas as bancas"
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">INSTITUIÇÃO</label>
-                  <select
-                    value={filterValues.institutionId}
-                    onChange={e => setFilterValues({ ...filterValues, institutionId: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="">Todas as instituições</option>
-                    {institutions.map(i => (
-                      <option key={i.id} value={i.id}>{i.name}</option>
-                    ))}
-                  </select>
-                </div>
+                <MultiSelectDropdown
+                  label="INSTITUIÇÃO"
+                  options={institutions.map(i => ({ value: i.id, label: i.name }))}
+                  selected={filterValues.institutionId}
+                  onChange={values => setMultiFilter('institutionId', values)}
+                  placeholder="Todas as instituições"
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">ASSUNTO</label>
-                  <select
-                    value={filterValues.topicId}
-                    onChange={e => setFilterValues({ ...filterValues, topicId: e.target.value })}
-                    disabled={!filterValues.moduleId}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <option value="">
-                      {!filterValues.moduleId ? 'Primeiro selecione a disciplina' : 'Todos os assuntos'}
-                    </option>
-                    {assuntoOptions.map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
+                <MultiSelectDropdown
+                  label="ASSUNTO"
+                  options={assuntoOptions.map(t => ({ value: t, label: t }))}
+                  selected={filterValues.topicId}
+                  onChange={values => setMultiFilter('topicId', values)}
+                  placeholder="Todos os assuntos"
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">NÍVEL</label>
-                  <select
-                    value={filterValues.nivel}
-                    onChange={e => setFilterValues({ ...filterValues, nivel: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="">Todos os níveis</option>
-                    {nivelOptions.map(v => (
-                      <option key={v} value={v}>{v}</option>
-                    ))}
-                  </select>
-                </div>
+                <MultiSelectDropdown
+                  label="CARGO"
+                  options={cargoOptions.map(v => ({ value: v, label: v }))}
+                  selected={filterValues.cargo}
+                  onChange={values => setMultiFilter('cargo', values)}
+                  placeholder="Todos os cargos"
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">ANO</label>
-                  <select
-                    value={filterValues.ano}
-                    onChange={e => setFilterValues({ ...filterValues, ano: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="">Todos os anos</option>
-                    {anoOptions.map(v => (
-                      <option key={v} value={v}>{v}</option>
-                    ))}
-                  </select>
-                </div>
+                <MultiSelectDropdown
+                  label="NÍVEL"
+                  options={nivelOptions.map(v => ({ value: v, label: v }))}
+                  selected={filterValues.nivel}
+                  onChange={values => setMultiFilter('nivel', values)}
+                  placeholder="Todos os níveis"
+                />
+
+                <MultiSelectDropdown
+                  label="ANO"
+                  options={anoOptions.map(v => ({ value: v, label: v }))}
+                  selected={filterValues.ano}
+                  onChange={values => setMultiFilter('ano', values)}
+                  placeholder="Todos os anos"
+                />
               </div>
 
               <div className="flex items-center gap-3 pt-2">
@@ -285,16 +265,16 @@ export default function QuestionBrowser() {
             </div>
           </div>
 
-          {Object.keys(appliedFilters).length > 0 && (
+          {activeFilterEntries.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 mb-4">
-              {Object.entries(appliedFilters).map(([key, val]) => (
+              {activeFilterEntries.map(({ key, value, label }) => (
                 <span
-                  key={key}
+                  key={`${key}-${value}`}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-full text-sm"
                 >
-                  {filterLabel(key, val)}
+                  {label}
                   <button
-                    onClick={() => removeFilter(key)}
+                    onClick={() => removeFilterValue(key, value)}
                     className="p-0.5 hover:bg-blue-100 rounded-full transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -377,6 +357,11 @@ export default function QuestionBrowser() {
                         {q.nivel && (
                           <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-xs font-medium">
                             {q.nivel}
+                          </span>
+                        )}
+                        {q.cargo && (
+                          <span className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded-md text-xs font-medium">
+                            {q.cargo}
                           </span>
                         )}
                         {q.ano && (

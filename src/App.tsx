@@ -6,6 +6,7 @@ import { Login, Pending } from './features/auth'
 import { DashboardHome, MeusCursos, Cronograma, Desempenho, Configuracoes, StudentQuestionBank, QuestionDetail, PublicQuestions } from './features/student'
 import { Course, Lesson, QuestionBank, QuestionBrowser, QuestionGeneratorAI, CourseMessages } from './features/courses'
 import { Simulado } from './features/simulado'
+import { NotebookList, NotebookGenerator, NotebookResolve } from './features/notebooks'
 import { TeacherDashboard, TeacherCourses, TeacherCourseDetail, TeacherSimulados, TeacherMessages } from './features/teacher'
 import { Admin, AdminAnalytics, AdminMessages, AdminInstitutions, AdminCourseAccess } from './features/admin'
 import { useQuestionStore } from './features/courses/data/questionStore'
@@ -57,6 +58,9 @@ export default function App() {
           <Route path="lesson/:id" element={<Lesson />} />
           <Route path="question/:id" element={<QuestionDetail />} />
           <Route path="questions" element={<StudentQuestionBank />} />
+          <Route path="cadernos" element={<NotebookList />} />
+          <Route path="cadernos/novo" element={<NotebookGenerator />} />
+          <Route path="cadernos/:id" element={<NotebookResolve />} />
         </Route>
 
         {/* Rotas do Professor */}

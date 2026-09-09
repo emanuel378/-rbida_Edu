@@ -72,6 +72,7 @@ export interface Question {
   correctAnswer: number
   banca?: string
   institutionId?: string
+  cargo?: string
   assunto?: string
   nivel?: string
   ano?: string

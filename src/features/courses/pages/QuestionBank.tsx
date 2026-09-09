@@ -33,6 +33,7 @@ const EMPTY_FORM = {
   topicId: '',
   banca: '',
   institutionId: '',
+  cargo: '',
   nivel: '',
   ano: '',
   gabaritoComentado: '',
@@ -162,6 +163,7 @@ function QuestionListPanel({ questions, filteredQuestions, searchTerm, onSearchC
                       </span>
                     )}
                     {q.nivel && <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-600 text-xs">{q.nivel}</span>}
+                    {q.cargo && <span className="px-2 py-1 rounded-md bg-amber-100 text-amber-700 text-xs">{q.cargo}</span>}
                   </div>
                   <div className="mt-2 text-xs text-gray-500">
                     Gabarito: {getCorrectLetter(q.correctAnswer)}
@@ -262,7 +264,7 @@ export default function QuestionBank() {
     if (!term) return questions
     return questions.filter(q => {
       const disciplina = DISCIPLINAS.find(d => d.value === q.moduleId)?.label || q.moduleId || ''
-      return [q.question, q.code, q.banca, q.topicId, q.nivel, q.ano, disciplina]
+      return [q.question, q.code, q.banca, q.topicId, q.nivel, q.cargo, q.ano, disciplina]
         .some(field => field?.toLowerCase().includes(term))
     })
   }, [questions, searchTerm])
@@ -432,6 +434,7 @@ export default function QuestionBank() {
         assunto: form.topicId,
         banca: form.banca,
         institutionId: form.institutionId || undefined,
+        cargo: form.cargo || undefined,
         nivel: form.nivel,
         ano: form.ano,
         gabaritoComentado: form.gabaritoComentado,
@@ -478,6 +481,7 @@ export default function QuestionBank() {
       topicId: question.topicId || '',
       banca: question.banca || '',
       institutionId: question.institutionId || '',
+      cargo: question.cargo || '',
       nivel: question.nivel || '',
       ano: question.ano || '',
       gabaritoComentado: question.gabaritoComentado || '',
@@ -556,6 +560,7 @@ export default function QuestionBank() {
         assunto: editForm.topicId,
         banca: editForm.banca,
         institutionId: editForm.institutionId || undefined,
+        cargo: editForm.cargo || undefined,
         nivel: editForm.nivel,
         ano: editForm.ano,
         gabaritoComentado: editForm.gabaritoComentado,
@@ -1136,8 +1141,8 @@ export default function QuestionBank() {
               </div>
             </div>
 
-            {/* Nível + Ano */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Nível + Cargo + Ano */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">NÍVEL</label>
                 <select
@@ -1150,6 +1155,16 @@ export default function QuestionBank() {
                   <option value="Médio">Médio</option>
                   <option value="Superior">Superior</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">CARGO</label>
+                <input
+                  type="text"
+                  value={form.cargo}
+                  onChange={e => setForm(prev => ({ ...prev, cargo: e.target.value }))}
+                  placeholder="Ex: Professor EBTT"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                />
               </div>
               <AnoField isEdit={false} />
             </div>
@@ -1490,7 +1505,7 @@ export default function QuestionBank() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">NÍVEL</label>
                   <select
@@ -1503,6 +1518,16 @@ export default function QuestionBank() {
                     <option value="Médio">Médio</option>
                     <option value="Superior">Superior</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">CARGO</label>
+                  <input
+                    type="text"
+                    value={editForm.cargo}
+                    onChange={e => setEditForm(prev => ({ ...prev, cargo: e.target.value }))}
+                    placeholder="Ex: Professor EBTT"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  />
                 </div>
                 <AnoField isEdit={true} />
               </div>

@@ -24,6 +24,7 @@ import {
   Wrench,
   ClipboardList,
   KeyRound,
+  FileStack,
 } from 'lucide-react'
 
 interface NavItem {
@@ -48,6 +49,7 @@ const studentNavItems: NavEntry[] = [
   { to: '/dashboard/cursos', icon: BookOpen, label: 'Meus Cursos', end: false },
   { to: '/dashboard/cronograma', icon: Calendar, label: 'Cronograma', end: false },
   { to: '/dashboard/questions', icon: HelpCircle, label: 'Banco de Questões', end: false },
+  { to: '/dashboard/cadernos', icon: FileStack, label: 'Cadernos', end: false },
 ]
 
 const teacherNavItems: NavEntry[] = [
