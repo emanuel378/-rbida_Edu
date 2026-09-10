@@ -9,8 +9,8 @@ import Breadcrumb from '../../../shared/components/Breadcrumb'
 import type { CadernoAttempt } from '../data/notebookTypes'
 import type { Question } from '../../courses/data/mock'
 import {
-  ArrowLeft, ArrowRight, CheckCircle, Trophy, Download, Clock3, Loader2,
-  FileStack, HelpCircle,
+  ArrowLeft, ArrowRight, CheckCircle, XCircle, Trophy, Download, Clock3, Loader2,
+  FileStack, HelpCircle, RotateCcw,
 } from 'lucide-react'
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E']
@@ -61,13 +61,15 @@ export default function NotebookResolve() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuthStore()
   const { questions, loading: questionsLoading, loadQuestions, recordAnswer } = useQuestionStore()
-  const { getNotebook, loadNotebooks, loadAttempt, startAttempt, saveAttemptProgress, finishAttempt } = useNotebookStore()
+  const { getNotebook, loadNotebooks, loadAttempt, startAttempt, saveAttemptProgress, finishAttempt, restartAttempt } = useNotebookStore()
 
   const [ready, setReady] = useState(false)
   const [notFound, setNotFound] = useState(false)
   const [attempt, setAttempt] = useState<CadernoAttempt | undefined>()
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [reviewIndex, setReviewIndex] = useState(0)
   const [downloading, setDownloading] = useState(false)
+  const [restarting, setRestarting] = useState(false)
   const [, forceTick] = useState(0)
 
   const notebook = id ? getNotebook(id) : undefined
@@ -165,6 +167,21 @@ export default function NotebookResolve() {
     }
   }
 
+  const handleRestart = async () => {
+    if (!attempt) return
+    setRestarting(true)
+    try {
+      const reset = await restartAttempt(attempt)
+      baseSecondsRef.current = 0
+      sessionStartRef.current = Date.now()
+      setAttempt(reset)
+      setCurrentIndex(0)
+      setReviewIndex(0)
+    } finally {
+      setRestarting(false)
+    }
+  }
+
   if (!ready || questionsLoading) {
     return (
       <div className="p-6 lg:p-8 max-w-4xl mx-auto">
@@ -200,6 +217,14 @@ export default function NotebookResolve() {
 
     const disciplineBreakdown = buildBreakdown(notebookQuestions, answers, q => q.moduleId, getDisciplinaLabel)
     const assuntoBreakdown = buildBreakdown(notebookQuestions, answers, q => q.topicId, key => key)
+
+    const safeReviewIndex = notebookQuestions.length
+      ? Math.min(reviewIndex, notebookQuestions.length - 1)
+      : 0
+    const reviewQuestion = notebookQuestions[safeReviewIndex]
+    const reviewSelected = reviewQuestion ? answers[reviewQuestion.id] : undefined
+    const reviewIsBlank = reviewSelected === undefined
+    const reviewIsRight = !!reviewQuestion && reviewSelected === reviewQuestion.correctAnswer
 
     return (
       <div className="p-6 lg:p-8 max-w-4xl mx-auto">
@@ -281,6 +306,111 @@ export default function NotebookResolve() {
           </div>
         </div>
 
+        {notebookQuestions.length > 0 && reviewQuestion && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6 mb-6">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h2 className="text-sm font-bold text-gray-900">Revisão das questões</h2>
+              <span className="text-xs text-gray-500 flex-shrink-0">
+                {safeReviewIndex + 1}/{notebookQuestions.length}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 mb-5">
+              {notebookQuestions.map((q, i) => {
+                const sel = answers[q.id]
+                const state = sel === undefined ? 'blank' : sel === q.correctAnswer ? 'right' : 'wrong'
+                return (
+                  <button
+                    key={q.id}
+                    onClick={() => setReviewIndex(i)}
+                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${
+                      i === safeReviewIndex ? 'ring-2 ring-offset-1 ring-blue-500 ' : ''
+                    }${
+                      state === 'right'
+                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                        : state === 'wrong'
+                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="flex items-center gap-2 mb-3">
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                reviewIsBlank ? 'bg-gray-100 text-gray-600' : reviewIsRight ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+              }`}>
+                {reviewIsBlank ? <HelpCircle className="w-3.5 h-3.5" /> : reviewIsRight ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                {reviewIsBlank ? 'Não respondida' : reviewIsRight ? 'Você acertou' : 'Você errou'}
+              </span>
+              {reviewQuestion.code && <span className="text-xs text-gray-400">{reviewQuestion.code}</span>}
+            </div>
+
+            <p className="text-base font-medium text-gray-900 mb-4 whitespace-pre-wrap">{reviewQuestion.question}</p>
+            {reviewQuestion.questionImageUrl && (
+              <img src={reviewQuestion.questionImageUrl} alt="Imagem da questão" className="max-w-md rounded-lg border border-gray-200 mb-4" />
+            )}
+
+            <div className="space-y-2.5">
+              {reviewQuestion.options.map((opt, i) => {
+                const isCorrectOpt = i === reviewQuestion.correctAnswer
+                const isChosen = reviewSelected === i
+                const box = isCorrectOpt
+                  ? 'border-green-300 bg-green-50 text-green-900'
+                  : isChosen
+                  ? 'border-red-300 bg-red-50 text-red-900'
+                  : 'border-gray-200 bg-white text-gray-700'
+                return (
+                  <div key={i} className={`w-full text-left p-3.5 rounded-xl border-2 ${box}`}>
+                    <div className="flex items-center gap-3">
+                      <span className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+                        isCorrectOpt ? 'bg-green-500 text-white' : isChosen ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {isCorrectOpt ? <CheckCircle className="w-4 h-4" /> : isChosen ? <XCircle className="w-4 h-4" /> : (LETTERS[i] ?? i + 1)}
+                      </span>
+                      <span className="font-medium whitespace-pre-wrap">{opt}</span>
+                      {(isCorrectOpt || isChosen) && (
+                        <span className="ml-auto text-[11px] font-semibold flex-shrink-0 uppercase tracking-wide">
+                          {isCorrectOpt ? 'Resposta correta' : 'Sua resposta'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {reviewQuestion.gabaritoComentado && (
+              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1.5">Gabarito Comentado</p>
+                <p className="text-sm text-blue-800 leading-relaxed whitespace-pre-wrap">{reviewQuestion.gabaritoComentado}</p>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center gap-3 mt-5">
+              <button
+                disabled={safeReviewIndex === 0}
+                onClick={() => setReviewIndex(Math.max(0, safeReviewIndex - 1))}
+                className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed font-medium text-sm"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Anterior
+              </button>
+              <button
+                disabled={safeReviewIndex === notebookQuestions.length - 1}
+                onClick={() => setReviewIndex(Math.min(notebookQuestions.length - 1, safeReviewIndex + 1))}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed font-medium text-sm"
+              >
+                Próxima
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-3">
           <Link
             to="/dashboard/cadernos"
@@ -289,6 +419,14 @@ export default function NotebookResolve() {
             <ArrowLeft className="w-4 h-4" />
             Meus Cadernos
           </Link>
+          <button
+            onClick={handleRestart}
+            disabled={restarting}
+            className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-medium text-sm disabled:opacity-50"
+          >
+            {restarting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+            Refazer caderno
+          </button>
           <button
             onClick={handleDownload}
             disabled={downloading}

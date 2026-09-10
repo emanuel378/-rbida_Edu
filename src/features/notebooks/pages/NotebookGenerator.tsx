@@ -10,7 +10,7 @@ import { emptyCadernoFilters, type CadernoFilters } from '../data/notebookTypes'
 import CheckoutModal from '../../courses/components/CheckoutModal'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 import MultiSelectDropdown from '../../../shared/components/MultiSelectDropdown'
-import { FileStack, Sparkles, Loader2, Lock, ShoppingCart } from 'lucide-react'
+import { FileStack, Loader2, Lock, ShoppingCart } from 'lucide-react'
 
 const shuffle = <T,>(arr: T[]): T[] => {
   const a = [...arr]
@@ -327,7 +327,7 @@ export default function NotebookGenerator() {
             disabled={availableCount === 0 || isGenerating || remainingToAllocate < 0}
             className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileStack className="w-4 h-4" />}
             Gerar Caderno de Questões
           </button>
         </>

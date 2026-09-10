@@ -79,6 +79,7 @@ interface NotebookState {
   startAttempt: (notebookId: string, userId: string) => CadernoAttempt
   saveAttemptProgress: (attempt: CadernoAttempt) => void
   finishAttempt: (attempt: CadernoAttempt) => Promise<void>
+  restartAttempt: (attempt: CadernoAttempt) => Promise<CadernoAttempt>
 }
 
 export const useNotebookStore = create<NotebookState>((set, get) => ({
@@ -230,5 +231,29 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
       pendingAttemptWrites.delete(finished.id)
     }
     upsertAttemptRow(finished)
+  },
+
+  // Zera a tentativa para o aluno refazer o caderno do zero (mantém o mesmo
+  // registro, apenas limpa respostas/tempo e remove o finishedAt).
+  restartAttempt: async (attempt) => {
+    const reset: CadernoAttempt = {
+      ...attempt,
+      answers: {},
+      currentIndex: 0,
+      startedAt: new Date().toISOString(),
+      finishedAt: undefined,
+      timeSpentSeconds: 0,
+    }
+    const attempts = [...get().attempts.filter(a => a.id !== reset.id), reset]
+    saveAttemptsCache(attempts)
+    set({ attempts })
+
+    const pending = pendingAttemptWrites.get(reset.id)
+    if (pending) {
+      clearTimeout(pending)
+      pendingAttemptWrites.delete(reset.id)
+    }
+    upsertAttemptRow(reset)
+    return reset
   },
 }))
