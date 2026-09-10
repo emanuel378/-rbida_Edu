@@ -73,7 +73,7 @@ export default function MultiSelectDropdown({
       </button>
 
       {open && !disabled && (
-        <div className="absolute z-20 mt-1.5 w-full min-w-[220px] bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+        <div className="absolute z-50 mt-1.5 w-full min-w-[220px] bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
           <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-gray-50">
             <button
               type="button"
@@ -99,9 +99,16 @@ export default function MultiSelectDropdown({
               options.map(opt => {
                 const checked = selected.includes(opt.value)
                 return (
-                  <label
+                  // Botão comum (não um <input> escondido): um checkbox visualmente
+                  // oculto dentro deste container rolável faz o navegador "rolar até
+                  // o foco" a cada clique, jogando a lista/página para longe.
+                  <button
                     key={opt.value}
-                    className="flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm"
+                    type="button"
+                    role="checkbox"
+                    aria-checked={checked}
+                    onClick={() => toggleValue(opt.value)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm text-left"
                   >
                     <span
                       className={`flex items-center justify-center w-4 h-4 rounded border flex-shrink-0 ${
@@ -110,14 +117,8 @@ export default function MultiSelectDropdown({
                     >
                       {checked && <Check className="w-3 h-3 text-white" />}
                     </span>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleValue(opt.value)}
-                      className="sr-only"
-                    />
                     <span className="text-gray-700">{opt.label}</span>
-                  </label>
+                  </button>
                 )
               })
             )}
