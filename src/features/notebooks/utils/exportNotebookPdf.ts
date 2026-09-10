@@ -6,6 +6,12 @@ const PAGE_MARGIN = 15
 const LETTERS = ['A', 'B', 'C', 'D', 'E']
 const IMAGE_FALLBACK_TEXT = '[Ver material da questão na plataforma]'
 
+// Imagem de fundo (papel timbrado) aplicada em todas as páginas do PDF.
+// Basta colocar o arquivo em `public/` com esse nome — se não existir, o PDF
+// sai sem fundo, sem quebrar a exportação. Ideal: PNG/JPG em proporção A4
+// retrato (ex.: 1240x1754 px), com margens internas livres para o conteúdo.
+const PDF_BACKGROUND_URL = '/caderno-pdf-bg.png'
+
 // Melhor esforço: converte a URL de uma imagem (Supabase Storage) em data URL
 // para embutir no PDF. Se a busca falhar (rede/CORS), retorna null e quem
 // chamou desenha um texto de fallback em vez de interromper a exportação.
@@ -38,10 +44,28 @@ export async function generateNotebookPdf(notebook: Caderno, questions: Question
   const contentWidth = pageWidth - PAGE_MARGIN * 2
   let y = PAGE_MARGIN
 
+  // Fundo/papel timbrado (melhor esforço): busca uma vez e repinta em cada página.
+  const backgroundDataUrl = await fetchAsDataUrl(PDF_BACKGROUND_URL)
+  const backgroundFormat = backgroundDataUrl ? imageFormatFromDataUrl(backgroundDataUrl) : null
+  const paintBackground = () => {
+    if (!backgroundDataUrl || !backgroundFormat) return
+    try {
+      doc.addImage(backgroundDataUrl, backgroundFormat, 0, 0, pageWidth, pageHeight, undefined, 'FAST')
+    } catch {
+      /* fundo é opcional — ignora falha e segue com página em branco */
+    }
+  }
+  const addPage = () => {
+    doc.addPage()
+    paintBackground()
+    y = PAGE_MARGIN
+  }
+
+  paintBackground()
+
   const ensureSpace = (needed: number) => {
     if (y + needed > pageHeight - PAGE_MARGIN) {
-      doc.addPage()
-      y = PAGE_MARGIN
+      addPage()
     }
   }
 
@@ -125,8 +149,7 @@ export async function generateNotebookPdf(notebook: Caderno, questions: Question
   }
 
   // Gabarito — sempre em página nova, tabela compacta em colunas
-  doc.addPage()
-  y = PAGE_MARGIN
+  addPage()
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(14)
   doc.text('Gabarito', PAGE_MARGIN, y)

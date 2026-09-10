@@ -126,25 +126,42 @@ export default function NotebookResolve() {
   const answers = attempt?.answers ?? {}
   const answeredCount = Object.keys(answers).length
 
-  const persist = (patch: Partial<CadernoAttempt>) => {
-    if (!attempt) return
-    const updated: CadernoAttempt = { ...attempt, ...patch, timeSpentSeconds: computeElapsed() }
+  // Espelho SÍNCRONO da tentativa. Um updater passado a setAttempt só roda na
+  // fase de render seguinte, então dois cliques rápidos (marcar alternativa +
+  // "Próxima"/"Finalizar") liam um estado velho e a resposta anterior sumia.
+  // Aqui o ref é a fonte da verdade: cada mutação parte dele e o atualiza na
+  // hora, antes de agendar o setAttempt.
+  const attemptRef = useRef<CadernoAttempt | undefined>(attempt)
+  useEffect(() => {
+    attemptRef.current = attempt
+    if (attempt && !attempt.finishedAt) saveAttemptProgress(attempt)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempt])
+
+  const mutateAttempt = (patch: Partial<CadernoAttempt>): CadernoAttempt | undefined => {
+    const prev = attemptRef.current
+    if (!prev) return undefined
+    const updated: CadernoAttempt = { ...prev, ...patch, timeSpentSeconds: computeElapsed() }
+    attemptRef.current = updated
     setAttempt(updated)
-    saveAttemptProgress(updated)
+    return updated
   }
 
   const handleSelect = (questionId: string, optionIndex: number) => {
-    persist({ answers: { ...answers, [questionId]: optionIndex } })
+    const prev = attemptRef.current
+    if (!prev) return
+    mutateAttempt({ answers: { ...prev.answers, [questionId]: optionIndex } })
   }
 
   const goTo = (idx: number) => {
     setCurrentIndex(idx)
-    persist({ currentIndex: idx })
+    mutateAttempt({ currentIndex: idx })
   }
 
   const handleFinish = async () => {
-    if (!attempt || !user) return
-    const finalAttempt: CadernoAttempt = { ...attempt, timeSpentSeconds: computeElapsed() }
+    const base = attemptRef.current ?? attempt
+    if (!base || !user) return
+    const finalAttempt: CadernoAttempt = { ...base, timeSpentSeconds: computeElapsed() }
     notebookQuestions.forEach(q => {
       const selected = finalAttempt.answers[q.id]
       if (selected === undefined) return
@@ -168,10 +185,12 @@ export default function NotebookResolve() {
   }
 
   const handleRestart = async () => {
-    if (!attempt) return
+    const base = attemptRef.current ?? attempt
+    if (!base) return
     setRestarting(true)
     try {
-      const reset = await restartAttempt(attempt)
+      const reset = await restartAttempt(base)
+      attemptRef.current = reset
       baseSecondsRef.current = 0
       sessionStartRef.current = Date.now()
       setAttempt(reset)
