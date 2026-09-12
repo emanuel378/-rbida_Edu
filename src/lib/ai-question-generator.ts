@@ -10,6 +10,7 @@ export interface GeneratedQuestion {
   banca: string
   ano: string
   nivel: string
+  cargo: string
   gabaritoComentado: string
 }
 

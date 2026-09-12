@@ -25,6 +25,7 @@ interface ReviewForm {
   banca: string
   institutionId: string
   nivel: string
+  cargo: string
   ano: string
   gabaritoComentado: string
   materialUrl: string
@@ -46,7 +47,7 @@ interface ReviewItem {
 
 const EMPTY_FORM: ReviewForm = {
   question: '', options: ['', '', '', '', ''], correctAnswer: 0,
-  moduleId: '', topicId: '', banca: '', institutionId: '', nivel: '', ano: '', gabaritoComentado: '',
+  moduleId: '', topicId: '', banca: '', institutionId: '', nivel: '', cargo: '', ano: '', gabaritoComentado: '',
   materialUrl: '', materialType: undefined, aulaRelacionada: '',
   questionImageUrl: '', optionImages: ['', '', '', '', ''],
   optionTypes: ['text', 'text', 'text', 'text', 'text'],
@@ -185,6 +186,7 @@ export default function QuestionGeneratorAI() {
             banca: g.banca || '',
             institutionId: '',
             nivel: g.nivel || '',
+            cargo: g.cargo || '',
             ano: g.ano || '',
             gabaritoComentado: g.gabaritoComentado || '',
             materialUrl: '',
@@ -359,6 +361,7 @@ export default function QuestionGeneratorAI() {
         banca: form.banca,
         institutionId: form.institutionId || undefined,
         nivel: form.nivel,
+        cargo: form.cargo || undefined,
         ano: form.ano,
         gabaritoComentado: form.gabaritoComentado,
         materialUrl,
@@ -614,6 +617,7 @@ export default function QuestionGeneratorAI() {
                   )}
                   {item.form.ano && <span className="px-2 py-1 rounded-md bg-purple-100 text-purple-700 text-xs">{item.form.ano}</span>}
                   {item.form.nivel && <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-600 text-xs">{item.form.nivel}</span>}
+                  {item.form.cargo && <span className="px-2 py-1 rounded-md bg-amber-100 text-amber-700 text-xs">{item.form.cargo}</span>}
                   {item.form.moduleId && (
                     <span className="px-2 py-1 rounded-md bg-amber-100 text-amber-700 text-xs">
                       {DISCIPLINAS.find(d => d.value === item.form.moduleId)?.label}
@@ -987,7 +991,7 @@ export default function QuestionGeneratorAI() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">BANCA</label>
                   <input
@@ -1019,6 +1023,15 @@ export default function QuestionGeneratorAI() {
                     <option value="Médio">Médio</option>
                     <option value="Superior">Superior</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">CARGO</label>
+                  <input
+                    value={editForm.cargo}
+                    onChange={e => setEditForm(prev => ({ ...prev, cargo: e.target.value }))}
+                    placeholder="Ex: Professor EBTT"
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">ANO</label>

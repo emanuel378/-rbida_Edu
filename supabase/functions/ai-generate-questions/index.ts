@@ -64,9 +64,10 @@ function buildQuestionSchema(disciplinas: Disciplina[], topicosPorDisciplina: Re
             banca: { type: 'string' },
             ano: { type: 'string' },
             nivel: { type: 'string' },
+            cargo: { type: 'string' },
             gabaritoComentado: { type: 'string' },
           },
-          required: ['question', 'options', 'correctAnswer', 'classificacao', 'banca', 'ano', 'nivel', 'gabaritoComentado'],
+          required: ['question', 'options', 'correctAnswer', 'classificacao', 'banca', 'ano', 'nivel', 'cargo', 'gabaritoComentado'],
           additionalProperties: false,
         },
       },
@@ -102,6 +103,7 @@ Para cada questão, identifique:
 - a banca organizadora, se identificável (senão deixe em branco)
 - o ano, se identificável (senão deixe em branco)
 - o nível ("Médio", "Superior" ou "Técnico"), se identificável (senão deixe em branco)
+- o cargo do concurso (ex: "Professor EBTT", "Técnico Administrativo"), se identificável (senão deixe em branco)
 - um gabarito comentado explicando por que a alternativa correta está certa`
 
 const NO_ANSWER_KEY_NOTE = `Se o material já tiver gabarito ou comentários, use-os como base para o gabarito comentado.
