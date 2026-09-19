@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { ProtectedRoute, AppLayout } from './shared'
 import { Landing } from './features/landing'
 import { Login, Pending } from './features/auth'
@@ -22,15 +22,25 @@ export default function App() {
   const loadCourses = useCourseStore(s => s.loadFromSupabase)
   const loadSimulados = useTeacherSimuladoStore(s => s.loadFromSupabase)
   const restoreSession = useAuthStore(s => s.restoreSession)
+  const userId = useAuthStore(s => s.user?.id ?? null)
+  const loadedForUser = useRef<string | null | undefined>(undefined)
 
   useEffect(() => {
     loadQuestions().catch(() => {})
-    loadAnswerHistory()
     loadInstitutions()
-    loadCourses()
-    loadSimulados()
     restoreSession()
   }, [])
+
+  // Cursos, matriculas, simulados e historico dependem de RLS: uma consulta
+  // feita antes do login volta vazia e os stores ficam com os dados antigos
+  // ate um F5. Recarrega sempre que o usuario logado muda (login/logout).
+  useEffect(() => {
+    if (loadedForUser.current === userId) return
+    loadedForUser.current = userId
+    loadCourses()
+    loadSimulados()
+    loadAnswerHistory()
+  }, [userId])
 
   return (
     <BrowserRouter>
