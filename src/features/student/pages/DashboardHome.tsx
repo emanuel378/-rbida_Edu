@@ -7,7 +7,8 @@ import ProgressBar from '../../../shared/components/ProgressBar'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
 import CheckoutModal from '../../courses/components/CheckoutModal'
 import type { Course } from '../../courses/data/mock'
-import { BookOpen, ArrowRight, Clock, AlertCircle, ShoppingCart, Mail, Phone } from 'lucide-react'
+import { BookOpen, ArrowRight, Clock, AlertCircle, ShoppingCart, Mail, Phone, PlayCircle } from 'lucide-react'
+import { FREE_CLASSES } from '../../courses/data/freeClasses'
 import {
   CONTACT_EMAIL,
   CONTACT_WHATSAPP_DISPLAY,
@@ -98,13 +99,36 @@ export default function DashboardHome() {
         </section>
       )}
 
-      {availableCourses.length > 0 && (
+      {(availableCourses.length > 0 || FREE_CLASSES.length > 0) && (
         <section>
           <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-purple-600" />
             Cursos Disponíveis
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {FREE_CLASSES.map((freeClass) => (
+              <Card key={freeClass.videoId}>
+                <div className="h-32 rounded-t-2xl overflow-hidden bg-gray-900">
+                  <img
+                    src={`https://i.ytimg.com/vi/${freeClass.videoId}/hqdefault.jpg`}
+                    alt={freeClass.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <CardContent>
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">{freeClass.title}</h3>
+                  <p className="text-gray-600 text-sm mb-4">{freeClass.description}</p>
+                  <p className="text-sm font-medium text-gray-700 mb-4">Gratuito</p>
+                  <button
+                    onClick={() => navigate(`/dashboard/aulao/${freeClass.videoId}`)}
+                    className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl transition-colors text-sm font-medium"
+                  >
+                    <PlayCircle className="w-4 h-4" />
+                    Assistir aula
+                  </button>
+                </CardContent>
+              </Card>
+            ))}
             {availableCourses.map((course) => (
               <Card key={course.id}>
                 <div className="h-32 rounded-t-2xl overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
@@ -150,7 +174,7 @@ export default function DashboardHome() {
         </section>
       )}
 
-      {enrolledCourses.length === 0 && availableCourses.length === 0 && (
+      {enrolledCourses.length === 0 && availableCourses.length === 0 && FREE_CLASSES.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20">
           <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
             <BookOpen className="w-8 h-8 text-gray-400" />

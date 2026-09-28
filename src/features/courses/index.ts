@@ -1,5 +1,6 @@
 export { default as Course } from './pages/Course'
 export { default as Lesson } from './pages/Lesson'
+export { default as FreeClass } from './pages/FreeClass'
 export { default as QuestionBank } from './pages/QuestionBank'
 export { default as QuestionBrowser } from './pages/QuestionBrowser'
 export { default as QuestionGeneratorAI } from './pages/QuestionGeneratorAI'
