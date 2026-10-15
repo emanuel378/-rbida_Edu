@@ -47,8 +47,14 @@ export default function Lesson() {
     if (!lesson?.videoUrl) return ''
     try {
       const u = new URL(lesson.videoUrl)
-      if (u.hostname === 'youtu.be') return u.pathname.slice(1)
-      if (u.hostname.includes('youtube.com')) return u.searchParams.get('v') || ''
+      const host = u.hostname.replace(/^www\./, '')
+      if (host === 'youtu.be') return u.pathname.slice(1).split('/')[0]
+      if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com') {
+        const v = u.searchParams.get('v')
+        if (v) return v
+        const match = u.pathname.match(/\/(?:embed|shorts|live|v)\/([^/?#]+)/)
+        if (match) return match[1]
+      }
     } catch {}
     return ''
   })()
@@ -209,13 +215,17 @@ export default function Lesson() {
                   </p>
                 </div>
               )
-            ) : (
+            ) : videoId ? (
               <iframe
                 src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`}
                 className="w-full h-full"
                 allowFullScreen
                 title={lesson.title}
               />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-gray-400">
+                <p className="text-sm">Link do vídeo inválido. Avise o professor.</p>
+              </div>
             )}
           </div>
         </div>
