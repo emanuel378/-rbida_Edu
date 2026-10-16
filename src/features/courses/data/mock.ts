@@ -24,6 +24,11 @@ export interface Course {
   // de repasse de taxa quando preenchido). Null/undefined = usa o cálculo padrão.
   cardCashPrice?: number
   card3xPrice?: number
+  // Parcelamento no cartão definido pelo admin (ver cardPricing.ts).
+  // cardMaxInstallments undefined = só à vista ou 3x.
+  cardMaxInstallments?: number
+  cardInterestFreeInstallments?: number
+  cardInterestRate?: number
 }
 
 export interface Module {

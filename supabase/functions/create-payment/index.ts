@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 import { isValidCPF } from '../_shared/cpf.ts'
 import { ensureEnrollment } from '../_shared/enroll.ts'
-import { grossCardAmount } from '../_shared/cardFee.ts'
+import { allowedInstallments, cardInstallmentTotal, MIN_INSTALLMENT_VALUE } from '../_shared/cardFee.ts'
 import { grossBoletoAmount } from '../_shared/boletoFee.ts'
 
 const ASAAS_API_KEY = Deno.env.get('ASAAS_API_KEY') ?? ''
@@ -110,8 +110,12 @@ Deno.serve(async (req) => {
       : body.paymentMethod === 'boleto'
         ? 'boleto'
         : 'pix'
-  // Parcelamento fixo no cartão: só à vista (1x) ou 3x
-  const installmentCount = body.installmentCount === 3 ? 3 : 1
+  // Parcelas pedidas pelo aluno — validadas contra a configuração do curso
+  // mais abaixo, depois de buscar o curso
+  const installmentCount =
+    paymentMethod === 'credit_card' && Number.isInteger(body.installmentCount) && body.installmentCount! >= 1
+      ? body.installmentCount!
+      : 1
 
   if (!courseId || !name || !email) {
     return jsonResponse({ error: 'courseId, name e email (do usuário autenticado) são obrigatórios' }, 400)
@@ -133,7 +137,7 @@ Deno.serve(async (req) => {
 
   const { data: course, error: courseError } = await admin
     .from('courses')
-    .select('id, title, price, status, card_cash_price, card_3x_price')
+    .select('id, title, price, status, card_cash_price, card_3x_price, card_max_installments, card_interest_free_installments, card_interest_rate')
     .eq('id', courseId)
     .single()
 
@@ -146,16 +150,14 @@ Deno.serve(async (req) => {
   if (!course.price || course.price <= 0) {
     return jsonResponse({ error: 'Este curso é gratuito, matricule-se diretamente' }, 400)
   }
-  // Preço fixo por curso (card_cash_price / card_3x_price) tem prioridade sobre
-  // o cálculo automático de repasse de taxa — usado pra promoções específicas
-  // de um curso, sem afetar o cálculo padrão dos demais.
-  const cardGrossAmount =
-    paymentMethod !== 'credit_card'
-      ? 0
-      : installmentCount === 3
-        ? course.card_3x_price ?? grossCardAmount(course.price, 3)
-        : course.card_cash_price ?? grossCardAmount(course.price, 1)
-  if (paymentMethod === 'credit_card' && cardGrossAmount / installmentCount < 5) {
+  // Parcelas e juros configurados pelo admin no curso (ver _shared/cardFee.ts).
+  // Preço fixo por curso (card_cash_price / card_3x_price) continua tendo
+  // prioridade sobre o repasse automático da taxa.
+  if (paymentMethod === 'credit_card' && !allowedInstallments(course).includes(installmentCount)) {
+    return jsonResponse({ error: `Parcelamento em ${installmentCount}x não disponível para este curso` }, 400)
+  }
+  const cardGrossAmount = paymentMethod === 'credit_card' ? cardInstallmentTotal(course, installmentCount) : 0
+  if (paymentMethod === 'credit_card' && cardGrossAmount / installmentCount < MIN_INSTALLMENT_VALUE) {
     return jsonResponse({ error: 'O valor de cada parcela deve ser de pelo menos R$ 5,00' }, 400)
   }
 

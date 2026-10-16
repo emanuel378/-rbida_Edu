@@ -94,6 +94,7 @@ interface CourseState {
   rejectCourse: (courseId: string) => void
   updateCoursePrice: (courseId: string, price: number) => void
   adminUpdateCoursePrice: (courseId: string, price: number) => void
+  adminUpdateCourseInstallments: (courseId: string, data: Pick<Course, 'cardMaxInstallments' | 'cardInterestFreeInstallments' | 'cardInterestRate'>) => Promise<string | null>
   updateCourseCover: (courseId: string, coverImageUrl: string) => void
   addModule: (module: Module) => void
   addLesson: (lesson: Lesson) => Promise<string | null>
@@ -226,6 +227,27 @@ export const useCourseStore = create<CourseState>((set, get) => {
       supabase.from('courses').update({ price }).eq('id', courseId)
         .then(({ error }) => { if (error) console.error(error) })
     }
+  },
+
+  // Retorna a mensagem de erro (ou null) pra tela avisar o admin — salvar
+  // parcelamento errado mexe direto no valor cobrado.
+  adminUpdateCourseInstallments: async (courseId, data) => {
+    if (isSupabaseConfigured()) {
+      const { error } = await supabase.from('courses').update({
+        card_max_installments: data.cardMaxInstallments ?? null,
+        card_interest_free_installments: data.cardInterestFreeInstallments ?? null,
+        card_interest_rate: data.cardInterestRate ?? null,
+      }).eq('id', courseId)
+      if (error) {
+        console.error(error)
+        return error.message
+      }
+    }
+    const courses = get().courses.map(c =>
+      c.id === courseId ? { ...c, ...data } : c
+    )
+    set({ courses })
+    return null
   },
 
   updateCourseCover: (courseId, coverImageUrl) => {
@@ -688,6 +710,9 @@ function mapRowToModel(key: string, row: any): any {
         coverImageUrl: row.cover_image_url ?? '',
         cardCashPrice: row.card_cash_price ?? undefined,
         card3xPrice: row.card_3x_price ?? undefined,
+        cardMaxInstallments: row.card_max_installments ?? undefined,
+        cardInterestFreeInstallments: row.card_interest_free_installments ?? undefined,
+        cardInterestRate: row.card_interest_rate != null ? Number(row.card_interest_rate) : undefined,
       }
     case 'modules':
       return {

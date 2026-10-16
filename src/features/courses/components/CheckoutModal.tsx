@@ -3,6 +3,7 @@ import { X, Copy, Check, QrCode, Loader2, AlertCircle, PartyPopper, CreditCard, 
 import { supabase, isSupabaseConfigured } from '../../../lib/supabase'
 import { functionErrorMessage } from '../../../lib/edgeFn'
 import { isQuestionBankCourse } from '../data/courseStore'
+import { allowedInstallments, cardInstallmentTotal, hasInterest } from '../data/cardPricing'
 import type { Course, User } from '../data/mock'
 
 interface CheckoutModalProps {
@@ -91,21 +92,6 @@ function formatPhone(value: string): string {
     return digits.replace(/(\d{2})(\d{0,4})(\d{0,4})/, (_m, a, b, c) => [a && `(${a}`, a && b ? `) ${b}` : '', c ? `-${c}` : ''].join(''))
   }
   return digits.replace(/(\d{2})(\d{0,5})(\d{0,4})/, (_m, a, b, c) => [a && `(${a}`, a && b ? `) ${b}` : '', c ? `-${c}` : ''].join(''))
-}
-
-// Taxas da conta Asaas para cartão de crédito (cobrança online), repassadas ao
-// aluno no valor final. Mesma tabela replicada em supabase/functions/_shared/cardFee.ts,
-// que é quem de fato calcula o valor cobrado — isso aqui é só para exibição.
-const CARD_FEE_TIERS: { maxInstallments: number; percent: number; fixed: number }[] = [
-  { maxInstallments: 1, percent: 0.0299, fixed: 0.49 },
-  { maxInstallments: 6, percent: 0.0349, fixed: 0.49 },
-  { maxInstallments: 12, percent: 0.0399, fixed: 0.49 },
-  { maxInstallments: 21, percent: 0.0429, fixed: 0.49 },
-]
-
-function grossCardAmount(netAmount: number, installmentCount: number): number {
-  const tier = CARD_FEE_TIERS.find(t => installmentCount <= t.maxInstallments) ?? CARD_FEE_TIERS[CARD_FEE_TIERS.length - 1]
-  return Math.round(((netAmount + tier.fixed) / (1 - tier.percent)) * 100) / 100
 }
 
 export default function CheckoutModal({ course, user, onClose, onPaid }: CheckoutModalProps) {
@@ -230,14 +216,10 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
     addressNumber.trim().length > 0 &&
     phoneDigits.length >= 10
 
-  // Preço fixo do curso (promoção) tem prioridade sobre o cálculo automático
-  // de repasse de taxa da Asaas — mesma regra usada no backend.
-  const cardCashTotal = course.cardCashPrice ?? grossCardAmount(course.price, 1)
-  const card3xTotal = course.card3xPrice ?? grossCardAmount(course.price, 3)
-  // Parcelamento fixo: só à vista (1x) ou 3x. A opção de 3x some se a parcela
-  // ficar abaixo do mínimo de R$5 aceito pela Asaas.
-  const canSplitIn3x = card3xTotal / 3 >= 5
-  const cardTotal = installments === 3 ? card3xTotal : cardCashTotal
+  // Parcelas e juros vêm da configuração do curso (admin) — mesma regra usada
+  // no backend. Opções com parcela abaixo do mínimo da Asaas já vêm filtradas.
+  const installmentOptions = useMemo(() => allowedInstallments(course), [course])
+  const cardTotal = cardInstallmentTotal(course, installments)
 
   const generatePix = async () => {
     if (!cpfValid) {
@@ -551,27 +533,26 @@ export default function CheckoutModal({ course, user, onClose, onPaid }: Checkou
                       className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
                     />
                   </div>
-                  {canSplitIn3x && (
+                  {installmentOptions.length > 1 && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Parcelas</label>
-                      <div className="flex gap-2">
-                        {[1, 3].map(n => {
-                          const total = n === 3 ? card3xTotal : cardCashTotal
+                      <select
+                        value={installments}
+                        onChange={e => setInstallments(parseInt(e.target.value, 10))}
+                        disabled={step === 'loading'}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+                      >
+                        {installmentOptions.map(n => {
+                          const total = cardInstallmentTotal(course, n)
                           return (
-                            <button
-                              key={n}
-                              type="button"
-                              onClick={() => setInstallments(n)}
-                              disabled={step === 'loading'}
-                              className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors ${
-                                installments === n ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                              }`}
-                            >
-                              {n === 1 ? 'À vista' : `3x de R$ ${(total / n).toFixed(2)}`}
-                            </button>
+                            <option key={n} value={n}>
+                              {n === 1
+                                ? `À vista — R$ ${total.toFixed(2)}`
+                                : `${n}x de R$ ${(total / n).toFixed(2)} ${hasInterest(course, n) ? 'com juros' : 'sem juros'} (R$ ${total.toFixed(2)})`}
+                            </option>
                           )
                         })}
-                      </div>
+                      </select>
                     </div>
                   )}
                   <p className="text-xs text-gray-400">

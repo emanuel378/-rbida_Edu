@@ -17,6 +17,7 @@ import { generateId } from '../../../lib/id'
 import { DISCIPLINAS, TOPICOS_POR_DISCIPLINA } from '../../courses/data/taxonomy'
 import type { Question } from '../../courses/data/mock'
 import Breadcrumb from '../../../shared/components/Breadcrumb'
+import { allowedInstallments, cardInstallmentTotal, hasInterest } from '../../courses/data/cardPricing'
 
 const BANCAS_PREDEFINIDAS = [
   'Cebraspe', 'Fundação Getúlio Vargas - FGV', 'Fundação Carlos Chagas - FCC', 'Fundação Cesgranrio',
@@ -126,7 +127,7 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
 export default function TeacherCourseDetail() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuthStore()
-  const { courses, modules, lessons, topics, enrollments, messages, addModule, addLesson, updateModule, updateLesson, requestContentDeletion, requestCoursePublish, updateCourseCover, adminUpdateCoursePrice, deleteCourse, getTeacherName } = useCourseStore()
+  const { courses, modules, lessons, topics, enrollments, messages, addModule, addLesson, updateModule, updateLesson, requestContentDeletion, requestCoursePublish, updateCourseCover, adminUpdateCoursePrice, adminUpdateCourseInstallments, deleteCourse, getTeacherName } = useCourseStore()
   const { questions, addQuestion, deleteQuestion, updateQuestion } = useQuestionStore()
   const navigate = useNavigate()
 
@@ -187,6 +188,44 @@ export default function TeacherCourseDetail() {
     if (isNaN(price) || price < 0) return
     adminUpdateCoursePrice(course.id, price)
     setEditingPrice(false)
+  }
+
+  const [installmentForm, setInstallmentForm] = useState({ max: '', interestFree: '1', rate: '' })
+  const [installmentMsg, setInstallmentMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [savingInstallments, setSavingInstallments] = useState(false)
+
+  useEffect(() => {
+    if (!course) return
+    setInstallmentForm({
+      max: course.cardMaxInstallments ? String(course.cardMaxInstallments) : '',
+      interestFree: String(course.cardInterestFreeInstallments ?? 1),
+      rate: course.cardInterestRate ? String(course.cardInterestRate) : '',
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [course?.id, course?.cardMaxInstallments, course?.cardInterestFreeInstallments, course?.cardInterestRate])
+
+  const installmentDraft = course && {
+    ...course,
+    cardMaxInstallments: installmentForm.max ? parseInt(installmentForm.max, 10) : undefined,
+    cardInterestFreeInstallments: parseInt(installmentForm.interestFree, 10) || 1,
+    cardInterestRate: parseFloat(installmentForm.rate.replace(',', '.')) || 0,
+  }
+
+  const handleSaveInstallments = async () => {
+    if (!course || !installmentDraft) return
+    const rate = installmentDraft.cardInterestRate ?? 0
+    if (rate < 0 || rate > 20) {
+      setInstallmentMsg({ ok: false, text: 'Juros ao mês deve estar entre 0% e 20%.' })
+      return
+    }
+    setSavingInstallments(true)
+    const error = await adminUpdateCourseInstallments(course.id, {
+      cardMaxInstallments: installmentDraft.cardMaxInstallments,
+      cardInterestFreeInstallments: installmentDraft.cardMaxInstallments ? installmentDraft.cardInterestFreeInstallments : undefined,
+      cardInterestRate: installmentDraft.cardMaxInstallments && rate > 0 ? rate : undefined,
+    })
+    setSavingInstallments(false)
+    setInstallmentMsg(error ? { ok: false, text: `Erro ao salvar: ${error}` } : { ok: true, text: 'Parcelamento salvo.' })
   }
 
   const handleDeleteCourse = () => {
@@ -595,6 +634,77 @@ export default function TeacherCourseDetail() {
           </button>
         )}
       </div>
+
+      {user?.role === 'admin' && course.price > 0 && installmentDraft && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-6">
+          <h2 className="text-sm font-semibold text-gray-900 mb-1">Parcelamento no cartão</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            A taxa da Asaas já é repassada ao aluno. Os juros ao mês (Tabela Price) entram só nas parcelas acima das "sem juros".
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Máximo de parcelas</label>
+              <select
+                value={installmentForm.max}
+                onChange={e => { setInstallmentForm({ ...installmentForm, max: e.target.value }); setInstallmentMsg(null) }}
+                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Padrão (à vista ou 3x)</option>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
+                  <option key={n} value={n}>{n === 1 ? 'Só à vista' : `Até ${n}x`}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Sem juros até</label>
+              <select
+                value={installmentForm.interestFree}
+                onChange={e => { setInstallmentForm({ ...installmentForm, interestFree: e.target.value }); setInstallmentMsg(null) }}
+                disabled={!installmentForm.max}
+                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
+                  <option key={n} value={n}>{n === 1 ? 'Só à vista' : `${n}x`}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Juros ao mês (%)</label>
+              <input
+                type="number" min="0" max="20" step="0.01" placeholder="0"
+                value={installmentForm.rate}
+                onChange={e => { setInstallmentForm({ ...installmentForm, rate: e.target.value }); setInstallmentMsg(null) }}
+                disabled={!installmentForm.max}
+                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {allowedInstallments(installmentDraft).map(n => {
+              const total = cardInstallmentTotal(installmentDraft, n)
+              return (
+                <span key={n} className={`px-2.5 py-1 rounded-lg text-xs border ${hasInterest(installmentDraft, n) ? 'bg-amber-50 border-amber-100 text-amber-800' : 'bg-gray-50 border-gray-100 text-gray-700'}`}>
+                  {n === 1 ? `À vista R$ ${total.toFixed(2)}` : `${n}x R$ ${(total / n).toFixed(2)} = R$ ${total.toFixed(2)}`}
+                </span>
+              )
+            })}
+          </div>
+
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              onClick={handleSaveInstallments}
+              disabled={savingInstallments}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-sm font-medium transition-colors"
+            >
+              {savingInstallments ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Salvar parcelamento
+            </button>
+            {installmentMsg && (
+              <span className={`text-xs ${installmentMsg.ok ? 'text-green-600' : 'text-red-600'}`}>{installmentMsg.text}</span>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
         <StatCard icon={BookOpen} label="Módulos" value={myModules.length} color="bg-green-100 text-green-600" />
