@@ -1,7 +1,7 @@
 // Library ID do Bunny Stream (não é segredo — só a AccessKey da Library é privada,
 // e essa fica apenas nos secrets das Edge Functions). Preencha após criar a
 // Stream Video Library em https://dash.bunny.net.
-export const BUNNY_LIBRARY_ID = '703960'
+export const BUNNY_LIBRARY_ID = '774525'
 
 export const isBunnyConfigured = () => BUNNY_LIBRARY_ID.trim() !== ''
 
